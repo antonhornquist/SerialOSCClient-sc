@@ -1,0 +1,183 @@
+TITLE:: SerialOSCEnc
+summary:: Represents a monome arc or other SerialOSC compliant encoder connected to the computer.
+categories:: External Control
+related:: Reference/UsingSerialOSCClient, Classes/SerialOSCGrid
+
+DESCRIPTION::
+Represents a monome arc or other SerialOSC compliant encoder connected to the computer.
+
+
+CLASSMETHODS::
+
+METHOD:: new
+(describe method here)
+
+ARGUMENT:: type
+(describe argument here)
+
+ARGUMENT:: id
+(describe argument here)
+
+ARGUMENT:: port
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: clearRings
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: ringSet
+(describe method here)
+
+ARGUMENT:: n
+(describe argument here)
+
+ARGUMENT:: x
+(describe argument here)
+
+ARGUMENT:: level
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: ledXSpec
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: ringMap
+(describe method here)
+
+ARGUMENT:: n
+(describe argument here)
+
+ARGUMENT:: levels
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: default
+(describe method here)
+
+ARGUMENT:: enc
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: all
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: initClass
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: ringAll
+(describe method here)
+
+ARGUMENT:: n
+(describe argument here)
+
+ARGUMENT:: level
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: ringRange
+(describe method here)
+
+ARGUMENT:: n
+(describe argument here)
+
+ARGUMENT:: x1
+(describe argument here)
+
+ARGUMENT:: x2
+(describe argument here)
+
+ARGUMENT:: level
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: ledLSpec
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+
+INSTANCEMETHODS::
+
+METHOD:: initSerialOSCEnc
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: clearRings
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: ringSet
+(describe method here)
+
+ARGUMENT:: n
+(describe argument here)
+
+ARGUMENT:: x
+(describe argument here)
+
+ARGUMENT:: level
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: ringAll
+(describe method here)
+
+ARGUMENT:: n
+(describe argument here)
+
+ARGUMENT:: level
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: ringMap
+(describe method here)
+
+ARGUMENT:: n
+(describe argument here)
+
+ARGUMENT:: levels
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: ringRange
+(describe method here)
+
+ARGUMENT:: n
+(describe argument here)
+
+ARGUMENT:: x1
+(describe argument here)
+
+ARGUMENT:: x2
+(describe argument here)
+
+ARGUMENT:: level
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+
+EXAMPLES::
+
+code::
+(some example code)
+::

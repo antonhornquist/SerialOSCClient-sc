@@ -1,0 +1,75 @@
+TITLE:: SerialOSCDevice
+summary:: Abstract class that represents a physical SerialOSC compatible device connected to the computer
+categories:: External Control
+related:: Reference/UsingSerialOSCClient, Classes/SerialOSCGrid, Classes/SerialOSCEnc
+
+DESCRIPTION::
+Represents a physical SerialOSC compatible device - such as monome grid or arc - connected to the computer. Subclasses link::Classes/SerialOSCGrid:: and link::Classes/SerialOSCEnc:: are concrete implementations of this class.
+
+CLASSMETHODS::
+
+METHOD:: new
+(describe method here)
+
+ARGUMENT:: type
+(describe argument here)
+
+ARGUMENT:: id
+(describe argument here)
+
+ARGUMENT:: port
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+
+INSTANCEMETHODS::
+
+METHOD:: type
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: matches
+(describe method here)
+
+ARGUMENT:: that
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: prSendMsg
+(describe method here)
+
+ARGUMENT:: address
+(describe argument here)
+
+ARGUMENT::  ... args
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: port
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: printOn
+(describe method here)
+
+ARGUMENT:: stream
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: id
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+
+EXAMPLES::
+
+code::
+(some example code)
+::

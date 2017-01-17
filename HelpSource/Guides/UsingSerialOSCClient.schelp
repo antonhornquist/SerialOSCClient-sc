@@ -1,0 +1,489 @@
+title:: Using SerialOSCClient
+summary:: Notes on using SerialOSC devices with SuperCollider and the SerialOSCClient library
+categories:: External Control
+related:: Guides/UsingMIDI
+
+
+section::Introduction
+
+SerialOSCClient provides plug'n'play support for monome (link::http://monome.org::) grids, arcs and other SerialOSC compliant devices. In many regards SerialOSCClient and its related classes are to SerialOSC devices what MIDIClient and its related classes are to MIDI devices.
+
+Once initialized SerialOSCClient automatically discovers devices (attached and detached ones), maintains a list of current devices in code::SerialOSCClient.devices:: and uses that list to route incoming events (key presses, encoder deltas, etc) to SerialOSC device specific *Func and *def responder objects (GridKeyFunc/def for incoming grid key presses, EncDeltaFunc/def for encoder deltas, etc). Device instances stored in the device list can also be used to update the led state of each device.
+
+subsection::SerialOSC Apps
+
+It is also possible to instantiate SerialOSCClient for resource handling.
+
+subsection::Hello World
+
+Initialize SerialOSCClient...
+
+code::
+SerialOSCClient.init;
+::
+
+... and listen to button events:
+
+code::
+GridKeydef(\toggle, { |x, y, state, timestamp, device| [x, y, state, timestamp, device].postln }); // a press or release of any button on any attached grid will post event state information to Post Window
+::
+
+or, set led state:
+
+code::
+SerialOSCGrid.ledSet(0, 0, true); // set the top-leftmost led of default attached grid (if any) to lit
+::
+
+or, let a button toggle its led:
+
+code::
+a=false; // toggle state, initially unlit
+
+GridKeydef.press(\toggle, { SerialOSCGrid.ledSet(0, 0, a = a.not) }, 0, 0, 'default'); // a press on top-leftmost button on default grid will toggle button led
+::
+
+section::Basic Usage
+
+subsection::Initialization
+
+Before SerialOSC devices can be interacted with SerialOSCClient must be initialized. Just like code::MIDIClient.init:: initializes MIDIClient a call to method code::SerialOSCClient.init:: initializes SerialOSCClient. SerialOSCClient initialization is, unlike its MIDIClient equivalent, performed asynchronously. If code needs to be evaluated after initialization has completed a completionFunc may be supplied to the init method.
+
+code::
+SerialOSCClient.init; // will probe for attached devices, autoconnect them, and automatically update device list upon devices being attached or detached
+
+// same as above but with a completion function
+(
+SerialOSCClient.init(completionFunc: {
+	SerialOSCGrid.default.isNil.if {
+		"No default grid is available!".warn;
+	}
+});
+)
+::
+
+subsection::The device list
+
+During initialization SerialOSCClient retrieves information on attached SerialOSC devices and stores an instance of SerialOSCGrid or SerialOSCEnc for each device in the code::SerialOSCClient.devices:: list. SerialOSCGrid and SerialOSCEnc also store all devices of each type in their code::*all:: lists.
+
+code::
+SerialOSCClient.devices; // list of all devices
+SerialOSCGrid.all; // all grid devices
+SerialOSCEnc.all; // all encoder devices
+::
+
+Using dependancy support it is possible to observe when a new device is attached or detached, connected or disconnected.
+
+(TODO: move to dependancy support section)
+
+code::
+SerialOSCGrid.addDependant { |thechanged, what, device|
+	switch ( what ) 
+	{'attached'} {
+		(device + "was attached").postln;
+	}
+	{'detached'} {
+		(device + "was detached").postln;
+	}
+	{'connected'} {
+		(device + "was connected").postln;
+	}
+	{'disconnected'} {
+		(device + "was disconnected").postln;
+	};
+};
+::
+
+subsection::Responding to incoming events
+
+SerialOSC specific *Func and *def objects are used to respond to different SerialOSC device events. OSC routing is handled internally alleviating the need to use OSCdefs to listen to and respond to events from SerialOSC devices. For instance, link::Classes/GridKeyFunc:: is used to listen to key press events from attached grids:
+
+code::
+a=GridKeyFunc.press({ "Hello World".postln }); // pressing any button posts Hello World
+b=GridKeyFunc.release({ "Bye, World".postln }); // releasing any button posts Bye, world
+::
+
+As with standard SuperCollider *Func and *def classes (MIDIFunc/MIDIdef/OSCFunc/OSCdef, etc), it's possible to filter SerialOSC *Func and *def objects by different properties such as x, y, state and device (for GridKeyFunc/def). If no filtering constraints are provided all events will pass through.
+
+code::
+c=GridKeyFunc.press({ "Hello World".postln }, 0, 0); // pressing top-leftmost button posts Hello World
+d=GridKeyFunc.release({ "Bye, World".postln }, 0, 0); // releasing top-leftmost button posts Bye, world
+
+s.boot;
+
+// pressing top-most button in second column auditions a sinewave
+e=GridKeyFunc.press({ g = {SinOsc.ar(4000.exprand)}.play }, 1, 0);
+f=GridKeyFunc.release({ g.release }, 1, 0);
+::
+
+Actions triggered by the responder object are passed details of the event type. All SerialOSC *Func and *def objects are passed an OSC timestamp and what device an event originated from. GridKeyFunc/def also pass x, y, state of the key event. Refer to the documentation for further details on arguments.
+
+code::
+// pressing buttons in the third column will audition different degrees of default instrument
+h=Array.fill(16);
+i=GridKeyFunc.press({ |x, y, state, timestamp, device| h[y] = (degree: y).play }, 2);
+j=GridKeyFunc.release({ |x, y, state, timestamp, device| h[y].release }, 2);
+
+a.free; // free individual responder objects
+b.free;
+
+GridKeyFunc.freeAll; // or free all
+::
+
+subsection::Setting led and ring state
+
+Each attached device is reflected as a SerialOSCGrid or SerialOSCEnc instance with methods for setting led and ring state. SerialOSC device instances can be obtained from the code::SerialOSCClient.devices::, code::SerialOSCGrid.all:: or code::SerialOSCEnc.all:: lists, or looked up in other ways using helper methods.
+
+code::
+a=SerialOSCGrid.all.first; // assumes a grid is attached
+a.ledSet(0, 1, true);
+
+b=SerialOSCEnc.all.first; // assumes an encoder is attached
+b.ringSet(0, 13, 321);
+
+a=SerialOSCGrid.lookupById('m01234');
+a.ledSet(0, 1, true);
+::
+
+subsection::Default devices
+
+Default grid and encoder devices are set up automatically once at least one device of each type is attached and connected. The default may be changed.
+
+code::
+// filter incoming events by a default grid using symbol 'default' as device
+GridKeydef.press(\explicitDefault, { |x, y| ("default grid was pressed at" + x ++ ", " ++ y).postln, device: 'default');
+
+// note that if in practice only a single device of each device type is used the device filter can be omitted since events from all devices will pass through
+GridKeydef.press(\pressFromAllDevices, { |x, y| ("default grid was pressed at" + x ++ ", " ++ y).postln);
+::
+
+code::
+// sending led events to the default grid
+SerialOSCGrid.defaultLedSet(0, 0, true);
+::
+
+Above ledSet code would raise an error when no default SerialOSCGrid is available. It can be convenient to send led state instructions against a default grid only if it's available, which is possible using the !? SuperCollider idiom. This will not raise an error if a default device is not available:
+
+code::
+SerialOSCGrid.default !? { |grid| grid.ledSet(0, 0, true) };
+::
+
+Using dependency support one can build logic to observe when a new default device is attached or a default device is explicitly changed and thereby update leds or rings with a current or initial app state.
+
+(move to dependancy support section)
+
+code::
+SerialOSCGrid.addDependant { |thechanged, what|
+	if (what == 'default') {
+		// send current grid led state as defined by app to update grid
+	};
+};
+::
+
+subsection::Building apps for simple device configurations
+
+With concepts outlined above it's in the simple case of building an app for one device or one of each type of device - one grid and one arc for example - possible to rely on default devices and implement an app without having to care for device ids, ports, prefixes, order, etc.
+
+The simple toggle example below will update a grid with app state (the single toggle led state) even if the grid is not attached when the code is evaluated. If a single attached grid is reattached app state will also consistently be refreshed. If the default is changed, the app is updated accordingly on the new device.
+
+code::
+a=false; // initial toggle state
+
+(
+SerialOSCGrid.addDependant { |thechanged, what|
+	if (what == 'default') {
+		SerialOSCGrid.defaultLedSet(0, 0, a);
+	};
+};
+)
+
+(
+GridKeydef.press(\toggle, { SerialOSCGrid.defaultLedSet(0, 0, a = a.not) }, 0, 0, 'default');
+)
+::
+
+See app link::Examples/StepSequencer:: for a real life example of this.
+
+subsection::Grid MVC
+
+A more arhitecturally sound way to build apps is to decouple values with the logic changing the value and the logic displaying the value. This is often referred to as the Model-View-Controller design pattern. By adjusting the toggle value example above slightly this can be achieved. The value is wrapped in a Ref to enable dependancy support for the underlying value (model). The led updaing logic is refactored to a listener of the value.
+
+All three ways of changing the toggle state below - grid key press, code evaluation and in a forked loop - will result in a correctly updated led without the logic for changing value having to know about how the value is displayed.
+
+code::
+a=Ref(false); // initial toggle state is false
+
+(
+~toggleA = { |value|
+	a.value = value;
+	a.changed;
+};
+)
+
+a.addDependant { |thechanged, what| SerialOSCGrid.defaultLedSet(0, 0, a.value) };
+
+(
+SerialOSCGrid.addDependant { |thechanged, what|
+	if (what == 'default') {
+		SerialOSCGrid.defaultLedSet(0, 0, a.value);
+	};
+};
+)
+
+(
+// first way to change value: by grid press
+GridKeydef.press(
+	\toggle,
+	{ ~toggleA.() },
+	0,
+	0,
+	'default'
+);
+)
+
+// second way to change value: by code evaluation
+~toggleA.();
+
+(
+// third way to change value: by a forked loop
+fork {
+	8.do {
+		~toggleA.();
+		0.5.wait;
+	}
+};
+)
+
+::
+
+subsection::Using multiple devices
+
+If several devices of the same type are to be used responder functions can be configured to filter a predetermined device.
+
+code::
+a=SerialOSCGrid.lookupById('m01');
+b=SerialOSCGrid.lookupById('m02');
+GridKeydef.press(\grid1Press, { |x, y| "first grid pressed at %x%".format(x, y).postln }, device: a);
+GridKeydef.press(\grid2Press, { |x, y| "second grid pressed at %x%".format(x, y).postln }, device: b);
+::
+
+Or...
+
+code::
+GridKeydef.press(\grid1Press, { |x, y| "first grid pressed at %x%".format(x, y).postln }, device: id -> 'm01');
+GridKeydef.press(\grid2Press, { |x, y| "second grid pressed at %x%".format(x, y).postln }, device: id -> 'm02');
+::
+
+With multiple devices led state is typically not just sent to a default device but routed to predetermined devices depending on app logic.
+
+code::
+a=SerialOSCGrid.lookupById('m01');
+b=SerialOSCGrid.lookupById('m02');
+a.ledSet(0, 0, true);
+b.ledSet(6, 2, true);
+::
+
+An example of coupled operation
+
+code::
+a=SerialOSCGrid.lookupById('m01');
+b=SerialOSCGrid.lookupById('m02');
+c=false;
+d=false;
+
+GridKeydef.press(\grid1Toggle, { |x, y| c = c.not; a.ledSet(0, 0, c) }, device: a);
+GridKeydef.press(\grid2Toggle, { |x, y| d = d.not; b.ledSet(0, 0, d) }, device: b);
+::
+
+section::Advanced
+
+subsection::Disabling autodiscovery of devices
+
+SerialOSCClient by default discovers attached and detached devices automatically and maintains an up-to-date list of devices in code::SerialOSCClient.devices::. Autodiscovery may be disabled by setting init's supportHotPlugging argument to false. When autodiscovery is disabled SerialOSCClient must be reinitialized in order to refresh the list of devices after device configuration has changed. Even with autodiscovery enabled reinitialization of SerialOSCClient is possible and may be needed if there are hiccups in the communication between the SerialOSC server daemon and SerialOSCClient.
+
+subsection::Manually connecting devices
+
+For a given device to work with SerialOSCClient classes a device not only has to be discovered and in the device list but also connected. Technically, when a device is connected to SerialOSCClient its prefix is set to "/sclang" and its destination port is set to the port SCLang is currently listening on (retrieved from code::NetAddr.langPort::, most often 57120).
+
+Discovered devices are by default automatically connected. This may raise issues if you have multiple SerialOSC devices attached and only intend to use some of them for SuperCollider and others for other applications. You can tell SerialOSCClient to not automatically connect devices by setting code::SerialOSCClient.init::'s autoconnect argument to false. Devices will then have to be manually connected to SuperCollider using class method code::SerialOSCClient.connect:: or instance method code::SerialOSCDevice.connect::
+
+code::
+
+// example code for manually connecting a device
+SerialOSCClient.init(autoconnect: false);
+
+SerialOSCClient.connect('m0123'); // connect a device by id
+
+a=SerialOSCClient.devices.first; // alternatively, lookup a device in the list...
+a.connect; // ... and connect it
+::
+
+section::Classes
+
+The main SerialOSC classes are:
+
+link::Classes/SerialOSCClient::
+
+link::Classes/SerialOSCGrid::
+
+link::Classes/SerialOSCEnc::
+
+link::Classes/GridKeyFunc::
+
+link::Classes/GridKeydef::
+
+link::Classes/EncDeltaFunc::
+
+link::Classes/EncDeltadef::
+
+link::Classes/EncKeyFunc::
+
+link::Classes/EncKeydef::
+
+link::Classes/TiltFunc::
+
+link::Classes/Tiltdef::
+
+section::Examples
+
+See below code for intro:
+
+subsection::Grids Intro Code
+code::
+// The !? idiom in SuperCollider (see help on !?) can be used to set leds of the default grid, but only if it is available (if SerialOSCGrid.default is not nil)
+
+SerialOSCGrid.default !? { |grid| grid.ledSet(1, 2, true) };
+
+
+// Now, on handling multiple devices
+
+// Info on what device triggered a GridKeydef is available in the function argument list.
+GridKeydef(\debug, { |x, y, state, time, device| [x, y, state, time, device].debug });
+
+// You can use a device as filter. See OSCdef help for how this works.
+GridKeydef(\debug, { |x, y, state, time, device| [x, y, state, time, device].debug }, device: SerialOSCGrid.default);
+
+// If several devices are attached you can retrieve SerialOSCGrid and SerialOSCEnc instances from SerialOSCClient.devices
+SerialOSCClient.devices;
+
+// Pick a device and set a led
+a=SerialOSCClient.devices.first;
+a.ledSet(1, 2, true); // this assumes first device in list is a grid (SerialOSCGrid)
+::
+
+subsection::Hello Grid Buttons
+
+code::
+// Make sure to attach a SerialOSC compatible grid device to your computer.
+
+SerialOSCClient.init; // Initialize the SerialOSCClient. Connected devices get posted to the Post Window.
+
+s.boot; // Boot server
+
+// Hello World - pressing the top-leftmost button on any attached grid auditions a sinewave.
+GridKeydef.press(\playSine, { a = {SinOsc.ar}.play }, 0, 0);
+GridKeydef.release(\stopSine, { a.release }, 0, 0);
+
+// Remove GridKeydefs using .free or by pressing Cmd-.
+GridKeydef.press(\playSine).free;
+GridKeydef.release(\stopSine).free;
+::
+
+subsection::Hello Grid Leds
+
+code::
+// Make sure to attach a SerialOSC compatible grid device to your computer.
+
+SerialOSCClient.init; // Initialize the SerialOSCClient. Connected devices get posted to the Post Window.
+
+a=SerialOSCGrid.default; // First attached grid is set as default
+a.ledSet(0, 0, true); // Make top-leftmost led on the default grid lit
+a.ledSet(0, 0, false); // Make top-leftmost led on the default grid unlit
+8 do: { a.ledSet(8.rand, 8.rand, [true, false].choose) }; // Scramble 8 random leds in a 8x8 matrix
+::
+
+subsection::Hello Scrambled World
+
+code::
+(
+var scrambleLeds = {
+	SerialOSCGrid.default !? { |grid|
+		8 do: { grid.ledSet(8.rand, 8.rand, [true, false].choose) };
+	};
+};
+
+GridKeydef.press(\playSineAndScrambleLeds, { a = {SinOsc.ar}.play; scrambleLeds.(); }, 0, 0);
+GridKeydef.release(\stopSine, { a.release }, 0, 0);
+)
+
+GridKeydef.freeAll; // Free all responders
+::
+
+subsection::A monome and arc play together
+
+code::
+// Example, grid together with arc
+
+(
+var set_arc_led;
+var scramble_8_grid_leds;
+var b_spec = ControlSpec.new;
+
+// Ensure server is running
+s.serverRunning.not.if {
+	Error("Boot server stored in interpreter variable s.").throw
+};
+
+// Initialize client in order to use devices
+SerialOSCClient.init;
+
+// SynthDef to server
+SynthDef(\test, { |freq, gate=1| Out.ar(0, ( SinOsc.ar(Lag.kr(freq)) * EnvGen.ar(Env.cutoff, gate) ) ! 2) }).add;
+
+// Function to visualize a float value 0 - 1.0 on first encoder ring of default arc (if attached)
+set_arc_led = { |value|
+	SerialOSCEnc.default !? { |enc|
+		enc.clearRings;
+		enc.ringSet(0, SerialOSCEnc.ledXSpec.map(value), 15);
+	};
+};
+
+// Function to scramble state for 8 random buttons in a 8x8 led matrix on the default grid (if attached)
+scramble_8_grid_leds = {
+	SerialOSCGrid.default !? { |grid|
+		8 do: { grid.ledSet(8.rand, 8.rand, [true, false].choose) };
+	};
+};
+
+// Initial arc encoder setting
+b = 0.5;
+set_arc_led.(b);
+
+// First Arc encoder control frequency of sinewave and scrambles 8 leds
+EncDeltadef(\adjustFrequency, { |n, delta|
+	b = b_spec.constrain(b + (delta/1000));
+	a !? { a.set(\freq, \freq.asSpec.map(b)) };
+	set_arc_led.(b);
+	scramble_8_grid_leds.();
+}, 0);
+
+// Hitting any grid button auditions sinewave and scrambles 8 leds
+GridKeydef.press(
+	\playSine,
+	{
+		a ?? {
+			a = Synth(\test, [\freq, \freq.asSpec.map(b)]);
+			scramble_8_grid_leds.();
+		};
+	}
+);
+
+// Releasing any grid button stops the sinewave
+GridKeydef.release(\stopSine, { a.release; a = nil });
+)
+::
+
+section::Feedback
+
+for suggestions / comments contact me
+
+Anton Hörnquist, anton.hornquist@gmail.com.

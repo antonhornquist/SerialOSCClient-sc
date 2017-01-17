@@ -1,0 +1,269 @@
+TITLE:: SerialOSCClient
+summary:: SuperCollider Support for SerialOSCClient devices
+categories:: External Control
+related:: Reference/UsingSerialOSCClient, Classes/MIDIClient
+
+DESCRIPTION::
+(put long description here)
+
+TODO: Look at MIDIClient
+
+
+CLASSMETHODS::
+
+METHOD:: prLookupDeviceByPort
+(describe method here)
+
+ARGUMENT:: receivePort
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: disconnect
+(describe method here)
+
+ARGUMENT:: id
+(describe argument here)
+
+ARGUMENT:: verbose
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: prSpoofAction
+(describe method here)
+
+ARGUMENT:: type
+(describe argument here)
+
+ARGUMENT:: args
+(describe argument here)
+
+ARGUMENT:: device
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: ensureInitialized
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: doEncDeltaAction
+(describe method here)
+
+ARGUMENT:: n
+(describe argument here)
+
+ARGUMENT:: delta
+(describe argument here)
+
+ARGUMENT:: device
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: initialized
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: doEncKeyAction
+(describe method here)
+
+ARGUMENT:: n
+(describe argument here)
+
+ARGUMENT:: state
+(describe argument here)
+
+ARGUMENT:: device
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: prUpdateDefaultDevices
+(describe method here)
+
+ARGUMENT:: addedDevices
+(describe argument here)
+
+ARGUMENT:: removedDevices
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: connectAll
+(describe method here)
+
+ARGUMENT:: verbose
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: prPostDeviceRemoved
+(describe method here)
+
+ARGUMENT:: id
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: prLookupDeviceById
+(describe method here)
+
+ARGUMENT:: id
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: devices
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: connect
+(describe method here)
+
+ARGUMENT:: id
+(describe argument here)
+
+ARGUMENT:: verbose
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: prListEntryIsEncByType
+(describe method here)
+
+ARGUMENT:: device
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: doGridKeyAction
+(describe method here)
+
+ARGUMENT:: x
+(describe argument here)
+
+ARGUMENT:: y
+(describe argument here)
+
+ARGUMENT:: state
+(describe argument here)
+
+ARGUMENT:: device
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: addSerialOSCRecvFunc
+(describe method here)
+
+ARGUMENT:: func
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: prIsEncType
+(describe method here)
+
+ARGUMENT:: type
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: doTiltAction
+(describe method here)
+
+ARGUMENT:: n
+(describe argument here)
+
+ARGUMENT:: x
+(describe argument here)
+
+ARGUMENT:: y
+(describe argument here)
+
+ARGUMENT:: z
+(describe argument here)
+
+ARGUMENT:: device
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: prDeviceIsEncByType
+(describe method here)
+
+ARGUMENT:: device
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: prPostDeviceAdded
+(describe method here)
+
+ARGUMENT:: id
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: init
+(describe method here)
+
+ARGUMENT:: completionFunc
+(describe argument here)
+
+ARGUMENT:: autoconnect
+(describe argument here)
+
+ARGUMENT:: supportHotPlugging
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: removeSerialOSCRecvFunc
+(describe method here)
+
+ARGUMENT:: func
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: disconnectAll
+(describe method here)
+
+ARGUMENT:: verbose
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: prUpdateDevicesListAsync
+(describe method here)
+
+ARGUMENT:: completionFunc
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: initClass
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: postDevices
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+
+INSTANCEMETHODS::
+
+
+EXAMPLES::
+
+code::
+(some example code)
+::

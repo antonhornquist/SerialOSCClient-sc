@@ -1,0 +1,82 @@
+TITLE:: EncDeltaFunc
+summary:: (put short description here)
+categories:: Undocumented classes
+related:: Classes/SomeRelatedClass, Reference/SomeRelatedStuff, etc.
+
+DESCRIPTION::
+(put long description here)
+
+
+CLASSMETHODS::
+
+METHOD:: new
+(describe method here)
+
+ARGUMENT:: func
+(describe argument here)
+
+ARGUMENT:: n
+(describe argument here)
+
+ARGUMENT:: delta
+(describe argument here)
+
+ARGUMENT:: device
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: initClass
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+
+INSTANCEMETHODS::
+
+METHOD:: type
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: printOn
+(describe method here)
+
+ARGUMENT:: stream
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: init
+(describe method here)
+
+ARGUMENT:: argfunc
+(describe argument here)
+
+ARGUMENT:: argn
+(describe argument here)
+
+ARGUMENT:: argdelta
+(describe argument here)
+
+ARGUMENT:: argdevice
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: delta
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: n
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+
+EXAMPLES::
+
+code::
+(some example code)
+::

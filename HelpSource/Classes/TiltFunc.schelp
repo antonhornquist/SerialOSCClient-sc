@@ -1,0 +1,104 @@
+TITLE:: TiltFunc
+summary:: (put short description here)
+categories:: Undocumented classes
+related:: Classes/SomeRelatedClass, Reference/SomeRelatedStuff, etc.
+
+DESCRIPTION::
+(put long description here)
+
+
+CLASSMETHODS::
+
+METHOD:: new
+(describe method here)
+
+ARGUMENT:: func
+(describe argument here)
+
+ARGUMENT:: n
+(describe argument here)
+
+ARGUMENT:: x
+(describe argument here)
+
+ARGUMENT:: y
+(describe argument here)
+
+ARGUMENT:: z
+(describe argument here)
+
+ARGUMENT:: device
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: initClass
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+
+INSTANCEMETHODS::
+
+METHOD:: x
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: init
+(describe method here)
+
+ARGUMENT:: argfunc
+(describe argument here)
+
+ARGUMENT:: argn
+(describe argument here)
+
+ARGUMENT:: argx
+(describe argument here)
+
+ARGUMENT:: argy
+(describe argument here)
+
+ARGUMENT:: argz
+(describe argument here)
+
+ARGUMENT:: argdevice
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: y
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: type
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: printOn
+(describe method here)
+
+ARGUMENT:: stream
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: z
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: n
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+
+EXAMPLES::
+
+code::
+(some example code)
+::
