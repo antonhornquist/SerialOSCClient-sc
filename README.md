@@ -4,7 +4,7 @@ SuperCollider client for SerialOSC compliant devices
 
 ## Description
 
-SerialOSCClient provides to monome and arc devices an interface akin to SuperCollider core MIDIClient.
+SerialOSCClient provides plug'n'play support for monome (link::http://monome.org::) grids, arcs and other SerialOSC compliant devices. In many regards SerialOSCClient and its related classes are to SerialOSC devices what link::Classes/MIDIClient:: and its related classes in the SuperCollider standard library are to MIDI devices.
 
 ## Examples
 

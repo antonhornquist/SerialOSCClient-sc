@@ -178,6 +178,31 @@ returns:: (describe returnvalue here)
 
 EXAMPLES::
 
+Using dependancy support it is possible to observe when new devices are attached or detached, connected or disconnected.
+
 code::
-(some example code)
+SerialOSCClient.init;
+
+(
+SerialOSCEnc.addDependant { |thechanged, what, device|
+	switch ( what )
+	{'attached'} {
+		("encoder" + device + "was attached").postln;
+	}
+	{'detached'} {
+		("encoder" + device + "was detached").postln;
+	}
+	{'connected'} {
+		("encoder" + device + "was connected").postln;
+	}
+	{'disconnected'} {
+		("encoder" + device + "was disconnected").postln;
+	}
+	{'default'} {
+		("encoder" + device + "was set as default").postln;
+	};
+};
+)
+
+SerialOSCEnc.releaseAllDependants; // stop listening to encoder notifications
 ::

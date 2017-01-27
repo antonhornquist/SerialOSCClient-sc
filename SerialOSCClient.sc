@@ -1,5 +1,3 @@
-// TODO: change n, x, y to two-letter names to not mess with Interpreter variables?
-
 SerialOSCClient {
 	classvar
 		<all,
@@ -12,9 +10,10 @@ SerialOSCClient {
 		recvSerialOSCFunc
 	;
 
-	var name, numGrids, numEncs;
-	var responders;
-	var <>grids, <>encs; // TODO: should not be setters
+	var name;
+	// TODO: remove var responders;
+	var <useGrid, <useEnc;
+	var <>grid, <>enc; // TODO: should not be setters
 	var <>willFree; // TODO: clearWhenFreed
 	var <>permanent; // TODO: implement CmdPeriod hook?
 	var <>onFree; // TODO: naming?
@@ -137,6 +136,10 @@ SerialOSCClient {
 
 	*connectAll { |verbose=true|
 		devices do: { |device| this.connect(device.id, verbose) }
+	}
+
+	*freeAll {
+		all.copy do: _.free;
 	}
 
 	*prUpdateDefaultDevices { |addedDevices, removedDevices|
@@ -276,28 +279,26 @@ SerialOSCClient {
 		^all.detect { |client| client.deviceIsConnected(device) }
 	}
 
-	*new { |name, numGrids=1, numEncs=1, autoconnect=true|
-		^super.new.initSerialOSCClient(name, numGrids, numEncs, autoconnect)
+	*grid { |name, autoconnect=true|
+		^this.new(name, true, false, autoconnect);
 	}
 
-	*grid { |name, config, autoconnect=true|
-		^this.new(name, config, 0);
+	*enc { |name, autoconnect=true|
+		^this.new(name, false, true, autoconnect);
 	}
 
-	*enc { |name, config, autoconnect=true|
-		^this.new(name, 0, config);
+	*gridEnc { |name, autoconnect=true|
+		^this.new(name, true, true, autoconnect);
 	}
 
-	*gridEnc { |name, numGrids, numEncs, autoconnect=true|
-		^this.new(name, numGrids, numEncs, autoconnect);
+	*new { |name, useGrid=false, useEnc=false, autoconnect=true|
+		^super.new.initSerialOSCClient(name, useGrid, useEnc, autoconnect)
 	}
 
-	initSerialOSCClient { |argName, argNumGrids, argNumEncs, argAutoconnect|
+	initSerialOSCClient { |argName, argUseGrid, argUseEnc, argAutoconnect|
 		name = argName;
-		numGrids = argNumGrids;
-		numEncs = argNumEncs;
-		grids = Array.fill(numGrids);
-		encs = Array.fill(numEncs);
+		useGrid = argUseGrid;
+		useEnc = argUseEnc;
 
 		if (SerialOSCClient.initialized) {
 			if (argAutoconnect) { this.findAndConnectDevices };
@@ -307,19 +308,23 @@ SerialOSCClient {
 			});
 		};
 		all = all.add(this);
-/*
-		this.class.changed(\added, this);
-*/
 	}
 
 	findAndConnectDevices {
+/*
+	TODO
+
 		var indecesOfUnconnectedGrids = grids.indicesOfEqual(nil);
 		SerialOSCGrid.all.select { |grid| grid.client.isNil }.keep(indecesOfUnconnectedGrids.size) do: { |grid, index| this.connectGrid(indecesOfUnconnectedGrids[index], grid) };
 
 		// TODO: add dependant for refreshing correctly and include SerialOSCGrid.clearLeds before invoking callback
 
 		// TODO: encs!
+*/
 	}
+
+/*
+	TODO
 
 	connectGrid { |index, grid|
 		grids[index] !? {
@@ -340,6 +345,7 @@ SerialOSCClient {
 		onGridConnected.value(this, index);
 		this.refreshGrid(index);
 	}
+*/
 
 	refreshGrid { |index|
 		this.clearLeds(index);
@@ -350,94 +356,98 @@ SerialOSCClient {
 		willFree.value(this);
 		// TODO: remove dependants added to devices
 		// TODO: remove responder funcs queried for this client? perhaps not needed?
-		responders do: _.free;
+		// TODO responders do: _.free;
 		onFree.value(this);
+		all.remove(this);
 	}
 
 	clearLeds { |gridNo=0|
-		grids[gridNo] !? { |grid| grid.clearLeds };
+		grid !? { |grid| grid.clearLeds };
 	}
 
 	enableTilt { |n, gridNo=0|
-		grids[gridNo] !? { |grid| grid.enableTilt(n) };
+		grid !? { |grid| grid.enableTilt(n) };
 	}
 
 	disableTilt { |n, gridNo=0|
-		grids[gridNo] !? { |grid| grid.disableTilt(n) };
+		grid !? { |grid| grid.disableTilt(n) };
 	}
 
 	ledSet { |x, y, state, gridNo=0|
-		grids[gridNo] !? { |grid| grid.ledSet(x, y, state) };
+		grid !? { |grid| grid.ledSet(x, y, state) };
 	}
 
 	ledAll { |state, gridNo=0|
-		grids[gridNo] !? { |grid| grid.ledAll(state) };
+		grid !? { |grid| grid.ledAll(state) };
 	}
 
 	ledMap { |xOffset, yOffset, bitmasks, gridNo=0|
-		grids[gridNo] !? { |grid| grid.ledMap(xOffset, yOffset, bitmasks) };
+		grid !? { |grid| grid.ledMap(xOffset, yOffset, bitmasks) };
 	}
 
 	ledRow { |xOffset, y, bitmasks, gridNo=0|
-		grids[gridNo] !? { |grid| grid.ledRow(xOffset, y, bitmasks) };
+		grid !? { |grid| grid.ledRow(xOffset, y, bitmasks) };
 	}
 
 	ledCol { |x, yOffset, bitmasks, gridNo=0|
-		grids[gridNo] !? { |grid| grid.ledCol(x, yOffset, bitmasks) };
+		grid !? { |grid| grid.ledCol(x, yOffset, bitmasks) };
 	}
 
 	ledIntensity { |i, gridNo=0|
-		grids[gridNo] !? { |grid| grid.ledIntensity(i) };
+		grid !? { |grid| grid.ledIntensity(i) };
 	}
 
 	ledLevelSet { |x, y, l, gridNo=0|
-		grids[gridNo] !? { |grid| grid.ledLevelSet(x, y, l) };
+		grid !? { |grid| grid.ledLevelSet(x, y, l) };
 	}
 
 	ledLevelAll { |l, gridNo=0|
-		grids[gridNo] !? { |grid| grid.ledLevelAll(l) };
+		grid !? { |grid| grid.ledLevelAll(l) };
 	}
 
 	ledLevelMap { |xOffset, yOffset, levels, gridNo=0|
-		grids[gridNo] !? { |grid| grid.ledLevelMap(xOffset, yOffset, levels) };
+		grid !? { |grid| grid.ledLevelMap(xOffset, yOffset, levels) };
 	}
 
 	ledLevelRow { |xOffset, y, levels, gridNo=0|
-		grids[gridNo] !? { |grid| grid.ledLevelRow(xOffset, y, levels) };
+		grid !? { |grid| grid.ledLevelRow(xOffset, y, levels) };
 	}
 
 	ledLevelCol { |x, yOffset, levels, gridNo=0|
-		grids[gridNo] !? { |grid| grid.ledLevelCol(x, yOffset, levels) };
+		grid !? { |grid| grid.ledLevelCol(x, yOffset, levels) };
 	}
 
 	tiltSet { |n, state, gridNo=0|
-		grids[gridNo] !? { |grid| grid.tiltSet(n, state) };
+		grid !? { |grid| grid.tiltSet(n, state) };
 	}
 
 	clearRings { |encNo=0|
-		encs[encNo] !? { |enc| enc.clearRings };
+		enc !? { |enc| enc.clearRings };
 	}
 
 	ringSet { |n, x, level, encNo=0|
-		encs[encNo] !? { |enc| enc.ringSet(n, x, level) };
+		enc !? { |enc| enc.ringSet(n, x, level) };
 	}
 
 	ringAll { |n, level, encNo=0|
-		encs[encNo] !? { |enc| enc.ringAll(n, level) };
+		enc !? { |enc| enc.ringAll(n, level) };
 	}
 
 	ringMap { |n, levels, encNo=0|
-		encs[encNo] !? { |enc| enc.ringMap(n, levels) };
+		enc !? { |enc| enc.ringMap(n, levels) };
 	}
 
 	ringRange { |n, x1, x2, level, encNo=0|
-		encs[encNo] !? { |enc| enc.ringRange(n, x1, x2, level) };
+		enc !? { |enc| enc.ringRange(n, x1, x2, level) };
 	}
 
+/*
+	TODO
 	deviceIsConnected { |device| ^this.gridIsConnected(device) or: this.encIsConnected(device) }
 	gridIsConnected { |grid| ^grids.indexOf(grid).notNil }
 	encIsConnected { |enc| ^encs.indexOf(enc).notNil }
 	deviceIndexOf { |device| ^(grids.indexOf(device) ? encs.indexOf(device)) }
+*/
 }
 
 SerialOSCGrid : SerialOSCDevice {
@@ -1363,7 +1373,7 @@ SerialOSCMessageDispatcher : AbstractWrappingDispatcher {
 	typeKey { ^('SerialOSC control').asSymbol }
 }
 
-SerialOSCXYStateMatcher : AbstractMessageMatcher { // TODO: optimize: split up x, y and state in different instances?
+SerialOSCXYStateMatcher : AbstractMessageMatcher { // TODO: optimization idea: split up x, y and state in different instances?
 	var x, y, state;
 
 	*new {|x, y, state, func| ^super.new.init(x, y, state, func);}
@@ -1377,7 +1387,7 @@ SerialOSCXYStateMatcher : AbstractMessageMatcher { // TODO: optimize: split up x
 	}
 }
 
-SerialOSCNXYZMatcher : AbstractMessageMatcher { // TODO: optimize: split up n, x, y and z in different instances?
+SerialOSCNXYZMatcher : AbstractMessageMatcher { // TODO: optimization idea: split up n, x, y and z in different instances?
 	var n, x, y, z;
 
 	*new {|n, x, y, z, func| ^super.new.init(n, x, y, z, func);}
@@ -1391,7 +1401,7 @@ SerialOSCNXYZMatcher : AbstractMessageMatcher { // TODO: optimize: split up n, x
 	}
 }
 
-SerialOSCNDeltaMatcher : AbstractMessageMatcher { // TODO: optimize: split up n and delta in different instances?
+SerialOSCNDeltaMatcher : AbstractMessageMatcher { // TODO: optimization idea: split up n and delta in different instances?
 	var n, delta;
 
 	*new {|n, delta, func| ^super.new.init(n, delta, func);}
@@ -1405,7 +1415,7 @@ SerialOSCNDeltaMatcher : AbstractMessageMatcher { // TODO: optimize: split up n 
 	}
 }
 
-SerialOSCNStateMatcher : AbstractMessageMatcher { // TODO: optimize: split up n and state in different instances?
+SerialOSCNStateMatcher : AbstractMessageMatcher { // TODO: optimization idea: split up n and state in different instances?
 	var n, state;
 
 	*new {|n, state, func| ^super.new.init(n, state, func);}
@@ -1454,6 +1464,15 @@ SerialOSCFuncDeviceMatcher : AbstractMessageMatcher {
 				((device.key == \type) and: (device.value == testMsgDevice.type)) or:
 				((device.key == \client) and: (device.value == testMsgDevice.client))
 			) { func.value(*testMsg) };
+		}
+		{ device == 'default' } {
+			if (
+				( (SerialOSCGrid == testMsgDevice.class) and: (SerialOSCGrid.default == testMsgDevice) )
+				or:
+				( (SerialOSCEnc == testMsgDevice.class) and: (SerialOSCEnc.default == testMsgDevice) )
+			) {
+				func.value(*testMsg)
+			}
 		}
 	}
 }

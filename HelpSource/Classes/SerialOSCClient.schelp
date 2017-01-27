@@ -1,12 +1,14 @@
 TITLE:: SerialOSCClient
 summary:: SuperCollider Support for SerialOSCClient devices
 categories:: External Control
-related:: Reference/UsingSerialOSCClient, Classes/MIDIClient
+related:: Guides/UsingSerialOSCClient, Classes/MIDIClient
 
 DESCRIPTION::
 (put long description here)
 
 TODO: Look at MIDIClient
+
+OSC routing is handled internally alleviating the need to use OSCdefs to listen to and respond to events from SerialOSC devices. 
 
 
 CLASSMETHODS::

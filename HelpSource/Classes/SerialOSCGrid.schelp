@@ -403,6 +403,31 @@ returns:: (describe returnvalue here)
 
 EXAMPLES::
 
+Using dependancy support it is possible to observe when new devices are attached or detached, connected or disconnected.
+
 code::
-(some example code)
+SerialOSCClient.init;
+
+(
+SerialOSCGrid.addDependant { |thechanged, what, device|
+	switch ( what )
+	{'attached'} {
+		("grid" + device + "was attached").postln;
+	}
+	{'detached'} {
+		("grid" + device + "was detached").postln;
+	}
+	{'connected'} {
+		("grid" + device + "was connected").postln;
+	}
+	{'disconnected'} {
+		("grid" + device + "was disconnected").postln;
+	}
+	{'default'} {
+		("grid" + device + "was set as default").postln;
+	};
+};
+)
+
+SerialOSCGrid.releaseAllDependants; // stop listening to grid notifications
 ::
