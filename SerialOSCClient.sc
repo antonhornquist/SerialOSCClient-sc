@@ -4,18 +4,21 @@ SerialOSCClient {
 		<devices,
 		devicesSemaphore,
 		<initialized=false,
-		connectedDevices,
+		<connectedDevices,
 		oscRecvFunc,
 		autoconnectDevices,
-		recvSerialOSCFunc
+		recvSerialOSCFunc,
+		beVerbose
 	;
 
-	var name;
-	// TODO: remove var responders;
-	var <useGrid, <useEnc;
-	var <>grid, <>enc; // TODO: should not be setters
-	var <>willFree; // TODO: clearWhenFreed
-	var <>permanent; // TODO: implement CmdPeriod hook?
+	var <name;
+	var <gridSpec, <encSpec;
+	var <grid, <enc;
+	var <autoconnect;
+	var gridResponder, gridDependantFunc;
+	var encDeltaResponder, encKeyResponder, encDependantFunc;
+	var <>willFree;
+	var <>permanent;
 	var <>onFree; // TODO: naming?
 	var <>onGridConnected, <>onGridDisconnected, <>gridRefreshAction;
 	var <>onEncConnected, <>onEncDisconnected, <>encRefreshAction;
@@ -26,26 +29,161 @@ SerialOSCClient {
 		devices = [];
 		connectedDevices = [];
 		devicesSemaphore = Semaphore.new;
+		CmdPeriod.add(this);
 		oscRecvFunc = { |msg, time, addr, recvPort|
 			if (addr.ip == "127.0.0.1") {
 				this.prLookupDeviceByPort(addr.port) !? { |device|
 					if (connectedDevices.includes(device.id)) {
+						// TODO: use /monome instead of /sclang ?
 						if (#['/sclang/grid/key', '/sclang/tilt', '/sclang/enc/delta', '/sclang/enc/key'].includes(msg[0])) { // note: no pattern matching is performed on OSC address
 							var type = msg[0].asString[7..].asSymbol;
-/*
-	TODO: probably not needed, included in device
-							var client, deviceIndex;
-							SerialOSCClient.getDeviceClient(device) !? { |serialOSCClient|
-								client = serialOSCClient;
-								deviceIndex = serialOSCClient.deviceIndexOf(device);
-							};
-*/
 							recvSerialOSCFunc.value(type, msg[1..], time, device);
 						};
 					};
 				};
 			};
 		};
+	}
+
+	*init { |completionFunc, autoconnect=true, supportHotPlugging=true, verbose=false|
+		autoconnectDevices = autoconnect;
+		beVerbose = verbose;
+
+		if (SerialOSCComm.isTrackingConnectedDevicesChanges) {
+			SerialOSCComm.stopTrackingConnectedDevicesChanges
+		};
+
+		if (supportHotPlugging) {
+			SerialOSCComm.startTrackingConnectedDevicesChanges(
+				"127.0.0.1",
+				{ |id|
+					fork {
+						devicesSemaphore.wait;
+						if (this.prLookupDeviceById(id).isNil) {
+							this.prUpdateDevicesListAsync {
+								this.prLookupDeviceById(id) !? { |serialOSCDevice|
+									this.prPostDeviceAdded(id);
+									this.changed(\attached, serialOSCDevice);
+									this.prNotifyChangesInDevicesList([serialOSCDevice], []);
+									if (autoconnectDevices) { this.connect(id) };
+									this.prUpdateDefaultDevices([serialOSCDevice], []);
+								};
+								devicesSemaphore.signal;
+							};
+						} {
+							devicesSemaphore.signal;
+						};
+					};
+				},
+				{ |id|
+					fork {
+						devicesSemaphore.wait;
+						this.prLookupDeviceById(id) !? { |serialOSCDevice|
+							this.prPostDeviceRemoved(id); // TODO: move to below changed \detached, if possible
+							this.disconnect(id);
+							devices.remove(serialOSCDevice);
+							serialOSCDevice.remove;
+							this.prNotifyChangesInDevicesList([], [serialOSCDevice]);
+							this.prUpdateDefaultDevices([], [serialOSCDevice]);
+							this.changed(\detached, serialOSCDevice);
+						};
+						devicesSemaphore.signal;
+					};
+				}
+			);
+		};
+
+		thisProcess.removeOSCRecvFunc(oscRecvFunc);
+		thisProcess.addOSCRecvFunc(oscRecvFunc);
+
+		initialized = true;
+
+		devicesSemaphore.wait;
+		this.prUpdateDevicesListAsync { |devicesAddedToDevicesList, devicesRemovedFromDevicesList|
+			this.postDevices;
+			this.prNotifyChangesInDevicesList(devicesAddedToDevicesList, devicesRemovedFromDevicesList);
+			devicesRemovedFromDevicesList.do { |serialOSCDevice|
+				serialOSCDevice.remove;
+			};
+			if (autoconnectDevices) { this.connectAll(false) };
+			this.prUpdateDefaultDevices(devicesAddedToDevicesList, devicesRemovedFromDevicesList);
+			completionFunc.();
+		};
+		devicesSemaphore.signal;
+	}
+
+	*addSerialOSCRecvFunc { |func| recvSerialOSCFunc = recvSerialOSCFunc.addFunc(func) }
+
+	*removeSerialOSCRecvFunc { |func| recvSerialOSCFunc = recvSerialOSCFunc.removeFunc(func) }
+
+	*connectAll {
+		devices do: { |device| this.connect(device.id) }
+	}
+
+	*freeAll {
+		all.copy do: _.free;
+	}
+
+	*cmdPeriod {
+		all.reject { |client| client.permanent}.copy.do(_.free);
+	}
+
+	*prNotifyChangesInDevicesList { |devicesAddedToDevicesList, devicesRemovedFromDevicesList|
+		devicesAddedToDevicesList do: { |device| this.changed(\added, device) };
+		devicesRemovedFromDevicesList do: { |device| this.changed(\removed, device) };
+	}
+
+	*prUpdateDefaultDevices { |devicesAddedToDevicesList, devicesRemovedFromDevicesList|
+		// TODO: important, only connected devices should be able to set as default, right? cover for the case when autoconnect is not used...
+		var addedGrids, addedEncs;
+
+		addedGrids = devicesAddedToDevicesList.reject(this.prDeviceIsEncByType(_));
+		if (devices.includes(SerialOSCGrid.default).not) { // TODO: instead or also check if devicesRemovedFromDevicesList includes SerialOSCGrid.default?
+			SerialOSCGrid.default = if (addedGrids.notEmpty) {
+				addedGrids.first
+			} {
+				nil // TODO: fall back on existing grids - if any (the scenario when one device is being detached) - and set one as default?
+			};
+		};
+
+		addedEncs = devicesAddedToDevicesList.select(this.prDeviceIsEncByType(_));
+		if (devices.includes(SerialOSCEnc.default).not) { // TODO: instead or also check if devicesRemovedFromDevicesList includes SerialOSCEnc.default?
+			SerialOSCEnc.default = if (addedEncs.notEmpty) {
+				addedEncs.first
+			} {
+				nil // TODO: fall back on existing encs - if any (the scenario when one device is being detached) - and set one as default?
+			};
+		};
+	}
+
+	*connect { |id|
+		this.ensureInitialized;
+
+		if (connectedDevices.includes(id).not) {
+			var device;
+
+			device = this.prLookupDeviceById(id) ?? { Error("No device with id % attached".format(id)).throw };
+
+			SerialOSCComm.changeDeviceMessagePrefix("127.0.0.1", device.port, SerialOSCComm.prefix);
+			SerialOSCComm.changeDeviceDestinationPort("127.0.0.1", device.port, NetAddr.langPort);
+
+			connectedDevices = connectedDevices.add(id);
+
+			this.changed(\connected, device);
+
+			SerialOSCClient.all.do { |client|
+				// TODO: Move this to dependant listening to SerialOSCGrid|Enc \added instead?
+				if (client.autoconnect) { client.findAndConnectDevicesToClient };
+			};
+
+			beVerbose.if {
+				Post << device << Char.space << "was connected" << Char.nl;
+			};
+		};
+	}
+
+	*explicitlyAddDevice { |device|
+		devices = devices.add(device);
 	}
 
 	*doGridKeyAction { |x, y, state, device|
@@ -69,142 +207,24 @@ SerialOSCClient {
 		recvSerialOSCFunc.value(type, args, SystemClock.seconds, device);
 	}
 
-	*init { |completionFunc, autoconnect=true, supportHotPlugging=true|
-		autoconnectDevices = autoconnect;
-
-		if (SerialOSC.isTrackingConnectedDevicesChanges) {
-			SerialOSC.stopTrackingConnectedDevicesChanges
-		};
-
-		if (supportHotPlugging) {
-			SerialOSC.startTrackingConnectedDevicesChanges(
-				"127.0.0.1",
-				{ |id|
-					fork {
-						devicesSemaphore.wait;
-						if (this.prLookupDeviceById(id).isNil) {
-							this.prUpdateDevicesListAsync {
-								this.prLookupDeviceById(id) !? { |serialOSCDevice|
-									this.prPostDeviceAdded(id);
-									this.changed(\attached, serialOSCDevice);
-									if (autoconnectDevices) { this.connect(id, false) };
-									this.prUpdateDefaultDevices([serialOSCDevice], []);
-								};
-								devicesSemaphore.signal;
-							};
-						} {
-							devicesSemaphore.signal;
-						};
-					};
-				},
-				{ |id|
-					fork {
-						devicesSemaphore.wait;
-						this.prLookupDeviceById(id) !? { |serialOSCDevice|
-							this.prPostDeviceRemoved(id);
-							devices.remove(serialOSCDevice);
-							this.changed(\detached, serialOSCDevice);
-							this.changed(\disconnected, serialOSCDevice);
-							this.prUpdateDefaultDevices([], [serialOSCDevice]);
-						};
-						devicesSemaphore.signal;
-					};
-				}
-			);
-		};
-
-		thisProcess.removeOSCRecvFunc(oscRecvFunc);
-		thisProcess.addOSCRecvFunc(oscRecvFunc);
-
-		initialized = true;
-
-		devicesSemaphore.wait;
-		this.prUpdateDevicesListAsync { |addedDevices, removedDevices|
-			this.postDevices;
-			if (autoconnectDevices) { this.connectAll(false) };
-			addedDevices do: { |device| this.changed(\added, device) };
-			removedDevices do: { |device| this.changed(\removed, device) };
-			this.prUpdateDefaultDevices(addedDevices, removedDevices);
-			completionFunc.();
-		};
-		devicesSemaphore.signal;
+	*disconnectAll {
+		devices do: { |device| this.disconnect(device.id) }
 	}
 
-	*addSerialOSCRecvFunc { |func| recvSerialOSCFunc = recvSerialOSCFunc.addFunc(func) }
-
-	*removeSerialOSCRecvFunc { |func| recvSerialOSCFunc = recvSerialOSCFunc.removeFunc(func) }
-
-	*connectAll { |verbose=true|
-		devices do: { |device| this.connect(device.id, verbose) }
-	}
-
-	*freeAll {
-		all.copy do: _.free;
-	}
-
-	*prUpdateDefaultDevices { |addedDevices, removedDevices|
-		// TODO: important, only connected devices should be able to set as default, right? cover for the case when autoconnect is not used...
-		var addedGrids, addedEncs;
-
-		addedGrids = addedDevices.reject(this.prDeviceIsEncByType(_));
-		if (devices.includes(SerialOSCGrid.default).not) {
-			SerialOSCGrid.default = if (addedGrids.notEmpty) {
-				addedGrids.first
-			} {
-				nil // TODO: fall back on existing grids - if any (the scenario when one device is being detached) - and set one as default?
-			};
-		};
-
-		addedEncs = addedDevices.select(this.prDeviceIsEncByType(_));
-		if (devices.includes(SerialOSCEnc.default).not and: addedEncs.notEmpty) {
-			SerialOSCEnc.default = if (addedEncs.notEmpty) {
-				addedEncs.first
-			} {
-				nil // TODO: fall back on existing encs - if any (the scenario when one device is being detached) - and set one as default?
-			};
-		};
-	}
-
-	*connect { |id, verbose=true|
+	*disconnect { |id|
 		this.ensureInitialized;
-
-		if (connectedDevices.includes(id).not) {
-			var device;
-
-			device = this.prLookupDeviceById(id) ?? { Error("No device with id % attached".format(id)).throw };
-
-			SerialOSC.changeDeviceMessagePrefix("127.0.0.1", device.port, SerialOSC.prefix);
-			SerialOSC.changeDeviceDestinationPort("127.0.0.1", device.port, NetAddr.langPort);
-
-			connectedDevices = connectedDevices.add(id);
-
-			this.changed(\connected, device);
-
-			verbose.if {
-				Post << device << Char.space << "was connected" << Char.nl;
-			};
-		};
-	}
-
-	*ensureInitialized {
-		initialized.not.if { Error("SerialOSCClient has not been initialized").throw };
-	}
-
-	*disconnectAll { |verbose=true|
-		devices do: { |device| this.disconnect(device.id, verbose) }
-	}
-
-	*disconnect { |id, verbose=true|
-		initialized.not.if { Error("SerialOSCClient has not been initialized").throw };
 
 		if (connectedDevices.includes(id)) {
 			var device;
 
 			device = this.prLookupDeviceById(id) ?? { Error("No device with id % attached".format(id)).throw };
 
+			this.changed(\disconnected, device);
+			device.changed(\disconnected); // TODO: really do both here? perhaps only connected / isconnected on device and not SerialOSCClient level
+
 			connectedDevices.remove(id);
 
-			verbose.if {
+			beVerbose.if {
 				Post << device << Char.space << "was disconnected" << Char.nl;
 			};
 		};
@@ -220,12 +240,12 @@ SerialOSCClient {
 	}
 
 	*prPostDeviceAdded { |id|
-		Post << "A SerialOSC Device was attached:" << Char.nl;
+		Post << "A SerialOSC Device was attached to the computer:" << Char.nl;
 		Post << Char.tab << this.prLookupDeviceById(id) << Char.nl;
 	}
 
 	*prPostDeviceRemoved { |id|
-		Post << "A SerialOSC Device was detached:" << Char.nl;
+		Post << "A SerialOSC Device was detached from the computer:" << Char.nl;
 		Post << Char.tab << this.prLookupDeviceById(id) << Char.nl
 	}
 
@@ -242,19 +262,20 @@ SerialOSCClient {
 	}
 
 	*prUpdateDevicesListAsync { |completionFunc|
-		SerialOSC.requestListOfDevices(
+		SerialOSCComm.requestListOfDevices(
 			"127.0.0.1",
 			{ |list|
 				var currentDevices, foundDevices, devicesToRemove, devicesToAdd;
 
 				currentDevices = devices.as(IdentitySet);
 				foundDevices = list.collect { |entry|
-					var foundDevice = if (this.prListEntryIsEncByType(entry)) {
-						SerialOSCEnc(entry[\type], entry[\id], entry[\receivePort]);
-					} {
-						SerialOSCGrid(entry[\type], entry[\id], entry[\receivePort]);
+					devices.detect { |serialOSCDevice| serialOSCDevice.id == entry[\id] } ?? {
+						if (this.prListEntryIsEncByType(entry)) {
+							SerialOSCEnc(entry[\type], entry[\id], entry[\receivePort]);
+						} {
+							SerialOSCGrid(entry[\type], entry[\id], entry[\receivePort]);
+						};
 					};
-					devices.detect { |device| device.matches(foundDevice) } ? foundDevice
 				}.as(IdentitySet);
 
 				devicesToRemove = currentDevices - foundDevices;
@@ -275,191 +296,300 @@ SerialOSCClient {
 		^devices.detect { |device| device.port == receivePort }
 	}
 
-	*clientOf { |device|
-		^all.detect { |client| client.deviceIsConnected(device) }
+	*ensureInitialized {
+		initialized.not.if { Error("SerialOSCClient has not been initialized").throw };
 	}
 
-	*grid { |name, autoconnect=true|
-		^this.new(name, true, false, autoconnect);
+	*grid { |name, func, autoconnect=true|
+		^this.new(name, \any, \none, func, autoconnect);
 	}
 
-	*enc { |name, autoconnect=true|
-		^this.new(name, false, true, autoconnect);
+	*enc { |name, func, autoconnect=true|
+		^this.new(name, \none, \any, func, autoconnect);
 	}
 
-	*gridEnc { |name, autoconnect=true|
-		^this.new(name, true, true, autoconnect);
+	*gridEnc { |name, func, autoconnect=true|
+		^this.new(name, \any, \any, func, autoconnect);
 	}
 
-	*new { |name, useGrid=false, useEnc=false, autoconnect=true|
-		^super.new.initSerialOSCClient(name, useGrid, useEnc, autoconnect)
+	*new { |name, gridSpec=\none, encSpec=\none, func, autoconnect=true|
+		^super.new.initSerialOSCClient(name, gridSpec, encSpec, func, autoconnect)
 	}
 
-	initSerialOSCClient { |argName, argUseGrid, argUseEnc, argAutoconnect|
+	initSerialOSCClient { |argName, argGridSpec, argEncSpec, func, argAutoconnect|
+		var doWhenInitialized;
+
 		name = argName;
-		useGrid = argUseGrid;
-		useEnc = argUseEnc;
+		gridSpec = argGridSpec;
+		encSpec = argEncSpec;
+		autoconnect = argAutoconnect;
 
-		if (SerialOSCClient.initialized) {
-			if (argAutoconnect) { this.findAndConnectDevices };
-		} {
-			SerialOSCClient.init(completionFunc: {
-				if (argAutoconnect) { this.findAndConnectDevices };
-			});
+		permanent = false;
+
+		gridDependantFunc = { |thechanged, what|
+			if (what == \disconnected) {
+				this.disconnectGridFromClient;
+			};
+			if (what == \rotation) {
+				// TODO: check bounds with spec and warn
+			}
 		};
-		all = all.add(this);
-	}
 
-	findAndConnectDevices {
-/*
-	TODO
-
-		var indecesOfUnconnectedGrids = grids.indicesOfEqual(nil);
-		SerialOSCGrid.all.select { |grid| grid.client.isNil }.keep(indecesOfUnconnectedGrids.size) do: { |grid, index| this.connectGrid(indecesOfUnconnectedGrids[index], grid) };
-
-		// TODO: add dependant for refreshing correctly and include SerialOSCGrid.clearLeds before invoking callback
-
-		// TODO: encs!
-*/
-	}
-
-/*
-	TODO
-
-	connectGrid { |index, grid|
-		grids[index] !? {
-			Error("Cannot connect device %, a device is already connected as grid %.".format(grid, index)).throw
-		};
-		grids[index] = grid;
-		grid.addDependant { |thechanged, what| // TODO: add this dependant as a func somewhere and removeDependant on free
-			if (what == 'removed') {
-				onGridDisconnected.value(this, index);
-				grids[index] = nil;
+		encDependantFunc = { |thechanged, what|
+			if (what == \disconnected) {
+				this.disconnectEncFromClient;
 			};
 		};
-		responders = responders.add(GridKeyFunc.new( // TODO: it should be possible to cover for all devices and specify just one GridKeyFunc for device: \client -> client
-		{ |x, y, state, time, device|
-			gridKeyAction.value(this, x, y, state, index);
-		}
-		));
-		onGridConnected.value(this, index);
-		this.refreshGrid(index);
-	}
-*/
 
-	refreshGrid { |index|
-		this.clearLeds(index);
-		gridRefreshAction.value(this, index);
+		doWhenInitialized = {
+			if (argAutoconnect) { this.findAndConnectDevicesToClient };
+		};
+
+		if (SerialOSCClient.initialized, doWhenInitialized, {
+			SerialOSCClient.init(completionFunc: doWhenInitialized);
+		});
+
+		all = all.add(this);
+
+		func.value(this);
+	}
+
+	usesGrid {
+		^gridSpec != \none
+	}
+
+	usesEnc {
+		^encSpec != \none
+	}
+
+	findGrid {
+		^if (SerialOSCGrid.default.notNil) {
+			if (SerialOSCGrid.default.client.isNil) {
+				SerialOSCGrid.default;
+			}
+		} ?? SerialOSCGrid.all.select {|grid|grid.client.isNil}.first;
+	}
+
+	findEnc {
+		^if (SerialOSCEnc.default.notNil) {
+			if (SerialOSCEnc.default.client.isNil) {
+				SerialOSCEnc.default;
+			}
+		} ?? SerialOSCEnc.all.select {|enc|enc.client.isNil}.first;
+	}
+
+	findAndConnectDevicesToClient {
+		if (this.usesGrid and: grid.isNil) {
+			grid = this.findGrid;
+			grid.notNil.if { this.connectClientToGrid }
+		};
+
+		if (this.usesEnc and: enc.isNil) {
+			enc = this.findEnc;
+			enc.notNil.if { this.connectClientToEnc }
+		};
+	}
+
+	connectClientToGrid {
+		grid.addDependant(gridDependantFunc);
+		gridResponder = GridKeyFunc.new( // TODO: alternative is non-responder routing
+			{ |x, y, state, time, device|
+				gridKeyAction.value(this, x, y, state);
+			}
+		); // TODO: add filter for this client
+		gridResponder.permanent = true;
+		grid.client = this;
+		onGridConnected.value(this);
+		this.refreshGrid;
+	}
+
+	connectClientToEnc {
+		enc.addDependant(encDependantFunc);
+		encDeltaResponder = EncDeltaFunc.new( // TODO: alternative is non-responder routing
+			{ |n, delta, time, device|
+				encDeltaAction.value(this, n, delta);
+			}
+		); // TODO: add filter for this client
+		encDeltaResponder.permanent = true;
+		encKeyResponder = EncKeyFunc.new( // TODO: alternative is non-responder routing
+			{ |n, state, time, device|
+				encKeyAction.value(this, n, state);
+			}
+		); // TODO: add filter for this client
+		encKeyResponder.permanent = true;
+		enc.client = this;
+		onEncConnected.value(this);
+		this.refreshEnc;
+	}
+
+	refreshGrid {
+		this.clearLeds;
+		fork {
+			0.01.wait;
+			gridRefreshAction.value(this);
+		}
+	}
+
+	refreshEnc {
+		this.clearRings;
+		fork {
+			0.01.wait;
+			encRefreshAction.value(this);
+		}
+	}
+
+	disconnectGridFromClient {
+		var disconnected;
+		disconnected = grid;
+		grid !? {
+			grid.removeDependant(gridDependantFunc);
+			grid.client = nil;
+			grid.clearLeds;
+			grid = nil;
+		};
+		gridResponder.free; // TODO: alternative is non-responder routing
+		onGridDisconnected.value(this, disconnected);
+	}
+
+	disconnectEncFromClient {
+		var disconnected;
+		disconnected = enc;
+		enc !? {
+			enc.removeDependant(encDependantFunc);
+			enc.client = nil;
+			enc.clearRings;
+			enc = nil;
+		};
+		encDeltaResponder.free; // TODO: alternative is non-responder routing
+		encKeyResponder.free; // TODO: alternative is non-responder routing
+		onEncDisconnected.value(this);
 	}
 
 	free {
 		willFree.value(this);
-		// TODO: remove dependants added to devices
-		// TODO: remove responder funcs queried for this client? perhaps not needed?
-		// TODO responders do: _.free;
+		if (this.usesGrid) { this.disconnectGridFromClient };
+		if (this.usesEnc) { this.disconnectEncFromClient };
 		onFree.value(this);
 		all.remove(this);
 	}
 
-	clearLeds { |gridNo=0|
+	clearLeds {
 		grid !? { |grid| grid.clearLeds };
 	}
 
-	enableTilt { |n, gridNo=0|
+	enableTilt { |n|
 		grid !? { |grid| grid.enableTilt(n) };
 	}
 
-	disableTilt { |n, gridNo=0|
+	disableTilt { |n|
 		grid !? { |grid| grid.disableTilt(n) };
 	}
 
-	ledSet { |x, y, state, gridNo=0|
+	ledSet { |x, y, state|
 		grid !? { |grid| grid.ledSet(x, y, state) };
 	}
 
-	ledAll { |state, gridNo=0|
+	ledAll { |state|
 		grid !? { |grid| grid.ledAll(state) };
 	}
 
-	ledMap { |xOffset, yOffset, bitmasks, gridNo=0|
+	ledMap { |xOffset, yOffset, bitmasks|
 		grid !? { |grid| grid.ledMap(xOffset, yOffset, bitmasks) };
 	}
 
-	ledRow { |xOffset, y, bitmasks, gridNo=0|
+	ledRow { |xOffset, y, bitmasks|
 		grid !? { |grid| grid.ledRow(xOffset, y, bitmasks) };
 	}
 
-	ledCol { |x, yOffset, bitmasks, gridNo=0|
+	ledCol { |x, yOffset, bitmasks|
 		grid !? { |grid| grid.ledCol(x, yOffset, bitmasks) };
 	}
 
-	ledIntensity { |i, gridNo=0|
+	ledIntensity { |i|
 		grid !? { |grid| grid.ledIntensity(i) };
 	}
 
-	ledLevelSet { |x, y, l, gridNo=0|
+	ledLevelSet { |x, y, l|
 		grid !? { |grid| grid.ledLevelSet(x, y, l) };
 	}
 
-	ledLevelAll { |l, gridNo=0|
+	ledLevelAll { |l|
 		grid !? { |grid| grid.ledLevelAll(l) };
 	}
 
-	ledLevelMap { |xOffset, yOffset, levels, gridNo=0|
+	ledLevelMap { |xOffset, yOffset, levels|
 		grid !? { |grid| grid.ledLevelMap(xOffset, yOffset, levels) };
 	}
 
-	ledLevelRow { |xOffset, y, levels, gridNo=0|
+	ledLevelRow { |xOffset, y, levels|
 		grid !? { |grid| grid.ledLevelRow(xOffset, y, levels) };
 	}
 
-	ledLevelCol { |x, yOffset, levels, gridNo=0|
+	ledLevelCol { |x, yOffset, levels|
 		grid !? { |grid| grid.ledLevelCol(x, yOffset, levels) };
 	}
 
-	tiltSet { |n, state, gridNo=0|
+	tiltSet { |n, state|
 		grid !? { |grid| grid.tiltSet(n, state) };
 	}
 
-	clearRings { |encNo=0|
+	clearRings {
 		enc !? { |enc| enc.clearRings };
 	}
 
-	ringSet { |n, x, level, encNo=0|
+	ringSet { |n, x, level|
 		enc !? { |enc| enc.ringSet(n, x, level) };
 	}
 
-	ringAll { |n, level, encNo=0|
+	ringAll { |n, level|
 		enc !? { |enc| enc.ringAll(n, level) };
 	}
 
-	ringMap { |n, levels, encNo=0|
+	ringMap { |n, levels|
 		enc !? { |enc| enc.ringMap(n, levels) };
 	}
 
-	ringRange { |n, x1, x2, level, encNo=0|
+	ringRange { |n, x1, x2, level|
 		enc !? { |enc| enc.ringRange(n, x1, x2, level) };
 	}
-
-/*
-	TODO
-	deviceIsConnected { |device| ^this.gridIsConnected(device) or: this.encIsConnected(device) }
-	gridIsConnected { |grid| ^grids.indexOf(grid).notNil }
-	encIsConnected { |enc| ^encs.indexOf(enc).notNil }
-	deviceIndexOf { |device| ^(grids.indexOf(device) ? encs.indexOf(device)) }
-*/
 }
 
 SerialOSCGrid : SerialOSCDevice {
 	classvar <default, <all;
-	var <ledXSpec, <ledYSpec; // TODO: implement grid bounds
+	var <ledXSpec, <ledYSpec;
 
 	*initClass {
 		all = [];
 	}
 
-	*new { |type, id, port|
-		^super.new(type, id, port).initSerialOSCGrid;
+	*new { |type, id, port, rotation|
+		^super.new(type, id, port, rotation).initSerialOSCGrid;
+	}
+
+	deviceNumColsFromType {
+		^switch (type)
+			{ 'monome 64' } { 8 }
+			{ 'monome 128' } { 16 }
+			{ 'monome 256' } { 16 }
+	}
+
+	deviceNumRowsFromType {
+		^switch (type)
+			{ 'monome 64' } { 8 }
+			{ 'monome 128' } { 8 }
+			{ 'monome 256' } { 16 }
+	}
+
+	realNumCols {
+		^case 
+			{ [0, 180].includes(rotation) } { this.deviceNumColsFromType }
+			{ [90, 270].includes(rotation) } { this.deviceNumRowsFromType }
+	}
+
+	realNumRows {
+		^case 
+			{ [0, 180].includes(rotation) } { this.deviceNumRowsFromType }
+			{ [90, 270].includes(rotation) } { this.deviceNumColsFromType }
 	}
 
 	initSerialOSCGrid {
@@ -589,7 +719,7 @@ SerialOSCGrid : SerialOSCDevice {
 			default = nil;
 		} {
 			if (SerialOSCClient.devices.includes(grid)) {
-				// TODO: verify it's a SerialOSCGrid
+				// TODO: verify grid is a SerialOSCGrid?
 				default = grid;
 			} {
 				Error("% is not in SerialOSCClient devices list".format(grid)).throw
@@ -597,13 +727,18 @@ SerialOSCGrid : SerialOSCDevice {
 		};
 		if (default != prevDefault) {
 			this.changed(\default, default);
-			NotificationCenter.notify(this, \default, default);
 		}
 	}
 
-	prRemove {
+	remove {
+/*
+	TODO
+		if (SerialOSCGrid.default == this) {
+			SerialOSCGrid.default = nil;
+		};
+*/
 		all.remove(this);
-		this.changed(\removed);
+		super.remove;
 	}
 }
 
@@ -617,8 +752,14 @@ SerialOSCEnc : SerialOSCDevice {
 		all = [];
 	}
 
-	*new { |type, id, port|
-		^super.new(type, id, port).initSerialOSCEnc;
+	*new { |type, id, port, rotation|
+		^super.new(type, id, port, rotation).initSerialOSCEnc;
+	}
+
+	getNumEncs {
+		^switch (type)
+			{ 'monome arc 2' } { 2 }
+			{ 'monome arc 4' } { 4 }
 	}
 
 	initSerialOSCEnc {
@@ -680,16 +821,27 @@ SerialOSCEnc : SerialOSCDevice {
 		};
 		if (default != prevDefault) {
 			this.changed(\default, default);
-			NotificationCenter.notify(this, \default, default);
 		}
+	}
+
+	remove {
+/*
+	TODO
+		if (SerialOSCEnc.default == this) {
+			SerialOSCEnc.default = nil;
+		};
+*/
+		all.remove(this);
+		super.remove;
 	}
 }
 
 SerialOSCDevice {
-	var <>type, <>id, <>port;
+	var <>type, <>id, <>port, <>client;
+	var <rotation;
 
-	*new { arg type, id, port;
-		^super.newCopyArgs(type, id, port)
+	*new { arg type, id, port, rotation;
+		^super.newCopyArgs(type, id, port, rotation)
 	}
 
 	printOn { arg stream;
@@ -697,8 +849,14 @@ SerialOSCDevice {
 			[type, id, port]  <<")"
 	}
 
+	setRotation { |degrees|
+		SerialOSCComm.changeDeviceRotation("127.0.0.1", port, degrees);
+		rotation = degrees;
+		this.changed(\rotation, degrees);
+	}
+
 	prSendMsg { |address ...args|
-		NetAddr("127.0.0.1", port).sendMsg(SerialOSC.getPrefixedAddress(address), *args);
+		NetAddr("127.0.0.1", port).sendMsg(SerialOSCComm.getPrefixedAddress(address), *args);
 	}
 
 	matches { |that|
@@ -707,13 +865,13 @@ SerialOSCDevice {
 		}
 	}
 
-	client { ^SerialOSCClient.clientOf(this) }
-
-	clientIndex { ^this.client.deviceIndexOf(this) }
-
+	remove {
+		client = nil;
+		this.changed(\removed);
+	}
 }
 
-SerialOSC {
+SerialOSCComm {
 	classvar
 		trace=false,
 		deviceListSemaphore,
@@ -729,7 +887,7 @@ SerialOSC {
 
 	*traceOutput { |str|
 		trace.if {
-			("SerialOSC trace:" + str).postln;
+			("SerialOSCComm trace:" + str).postln;
 		};
 	}
 
@@ -738,7 +896,7 @@ SerialOSC {
 		deviceInfoSemaphore = Semaphore.new;
 	}
 
-	*requestListOfDevices { |serialoscHost, func, timeout=0.1, verbose=false| // TODO: implement verbosity, print devices as MIDIClient.init
+	*requestListOfDevices { |serialoscHost, func, timeout=0.1|
 		var
 			serialoscNetAddr,
 			startListeningForSerialoscResponses,
@@ -748,7 +906,7 @@ SerialOSC {
 			serialoscResponseListener
 		;
 
-		serialoscNetAddr=NetAddr(serialoscHost, SerialOSC.port);
+		serialoscNetAddr=NetAddr(serialoscHost, SerialOSCComm.port);
 
 		startListeningForSerialoscResponses = { |serialoscNetAddr, listOfDevices|
 			setupListener.(serialoscNetAddr, listOfDevices);
@@ -876,15 +1034,12 @@ SerialOSC {
 			deviceListSemaphore.wait;
 
 			deviceReceiveNetAddr=NetAddr(serialoscHost, deviceReceivePort);
-
 			deviceInfo = IdentityDictionary.new;
-
 			startListeningForSerialoscDeviceResponses.(deviceReceiveNetAddr, deviceInfo);
 
 			this.prSendDeviceSysInfoMsg(deviceReceiveNetAddr);
 
 			timeout.wait;
-
 			stopListeningForSerialoscDeviceResponses.();
 
 			deviceListSemaphore.signal;
@@ -902,11 +1057,11 @@ SerialOSC {
 		this.traceOutput( "sent: /sys/info % % to %".format(ip, port, deviceReceiveNetAddr) );
 	}
 
-
 	*changeDeviceDestinationPort { |serialoscHost, deviceReceivePort, deviceDestinationPort|
 		var deviceReceiveNetAddr;
 		deviceReceiveNetAddr = NetAddr(serialoscHost, deviceReceivePort);
 		deviceReceiveNetAddr.sendMsg("/sys/port", deviceDestinationPort.asInteger);
+		// TODO: update device info list??
 		this.traceOutput( "sent: /sys/port % to %".format(deviceDestinationPort, deviceReceiveNetAddr) );
 	}
 
@@ -914,6 +1069,7 @@ SerialOSC {
 		var deviceReceiveNetAddr;
 		deviceReceiveNetAddr = NetAddr(serialoscHost, deviceReceivePort);
 		deviceReceiveNetAddr.sendMsg("/sys/host", deviceDestinationHost.asString);
+		// TODO: update device info list??
 		this.traceOutput( "sent: /sys/host % to %".format(deviceDestinationHost.asString, deviceReceiveNetAddr) );
 	}
 
@@ -921,6 +1077,7 @@ SerialOSC {
 		var deviceReceiveNetAddr;
 		deviceReceiveNetAddr = NetAddr(serialoscHost, deviceReceivePort);
 		deviceReceiveNetAddr.sendMsg("/sys/prefix", deviceMessagePrefix.asString);
+		// TODO: update device info list??
 		this.traceOutput( "sent: /sys/prefix % to %".format(deviceMessagePrefix.asString, deviceReceiveNetAddr) );
 	}
 
@@ -933,6 +1090,7 @@ SerialOSC {
 		rotation = deviceRotation.asInteger;
 		[0, 90, 180, 270].includes(rotation).not.if { Error("Bad rotation: %".format(rotation)).throw };
 		deviceReceiveNetAddr.sendMsg("/sys/rotation", rotation);
+		// TODO: update device info list??
 		this.traceOutput( "sent: /sys/rotation % to %".format(rotation, deviceReceiveNetAddr) );
 	}
 
@@ -972,7 +1130,7 @@ SerialOSC {
 
 		isTrackingConnectedDevicesChanges.if { Error("Already tracking serialosc device changes.").throw };
 
-		serialoscNetAddr=NetAddr(serialoscHost, SerialOSC.port);
+		serialoscNetAddr=NetAddr(serialoscHost, SerialOSCComm.port);
 
 		startListeningForSerialoscResponses.(serialoscNetAddr, addedFunc, removedFunc);
 
