@@ -125,7 +125,7 @@ SerialOSCClient {
 	}
 
 	*cmdPeriod {
-		all.reject { |client| client.permanent}.copy.do(_.free);
+		all.reject { |client| client.permanent }.copy.do(_.free);
 	}
 
 	*prNotifyChangesInDevicesList { |devicesAddedToDevicesList, devicesRemovedFromDevicesList|
@@ -280,6 +280,9 @@ SerialOSCClient {
 
 				devicesToRemove = currentDevices - foundDevices;
 				devicesToAdd = foundDevices - currentDevices;
+
+				// TODO: existing devices, not removed or added, that are in connectedDevices but do not have proper routings ought to be reconnected if autoconnectDevices is true
+
 				devices.removeAll(devicesToRemove);
 				devices = devices.addAll(devicesToAdd);
 
@@ -354,6 +357,11 @@ SerialOSCClient {
 		func.value(this);
 	}
 
+	printOn { arg stream;
+		stream << this.class.name << "(" <<<*
+			[name, gridSpec, encSpec]  <<")"
+	}
+
 	usesGrid {
 		^gridSpec != \none
 	}
@@ -381,45 +389,58 @@ SerialOSCClient {
 	findAndConnectDevicesToClient {
 		if (this.usesGrid and: grid.isNil) {
 			grid = this.findGrid;
-			grid.notNil.if { this.connectClientToGrid }
+			grid.notNil.if { this.prConnectClientToGrid }
 		};
 
 		if (this.usesEnc and: enc.isNil) {
 			enc = this.findEnc;
-			enc.notNil.if { this.connectClientToEnc }
+			enc.notNil.if { this.prConnectClientToEnc }
 		};
 	}
 
-	connectClientToGrid {
+	prConnectClientToGrid {
 		grid.addDependant(gridDependantFunc);
 		gridResponder = GridKeyFunc.new( // TODO: alternative is non-responder routing
 			{ |x, y, state, time, device|
 				gridKeyAction.value(this, x, y, state);
-			}
-		); // TODO: add filter for this client
+			},
+			device: \client -> this
+		);
 		gridResponder.permanent = true;
 		grid.client = this;
 		onGridConnected.value(this);
 		this.refreshGrid;
 	}
 
-	connectClientToEnc {
+	prConnectClientToEnc {
 		enc.addDependant(encDependantFunc);
 		encDeltaResponder = EncDeltaFunc.new( // TODO: alternative is non-responder routing
 			{ |n, delta, time, device|
 				encDeltaAction.value(this, n, delta);
-			}
-		); // TODO: add filter for this client
+			},
+			device: \client -> this
+		);
 		encDeltaResponder.permanent = true;
 		encKeyResponder = EncKeyFunc.new( // TODO: alternative is non-responder routing
 			{ |n, state, time, device|
 				encKeyAction.value(this, n, state);
-			}
-		); // TODO: add filter for this client
+			},
+			device: \client -> this
+		);
 		encKeyResponder.permanent = true;
 		enc.client = this;
 		onEncConnected.value(this);
 		this.refreshEnc;
+	}
+
+	*route { |device, client|
+		// TODO: disconnect any device connected to this client, connect the new one
+		// TODO: if already routed, ignore with posted information
+		// TODO: warn if properties do not match
+	}
+
+	*suitable { |device, client|
+		// TODO: return true or false
 	}
 
 	refreshGrid {
@@ -1609,11 +1630,8 @@ SerialOSCFuncDeviceMatcher : AbstractMessageMatcher {
 		var testMsgDevice;
 		testMsgDevice = testMsg.last;
 		case
-		{ device === testMsgDevice } { // TODO: verify === works as intended
+		{ device === testMsgDevice } {
 			func.value(*testMsg)
-		}
-		{ device.respondsTo(\matchItem) } {
-			if (device.matchItem(testMsgDevice)) { func.value(*testMsg) }
 		}
 		{ device.respondsTo(\key) and: device.respondsTo(\value) } {
 			if (
@@ -1623,7 +1641,7 @@ SerialOSCFuncDeviceMatcher : AbstractMessageMatcher {
 				((device.key == \client) and: (device.value == testMsgDevice.client))
 			) { func.value(*testMsg) };
 		}
-		{ device == 'default' } {
+		{ device == 'default' } { // TODO: test default
 			if (
 				( (SerialOSCGrid == testMsgDevice.class) and: (SerialOSCGrid.default == testMsgDevice) )
 				or:
@@ -1631,6 +1649,9 @@ SerialOSCFuncDeviceMatcher : AbstractMessageMatcher {
 			) {
 				func.value(*testMsg)
 			}
+		}
+		{ device.respondsTo(\matchItem) } {
+			if (device.matchItem(testMsgDevice)) { func.value(*testMsg) }
 		}
 	}
 }
