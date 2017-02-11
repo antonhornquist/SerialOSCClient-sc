@@ -1,4 +1,3 @@
-// TODO: MIDIFunc.learn
 SerialOSCClient {
 	classvar
 		<all,
@@ -20,7 +19,8 @@ SerialOSCClient {
 	var encDeltaResponder, encKeyResponder, encDependantFunc;
 	var <>willFree;
 	var <>permanent;
-	var <>onFree; // TODO: naming? compare with Window
+	var <>onFree; // TODO: to docs -> The action object to be evaluated when the client is freed.
+
 	var <>onGridConnected, <>onGridDisconnected, <>gridRefreshAction;
 	var <>onEncConnected, <>onEncDisconnected, <>encRefreshAction;
 	var <>gridKeyAction, <>encDeltaAction, <>encKeyAction, <>tiltAction;
@@ -35,7 +35,7 @@ SerialOSCClient {
 			if (addr.ip == "127.0.0.1") {
 				this.prLookupDeviceByPort(addr.port) !? { |device|
 					if (connectedDevices.includes(device)) {
-						// TODO: use /monome instead of /sclang ?
+						// TODO: use /monome instead of /sclang ? see llllll.co thread on best practices
 						if (#['/sclang/grid/key', '/sclang/tilt', '/sclang/enc/delta', '/sclang/enc/key'].includes(msg[0])) { // note: no pattern matching is performed on OSC address
 							var type = msg[0].asString[7..].asSymbol;
 							recvSerialOSCFunc.value(type, msg[1..], time, device);
@@ -130,27 +130,44 @@ SerialOSCClient {
 		devicesRemovedFromDevicesList do: { |device| this.changed(\removed, device) };
 	}
 
-	*prUpdateDefaultDevices { |devicesAddedToDevicesList, devicesRemovedFromDevicesList|
-		// TODO: important, only connected devices should be able to set as default, right? cover for the case when autoconnect is not used...
-		var addedGrids, addedEncs;
+	// TODO: test with multiple grids
+	*prUpdateDefaultDevices { |devicesAddedToDevicesList, devicesRemovedFromDevicesList| // TODO: removed is not used, can be removed
+		this.prUpdateDefaultGrid(devicesAddedToDevicesList, devicesRemovedFromDevicesList);
+		this.prUpdateDefaultEnc(devicesAddedToDevicesList, devicesRemovedFromDevicesList);
+	}
 
-		addedGrids = devicesAddedToDevicesList.reject(this.prDeviceIsEncByType(_));
-		if (devices.includes(SerialOSCGrid.default).not) { // TODO: instead or also check if devicesRemovedFromDevicesList includes SerialOSCGrid.default?
-			SerialOSCGrid.default = if (addedGrids.notEmpty) {
-				addedGrids.first
-			} {
-				nil // TODO: fall back on existing grids - if any (the scenario when one device is being detached) - but NOT any connected to and client - and set one as default?
-			};
-		};
+	*prUpdateDefaultGrid { |devicesAddedToDevicesList, devicesRemovedFromDevicesList|
+		var addedAndConnectedGrids, connectedGridsNotRoutedToAClient;
 
-		addedEncs = devicesAddedToDevicesList.select(this.prDeviceIsEncByType(_));
-		if (devices.includes(SerialOSCEnc.default).not) { // TODO: instead or also check if devicesRemovedFromDevicesList includes SerialOSCEnc.default?
-			SerialOSCEnc.default = if (addedEncs.notEmpty) {
-				addedEncs.first
-			} {
-				nil // TODO: fall back on existing encs - if any (the scenario when one device is being detached) - but NOT any connected to and client - and set one as default?
-			};
-		};
+		addedAndConnectedGrids = devicesAddedToDevicesList.reject(this.prDeviceIsEncByType(_)).select(_.isConnected);
+		connectedGridsNotRoutedToAClient = connectedDevices.reject(this.prDeviceIsEncByType(_)).reject { |device| device.client.notNil };
+
+		case
+			{ SerialOSCGrid.default.isNil and: addedAndConnectedGrids.notEmpty } {
+				SerialOSCGrid.default = addedAndConnectedGrids.first
+			}
+			{ devices.includes(SerialOSCGrid.default).not } {
+				SerialOSCGrid.default = case
+					{ addedAndConnectedGrids.notEmpty } { addedAndConnectedGrids.first }
+					{ connectedGridsNotRoutedToAClient.notEmpty } { connectedGridsNotRoutedToAClient.first }
+			}
+	}
+
+	*prUpdateDefaultEnc { |devicesAddedToDevicesList, devicesRemovedFromDevicesList|
+		var addedAndConnectedEncs, connectedEncsNotRoutedToAClient;
+
+		addedAndConnectedEncs = devicesAddedToDevicesList.select(this.prDeviceIsEncByType(_)).select(_.isConnected);
+		connectedEncsNotRoutedToAClient = connectedDevices.select(this.prDeviceIsEncByType(_)).reject { |device| device.client.notNil };
+
+		case
+			{ SerialOSCEnc.default.isNil and: addedAndConnectedEncs.notEmpty } {
+				SerialOSCEnc.default = addedAndConnectedEncs.first
+			}
+			{ devices.includes(SerialOSCEnc.default).not } {
+				SerialOSCEnc.default = case
+					{ addedAndConnectedEncs.notEmpty } { addedAndConnectedEncs.first }
+					{ connectedEncsNotRoutedToAClient.notEmpty } { connectedEncsNotRoutedToAClient.first }
+			}
 	}
 
 	*connectAll {
@@ -274,15 +291,13 @@ SerialOSCClient {
 						if (this.prListEntryIsEncByType(entry)) {
 							SerialOSCEnc(entry[\type], entry[\id], entry[\receivePort]);
 						} {
-							SerialOSCGrid(entry[\type], entry[\id], entry[\receivePort]);
+							SerialOSCGrid(entry[\type], entry[\id], entry[\receivePort], 0);
 						};
 					};
 				}.as(IdentitySet);
 
 				devicesToRemove = currentDevices - foundDevices;
 				devicesToAdd = foundDevices - currentDevices;
-
-				// TODO: existing devices, not removed or added, that are in connectedDevices but do not have proper routings ought to be reconnected if autoconnectDevices is true
 
 				devices.removeAll(devicesToRemove);
 				devices = devices.addAll(devicesToAdd);
@@ -304,19 +319,19 @@ SerialOSCClient {
 		initialized.not.if { Error("SerialOSCClient has not been initialized").throw };
 	}
 
-	*grid { |name, func, autoconnect=true|
-		^this.new(name, \any, \none, func, autoconnect);
+	*grid { |name, func, spec=\any, autoconnect=true|
+		^this.new(name, spec, \none, func, autoconnect);
 	}
 
-	*enc { |name, func, autoconnect=true|
-		^this.new(name, \none, \any, func, autoconnect);
+	*enc { |name, func, spec, autoconnect=true|
+		^this.new(name, \none, spec, func, autoconnect);
 	}
 
-	*gridEnc { |name, func, autoconnect=true|
-		^this.new(name, \any, \any, func, autoconnect);
+	*gridEnc { |name, func, gridSpec, encSpec, autoconnect=true|
+		^this.new(name, gridSpec, encSpec, func, autoconnect);
 	}
 
-	*new { |name, gridSpec=\none, encSpec=\none, func, autoconnect=true|
+	*new { |name, gridSpec=\any, encSpec=\any, func, autoconnect=true|
 		^super.new.initSerialOSCClient(name, gridSpec, encSpec, func, autoconnect)
 	}
 
@@ -372,6 +387,7 @@ SerialOSCClient {
 	}
 
 	findGrid {
+		// TODO: check spec against bounds
 		^if (SerialOSCGrid.default.notNil) {
 			if (SerialOSCGrid.default.client.isNil) {
 				SerialOSCGrid.default;
@@ -380,6 +396,7 @@ SerialOSCClient {
 	}
 
 	findEnc {
+		// TODO: check spec against num encs
 		^if (SerialOSCEnc.default.notNil) {
 			if (SerialOSCEnc.default.client.isNil) {
 				SerialOSCEnc.default;
@@ -420,6 +437,7 @@ SerialOSCClient {
 		beVerbose.if {
 			Post << grid << Char.space << "was routed to client" << this << Char.nl;
 		};
+		this.warnIfGridDoNotMatchSpec; // TODO: move to explicit *route function after bounds matching is included
 		this.refreshGrid;
 	}
 
@@ -444,6 +462,7 @@ SerialOSCClient {
 		beVerbose.if {
 			Post << enc << Char.space << "was routed to client" << this << Char.nl;
 		};
+		this.warnIfEncDoNotMatchSpec; // TODO: move to explicit *route function after bounds matching is included
 		this.refreshEnc;
 	}
 
@@ -453,7 +472,6 @@ SerialOSCClient {
 				if (client.grid.notNil) { this.disconnectGridFromClient };
 				client.grid = device;
 				client.prConnectClientToGrid;
-				client.warnIfGridDoNotMatchSpec;
 			} {
 				"Client % does not use a grid".format(client).postln;
 			};
@@ -464,7 +482,6 @@ SerialOSCClient {
 				if (client.enc.notNil) { client.disconnectEncFromClient };
 				client.enc = device;
 				client.prConnectClientToEnc;
-				client.warnIfEncDoNotMatchSpec;
 			} {
 				"Client % does not use an enc".format(client).postln;
 			};
@@ -473,44 +490,48 @@ SerialOSCClient {
 
 	warnIfGridDoNotMatchSpec {
 		this.gridMatchSpec(grid).not.if {
-			"Grid % does not match client % spec: %".format(grid, this, gridSpec).postln
+			"Note: Grid % does not match client % spec: %".format(grid, this, gridSpec).postln
 		}
 	}
 
 	warnIfEncDoNotMatchSpec {
 		this.encMatchSpec(enc).not.if {
-			"Enc % does not match client % spec: %".format(grid, this, encSpec).postln
+			"Note: Enc % does not match client % spec: %".format(grid, this, encSpec).postln
 		}
 	}
 
 	gridMatchSpec { |argGrid|
-		^if (gridSpec == \any) {
-			true
-		} {
-			// TODO
-		}
+		var numCols, numRows;
+		numCols = argGrid.realNumCols;
+		numRows = argGrid.realNumRows;
+		^case
+			{gridSpec == \any} { true }
+			{gridSpec.respondsTo(\key) and: gridSpec.respondsTo(\value)} {
+				((gridSpec.key == \numCols) and: (gridSpec.value == numCols))
+				or:
+				((gridSpec.key == \numRows) and: (gridSpec.value == numRows))
+			}
+			{gridSpec.respondsTo(\keys)} {
+				(gridSpec[\numCols] == numCols) and: (gridSpec[\numRows] == numRows)
+			}
 	}
 
 	encMatchSpec { |argEnc|
-		^if (encSpec == \any) {
-			true
-		} {
-			// TODO
-		}
+		^(encSpec == \any) or: (encSpec == argEnc.getNumEncs)
 	}
 
-	refreshGrid {
+	refreshGrid { // TODO: rename refreshGridAsync??
 		this.clearLeds;
 		fork {
-			0.01.wait;
+			0.01.wait; // TODO: wise??
 			gridRefreshAction.value(this);
 		}
 	}
 
-	refreshEnc {
+	refreshEnc { // TODO: rename refreshEncAsync??
 		this.clearRings;
 		fork {
-			0.01.wait;
+			0.01.wait; // TODO: wise??
 			encRefreshAction.value(this);
 		}
 	}
@@ -641,7 +662,7 @@ SerialOSCGrid : SerialOSCDevice {
 	}
 
 	*new { |type, id, port, rotation|
-		^super.new(type, id, port, rotation).initSerialOSCGrid;
+		^super.new(type, id, port).initSerialOSCGrid(rotation);
 	}
 
 	deviceNumColsFromType {
@@ -658,19 +679,20 @@ SerialOSCGrid : SerialOSCDevice {
 			{ 'monome 256' } { 16 }
 	}
 
-	realNumCols {
+	realNumCols { // TODO: naming??
 		^case 
 			{ [0, 180].includes(rotation) } { this.deviceNumColsFromType }
 			{ [90, 270].includes(rotation) } { this.deviceNumRowsFromType }
 	}
 
-	realNumRows {
+	realNumRows { // TODO: naming??
 		^case 
 			{ [0, 180].includes(rotation) } { this.deviceNumRowsFromType }
 			{ [90, 270].includes(rotation) } { this.deviceNumColsFromType }
 	}
 
-	initSerialOSCGrid {
+	initSerialOSCGrid { |argRotation|
+		rotation = argRotation;
 		all = all.add(this);
 	}
 
@@ -946,6 +968,10 @@ SerialOSCDevice {
 		client = nil;
 		this.changed(\removed);
 	}
+
+	isConnected {
+		^SerialOSCClient.connectedDevices.includes(this);
+	}
 }
 
 SerialOSCComm {
@@ -1053,7 +1079,7 @@ SerialOSCComm {
 		this.traceOutput( "sent: /serialosc/list % % to %".format(ip, port, serialoscNetAddr) );
 	}
 
-	// TODO: start to use this and populate SerialOSCGrid and SerialOSCEnc instances with more detailed information
+	// TODO: start to use this and populate SerialOSCGrid and SerialOSCEnc instances with more detailed information?
 	*requestInformationAboutDevice { |serialoscHost, deviceReceivePort, func, timeout=0.1|
 		var
 			deviceReceiveNetAddr,
@@ -1317,6 +1343,37 @@ GridKeyFunc : AbstractResponderFunc {
 	}
 
 	type { ^'/grid/key' }
+
+/*
+	TODO: To docs
+
+Train this MIDIFunc to respond to the next message of its type. Arguments passed at creation (e.g. chan, srcID, msgNum, etc.) will filter the training to the next matching message received.
+Arguments:
+learnVal	
+A Boolean indicating whether the responder should learn the specific value. For example, if used with a control change MIDIFunc, the object would learn to match the next specific control change value. If used with a note on MIDIFunc, it would match only a specific velocity. The default is false.
+*/
+
+	// swap out func and wait
+	learn {|learnState = false|
+		// check for cc or noteon?
+		var learnFunc;
+		/*this.remove(func);*/
+		learnFunc = this.learnFunc(learnState);
+		this.disable;
+		this.init(learnFunc); // keep old args if specified, so we can learn from particular channels, srcs, etc.
+	}
+
+	learnFunc {|learnState|
+		var oldFunc, learnFunc;
+		oldFunc = func; // old funk is ultimately better than new funk
+		^{|x, y, state, timestamp, device|
+			"GridKeyFunc learned: x: %\ty: %\tstate: %\tdevice: %\t\n".postf(x, y, state, device);
+			this.disable;
+			this.remove(learnFunc);
+			oldFunc.value(x, y, state, device);// do first action
+			this.init(oldFunc, x, y, if(learnState, state, nil), device);
+		}
+	}
 
 	printOn { arg stream; stream << this.class.name << "(" <<* [x, y, state, srcID] << ")" }
 }
