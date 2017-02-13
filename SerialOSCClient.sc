@@ -35,8 +35,7 @@ SerialOSCClient {
 			if (addr.ip == "127.0.0.1") {
 				this.prLookupDeviceByPort(addr.port) !? { |device|
 					if (connectedDevices.includes(device)) {
-						// TODO: use /monome instead of /sclang ? see llllll.co thread on best practices
-						if (#['/sclang/grid/key', '/sclang/tilt', '/sclang/enc/delta', '/sclang/enc/key'].includes(msg[0])) { // note: no pattern matching is performed on OSC address
+						if (#['/monome/grid/key', '/monome/tilt', '/monome/enc/delta', '/monome/enc/key'].includes(msg[0])) { // note: no pattern matching is performed on OSC address
 							var type = msg[0].asString[7..].asSymbol;
 							recvSerialOSCFunc.value(type, msg[1..], time, device);
 						};
@@ -130,8 +129,7 @@ SerialOSCClient {
 		devicesRemovedFromDevicesList do: { |device| this.changed(\removed, device) };
 	}
 
-	// TODO: test with multiple grids
-	*prUpdateDefaultDevices { |devicesAddedToDevicesList, devicesRemovedFromDevicesList| // TODO: removed is not used, can be removed
+	*prUpdateDefaultDevices { |devicesAddedToDevicesList, devicesRemovedFromDevicesList|
 		this.prUpdateDefaultGrid(devicesAddedToDevicesList, devicesRemovedFromDevicesList);
 		this.prUpdateDefaultEnc(devicesAddedToDevicesList, devicesRemovedFromDevicesList);
 	}
@@ -194,13 +192,17 @@ SerialOSCClient {
 
 			this.changed(\connected, device);
 
-			SerialOSCClient.all.do { |client|
-				if (client.autoconnect) { client.findAndConnectDevicesToClient };
-			};
+			this.prAutorouteDeviceToClients;
 
 			beVerbose.if {
 				Post << device << Char.space << "was connected" << Char.nl;
 			};
+		};
+	}
+
+	*prAutorouteDeviceToClients {
+		SerialOSCClient.all.do { |client|
+			if (client.autoconnect) { client.findAndRouteUnusedDevicesToClient };
 		};
 	}
 
@@ -302,7 +304,7 @@ SerialOSCClient {
 				devices.removeAll(devicesToRemove);
 				devices = devices.addAll(devicesToAdd);
 
-				completionFunc.(devicesToAdd.as(Array), devicesToRemove.as(Array)); // TODO: why isn't the devices list an IdentitySet? That would perhaps better? Would remove a lot of casts such as these ones.
+				completionFunc.(devicesToAdd.as(Array), devicesToRemove.as(Array));
 			}
 		);
 	}
@@ -347,7 +349,7 @@ SerialOSCClient {
 
 		gridDependantFunc = { |thechanged, what|
 			if (what == \disconnected) {
-				this.disconnectGridFromClient;
+				this.unrouteGridFromClient;
 			};
 			if (what == \rotation) {
 				this.warnIfGridDoNotMatchSpec;
@@ -356,13 +358,15 @@ SerialOSCClient {
 
 		encDependantFunc = { |thechanged, what|
 			if (what == \disconnected) {
-				this.disconnectEncFromClient;
+				this.unrouteEncFromClient;
 			};
 		};
 
 		doWhenInitialized = {
-			if (argAutoconnect) { this.findAndConnectDevicesToClient };
+			if (argAutoconnect) { this.findAndRouteUnusedDevicesToClient };
 		};
+
+		func.value(this);
 
 		if (SerialOSCClient.initialized, doWhenInitialized, {
 			SerialOSCClient.init(completionFunc: doWhenInitialized);
@@ -370,7 +374,6 @@ SerialOSCClient {
 
 		all = all.add(this);
 
-		func.value(this);
 	}
 
 	printOn { arg stream;
@@ -386,37 +389,91 @@ SerialOSCClient {
 		^encSpec != \none
 	}
 
-	findGrid {
-		// TODO: check spec against bounds
-		^if (SerialOSCGrid.default.notNil) {
-			if (SerialOSCGrid.default.client.isNil) {
-				SerialOSCGrid.default;
-			}
-		} ?? SerialOSCGrid.all.select {|grid|grid.client.isNil}.first;
+	*findGrid { |gridSpec|
+		^this.defaultGridIfFreeAndMatching(gridSpec) ?
+			this.firstFreeGridMatching(gridSpec) ?
+			this.defaultGridIfFree ?
+			this.freeGrids.first;
 	}
 
-	findEnc {
-		// TODO: check spec against num encs
-		^if (SerialOSCEnc.default.notNil) {
-			if (SerialOSCEnc.default.client.isNil) {
-				SerialOSCEnc.default;
+	*defaultGridIfFreeAndMatching { |gridSpec|
+		var freeDefaultGrid = this.defaultGridIfFree;
+		^if (freeDefaultGrid.notNil) {
+			if (this.gridMatchSpec(freeDefaultGrid, gridSpec)) {
+				freeDefaultGrid;
 			}
-		} ?? SerialOSCEnc.all.select {|enc|enc.client.isNil}.first;
+		};
 	}
 
-	findAndConnectDevicesToClient {
+	*defaultGridIfFree {
+		var defaultGrid = SerialOSCGrid.default;
+		^if (defaultGrid.notNil) {
+			if (defaultGrid.client.isNil) {
+				defaultGrid;
+			}
+		};
+	}
+
+	*firstFreeGridMatching { |gridSpec|
+		^this.freeGrids.select {|grid|this.gridMatchSpec(grid, gridSpec)}.first;
+	}
+
+	*freeGrids {
+		^SerialOSCGrid.all.select {|grid|grid.client.isNil}
+	}
+
+	*findEnc { |encSpec|
+		^this.defaultEncIfFreeAndMatching(encSpec) ?
+			this.firstFreeEncMatching(encSpec) ?
+			this.defaultEncIfFree ?
+			this.freeEncs.first;
+	}
+
+	*defaultEncIfFreeAndMatching { |encSpec|
+		var freeDefaultEnc = this.defaultEncIfFree;
+		^if (freeDefaultEnc.notNil) {
+			if (this.encMatchSpec(freeDefaultEnc, encSpec)) {
+				freeDefaultEnc;
+			}
+		};
+	}
+
+	*defaultEncIfFree {
+		var defaultEnc = SerialOSCEnc.default;
+		^if (defaultEnc.notNil) {
+			if (defaultEnc.client.isNil) {
+				defaultEnc;
+			}
+		};
+	}
+
+	*firstFreeEncMatching { |encSpec|
+		^this.freeEncs.select {|enc|this.encMatchSpec(enc, encSpec)}.first;
+	}
+
+	*freeEncs {
+		^SerialOSCEnc.all.select {|enc|enc.client.isNil}
+	}
+
+	findAndRouteUnusedDevicesToClient {
+		this.findAndRouteAnyUnusedGridToClient;
+		this.findAndRouteAnyUnusedEncToClient;
+	}
+
+	findAndRouteAnyUnusedGridToClient {
 		if (this.usesGrid and: grid.isNil) {
-			grid = this.findGrid;
-			grid.notNil.if { this.prConnectClientToGrid }
-		};
-
-		if (this.usesEnc and: enc.isNil) {
-			enc = this.findEnc;
-			enc.notNil.if { this.prConnectClientToEnc }
+			SerialOSCClient.findGrid(gridSpec) !? { |foundGrid| this.prRouteGridToClient(foundGrid) }
 		};
 	}
 
-	prConnectClientToGrid {
+	findAndRouteAnyUnusedEncToClient {
+		if (this.usesEnc and: enc.isNil) {
+			SerialOSCClient.findEnc(encSpec) !? { |foundEnc| this.prRouteEncToClient(foundEnc) }
+		};
+	}
+
+	prRouteGridToClient { |argGrid|
+		grid = argGrid;
 		grid.addDependant(gridDependantFunc);
 		gridResponder = GridKeyFunc.new(
 			{ |x, y, state, time, device|
@@ -437,11 +494,12 @@ SerialOSCClient {
 		beVerbose.if {
 			Post << grid << Char.space << "was routed to client" << this << Char.nl;
 		};
-		this.warnIfGridDoNotMatchSpec; // TODO: move to explicit *route function after bounds matching is included
+		this.warnIfGridDoNotMatchSpec;
 		this.refreshGrid;
 	}
 
-	prConnectClientToEnc {
+	prRouteEncToClient { |argEnc|
+		enc = argEnc;
 		enc.addDependant(encDependantFunc);
 		encDeltaResponder = EncDeltaFunc.new(
 			{ |n, delta, time, device|
@@ -462,16 +520,15 @@ SerialOSCClient {
 		beVerbose.if {
 			Post << enc << Char.space << "was routed to client" << this << Char.nl;
 		};
-		this.warnIfEncDoNotMatchSpec; // TODO: move to explicit *route function after bounds matching is included
+		this.warnIfEncDoNotMatchSpec;
 		this.refreshEnc;
 	}
 
 	*route { |device, client|
 		if (device.respondsTo(\ledSet)) {
 			if (client.usesGrid) {
-				if (client.grid.notNil) { this.disconnectGridFromClient };
-				client.grid = device;
-				client.prConnectClientToGrid;
+				if (client.grid.notNil) { client.unrouteGridFromClient };
+				client.prRouteGridToClient(device);
 			} {
 				"Client % does not use a grid".format(client).postln;
 			};
@@ -479,9 +536,8 @@ SerialOSCClient {
 
 		if (device.respondsTo(\ringSet)) {
 			if (client.usesEnc) {
-				if (client.enc.notNil) { client.disconnectEncFromClient };
-				client.enc = device;
-				client.prConnectClientToEnc;
+				if (client.enc.notNil) { client.unrouteEncFromClient };
+				client.prRouteEncToClient(device);
 			} {
 				"Client % does not use an enc".format(client).postln;
 			};
@@ -489,21 +545,21 @@ SerialOSCClient {
 	}
 
 	warnIfGridDoNotMatchSpec {
-		this.gridMatchSpec(grid).not.if {
+		SerialOSCClient.gridMatchSpec(grid, gridSpec).not.if {
 			"Note: Grid % does not match client % spec: %".format(grid, this, gridSpec).postln
 		}
 	}
 
 	warnIfEncDoNotMatchSpec {
-		this.encMatchSpec(enc).not.if {
-			"Note: Enc % does not match client % spec: %".format(grid, this, encSpec).postln
+		SerialOSCClient.encMatchSpec(enc, encSpec).not.if {
+			"Note: Enc % does not match client % spec: %".format(enc, this, encSpec).postln
 		}
 	}
 
-	gridMatchSpec { |argGrid|
+	*gridMatchSpec { |grid, gridSpec|
 		var numCols, numRows;
-		numCols = argGrid.realNumCols;
-		numRows = argGrid.realNumRows;
+		numCols = grid.getEffectiveNumCols;
+		numRows = grid.getEffectiveNumRows;
 		^case
 			{gridSpec == \any} { true }
 			{gridSpec.respondsTo(\key) and: gridSpec.respondsTo(\value)} {
@@ -516,29 +572,23 @@ SerialOSCClient {
 			}
 	}
 
-	encMatchSpec { |argEnc|
-		^(encSpec == \any) or: (encSpec == argEnc.getNumEncs)
+	*encMatchSpec { |enc, encSpec|
+		^(encSpec == \any) or: (encSpec == enc.getNumEncs)
 	}
 
-	refreshGrid { // TODO: rename refreshGridAsync??
+	refreshGrid {
 		this.clearLeds;
-		fork {
-			0.01.wait; // TODO: wise??
-			gridRefreshAction.value(this);
-		}
+		gridRefreshAction.value(this);
 	}
 
-	refreshEnc { // TODO: rename refreshEncAsync??
+	refreshEnc {
 		this.clearRings;
-		fork {
-			0.01.wait; // TODO: wise??
-			encRefreshAction.value(this);
-		}
+		encRefreshAction.value(this);
 	}
 
-	disconnectGridFromClient {
-		var disconnected;
-		disconnected = grid;
+	unrouteGridFromClient {
+		var gridToUnroute;
+		gridToUnroute = grid;
 		grid !? {
 			grid.removeDependant(gridDependantFunc);
 			grid.client = nil;
@@ -547,12 +597,12 @@ SerialOSCClient {
 		};
 		gridResponder.free;
 		tiltResponder.free;
-		onGridDisconnected.value(this, disconnected);
+		onGridDisconnected.value(this, gridToUnroute);
 	}
 
-	disconnectEncFromClient {
-		var disconnected;
-		disconnected = enc;
+	unrouteEncFromClient {
+		var encToUnroute;
+		encToUnroute = enc;
 		enc !? {
 			enc.removeDependant(encDependantFunc);
 			enc.client = nil;
@@ -561,13 +611,13 @@ SerialOSCClient {
 		};
 		encDeltaResponder.free;
 		encKeyResponder.free;
-		onEncDisconnected.value(this);
+		onEncDisconnected.value(this, encToUnroute);
 	}
 
 	free {
 		willFree.value(this);
-		if (this.usesGrid) { this.disconnectGridFromClient };
-		if (this.usesEnc) { this.disconnectEncFromClient };
+		if (this.usesGrid) { this.unrouteGridFromClient };
+		if (this.usesEnc) { this.unrouteEncFromClient };
 		onFree.value(this);
 		all.remove(this);
 	}
@@ -655,40 +705,21 @@ SerialOSCClient {
 
 SerialOSCGrid : SerialOSCDevice {
 	classvar <default, <all;
-	var <ledXSpec, <ledYSpec;
 
 	*initClass {
 		all = [];
 	}
 
+	ledXSpec {
+		^ControlSpec(0, this.getEffectiveNumCols, step: 1);
+	}
+
+	ledYSpec {
+		^ControlSpec(0, this.getEffectiveNumRows, step: 1);
+	}
+
 	*new { |type, id, port, rotation|
 		^super.new(type, id, port).initSerialOSCGrid(rotation);
-	}
-
-	deviceNumColsFromType {
-		^switch (type)
-			{ 'monome 64' } { 8 }
-			{ 'monome 128' } { 16 }
-			{ 'monome 256' } { 16 }
-	}
-
-	deviceNumRowsFromType {
-		^switch (type)
-			{ 'monome 64' } { 8 }
-			{ 'monome 128' } { 8 }
-			{ 'monome 256' } { 16 }
-	}
-
-	realNumCols { // TODO: naming??
-		^case 
-			{ [0, 180].includes(rotation) } { this.deviceNumColsFromType }
-			{ [90, 270].includes(rotation) } { this.deviceNumRowsFromType }
-	}
-
-	realNumRows { // TODO: naming??
-		^case 
-			{ [0, 180].includes(rotation) } { this.deviceNumRowsFromType }
-			{ [90, 270].includes(rotation) } { this.deviceNumColsFromType }
 	}
 
 	initSerialOSCGrid { |argRotation|
@@ -754,6 +785,34 @@ SerialOSCGrid : SerialOSCDevice {
 
 	*tiltSet { |n, state|
 		default !? { |grid| grid.tiltSet(n, state) };
+	}
+
+	deviceNumColsFromType {
+		^switch (type)
+			{ 'monome 64' } { 8 }
+			{ 'monome 40h' } { 8 }
+			{ 'monome 128' } { 16 }
+			{ 'monome 256' } { 16 }
+	}
+
+	deviceNumRowsFromType {
+		^switch (type)
+			{ 'monome 64' } { 8 }
+			{ 'monome 40h' } { 8 }
+			{ 'monome 128' } { 8 }
+			{ 'monome 256' } { 16 }
+	}
+
+	getEffectiveNumCols {
+		^case 
+			{ [0, 180].includes(rotation) } { this.deviceNumColsFromType }
+			{ [90, 270].includes(rotation) } { this.deviceNumRowsFromType }
+	}
+
+	getEffectiveNumRows {
+		^case 
+			{ [0, 180].includes(rotation) } { this.deviceNumRowsFromType }
+			{ [90, 270].includes(rotation) } { this.deviceNumColsFromType }
 	}
 
 	clearLeds {
@@ -849,8 +908,8 @@ SerialOSCEnc : SerialOSCDevice {
 		all = [];
 	}
 
-	*new { |type, id, port, rotation|
-		^super.new(type, id, port, rotation).initSerialOSCEnc;
+	*new { |type, id, port|
+		^super.new(type, id, port).initSerialOSCEnc;
 	}
 
 	getNumEncs {
@@ -982,7 +1041,7 @@ SerialOSCComm {
 		<isTrackingConnectedDevicesChanges=false,
 		serialoscAddResponseListener,
 		serialoscRemoveResponseListener,
-		<prefix='/sclang', // TODO: change here too?
+		<prefix='/monome',
 		<serialoscPort = 12002
 	;
 
@@ -1079,7 +1138,6 @@ SerialOSCComm {
 		this.traceOutput( "sent: /serialosc/list % % to %".format(ip, port, serialoscNetAddr) );
 	}
 
-	// TODO: start to use this and populate SerialOSCGrid and SerialOSCEnc instances with more detailed information?
 	*requestInformationAboutDevice { |serialoscHost, deviceReceivePort, func, timeout=0.1|
 		var
 			deviceReceiveNetAddr,
@@ -1164,7 +1222,6 @@ SerialOSCComm {
 		var deviceReceiveNetAddr;
 		deviceReceiveNetAddr = NetAddr(serialoscHost, deviceReceivePort);
 		deviceReceiveNetAddr.sendMsg("/sys/port", deviceDestinationPort.asInteger);
-		// TODO: update device info list??
 		this.traceOutput( "sent: /sys/port % to %".format(deviceDestinationPort, deviceReceiveNetAddr) );
 	}
 
@@ -1172,7 +1229,6 @@ SerialOSCComm {
 		var deviceReceiveNetAddr;
 		deviceReceiveNetAddr = NetAddr(serialoscHost, deviceReceivePort);
 		deviceReceiveNetAddr.sendMsg("/sys/host", deviceDestinationHost.asString);
-		// TODO: update device info list??
 		this.traceOutput( "sent: /sys/host % to %".format(deviceDestinationHost.asString, deviceReceiveNetAddr) );
 	}
 
@@ -1180,7 +1236,6 @@ SerialOSCComm {
 		var deviceReceiveNetAddr;
 		deviceReceiveNetAddr = NetAddr(serialoscHost, deviceReceivePort);
 		deviceReceiveNetAddr.sendMsg("/sys/prefix", deviceMessagePrefix.asString);
-		// TODO: update device info list??
 		this.traceOutput( "sent: /sys/prefix % to %".format(deviceMessagePrefix.asString, deviceReceiveNetAddr) );
 	}
 
@@ -1193,7 +1248,6 @@ SerialOSCComm {
 		rotation = deviceRotation.asInteger;
 		[0, 90, 180, 270].includes(rotation).not.if { Error("Bad rotation: %".format(rotation)).throw };
 		deviceReceiveNetAddr.sendMsg("/sys/rotation", rotation);
-		// TODO: update device info list??
 		this.traceOutput( "sent: /sys/rotation % to %".format(rotation, deviceReceiveNetAddr) );
 	}
 
@@ -1508,6 +1562,28 @@ EncDeltaFunc : AbstractResponderFunc {
 	}
 
 	type { ^'/enc/delta' }
+
+	// swap out func and wait
+	learn {
+		// check for cc or noteon?
+		var learnFunc;
+		/*this.remove(func);*/
+		learnFunc = this.learnFunc;
+		this.disable;
+		this.init(learnFunc); // keep old args if specified, so we can learn from particular channels, srcs, etc.
+	}
+
+	learnFunc {
+		var oldFunc, learnFunc;
+		oldFunc = func; // old funk is ultimately better than new funk
+		^{|n, delta, timestamp, device|
+			"GridKeyFunc learned: n: %\tdelta: %\tdevice: %\t\n".postf(n, delta, device);
+			this.disable;
+			this.remove(learnFunc);
+			oldFunc.value(n, delta, device);// do first action
+			this.init(oldFunc, n, nil, device);
+		}
+	}
 
 	printOn { arg stream; stream << this.class.name << "(" <<* [n, delta, srcID] << ")" }
 }
