@@ -1,0 +1,145 @@
+TITLE:: SerialOSCComm
+summary:: Raw communication via SerialOSC protocol
+categories:: External Control
+related:: Classes/SerialOSCClient
+
+DESCRIPTION::
+Class for discovery and connecting to serialosc devices, retrieving device information and setting device settings using SerialOSC protocol described in link::http://monome.org/docs/osc/::.
+
+This class is utilized by link::Classes/SerialOSCClient:: but may also be used directly.
+
+
+CLASSMETHODS::
+
+SUBSECTION::Discovering and connecting to serialosc devices
+
+METHOD:: requestListOfDevices
+Sends "/serialosc/list" to serialosc server, listens to "/serialosc/device" responses during timeout milliseconds and finally executes func with the list of devices retrieved from serialosc. This call is asynchronous.
+
+ARGUMENT:: func
+Function to be evaluated after timeout milliseconds. The function is passed a link::Classes/List:: of information of each connected device.
+
+ARGUMENT:: timeout
+Milliseconds to wait for "/serialosc/device" messages before evaluating func.
+
+ARGUMENT:: serialOSCHost
+Serialosc host. If omitted, defaultSerialOSCHost is used.
+
+ARGUMENT:: serialOSCPort
+Serialosc port. If omitted, defaultSerialOSCPort is used.
+
+METHOD:: startTrackingConnectedDevicesChanges
+Sends "/serialosc/notify" to serialosc server, starts listening to "/serialosc/add" and "/serialosc/remove" responses and executes addedFunc and removedFunc when devices are connected to or disconnected from the computer. After each response calls "/serialosc/notify" again to get updated on the next device change.
+
+ARGUMENT:: addedFunc
+Function to evaluate when a device is connected to the computer.
+
+ARGUMENT:: removedFunc
+Function to evaluate when a device is disconnected from the computer.
+
+ARGUMENT:: serialOSCHost
+Serialosc host. If omitted, defaultSerialOSCHost is used.
+
+ARGUMENT:: serialOSCPort
+Serialosc port. If omitted, defaultSerialOSCPort is used.
+
+METHOD:: isTrackingConnectedDevicesChanges
+
+returns:: Answers whether SerialOSCComm is currently listening to device notifications.
+
+METHOD:: stopTrackingConnectedDevicesChanges
+Stops tracking "/serialosc/add" and "/serialosc/remove" responses.
+
+
+SUBSECTION::To serialosc device (sys)
+
+METHOD:: changeDeviceDestinationPort
+Change destination port of device by sending "/sys/port"
+
+ARGUMENT:: deviceReceivePort
+Serialosc device port
+
+ARGUMENT:: deviceDestinationPort
+Destination port to change to
+
+ARGUMENT:: serialOSCHost
+Serialosc host. If omitted, defaultSerialOSCHost is used.
+
+METHOD:: changeDeviceDestinationHost
+Change destination host of device by sending "/sys/host"
+
+ARGUMENT:: deviceReceivePort
+Serialosc device port
+
+ARGUMENT:: deviceDestinationHost
+Host to change to
+
+ARGUMENT:: serialOSCHost
+Serialosc host. If omitted, defaultSerialOSCHost is used.
+
+METHOD:: changeDeviceMessagePrefix
+Change message prefix (filtering) of device by sending "/sys/prefix"
+
+ARGUMENT:: deviceReceivePort
+Serialosc device port
+
+ARGUMENT:: deviceMessagePrefix
+Prefix to change to
+
+ARGUMENT:: serialOSCHost
+Serialosc host. If omitted, defaultSerialOSCHost is used.
+
+METHOD:: changeDeviceRotation
+Rotate a monome device by degrees, where degrees is one of 0, 90, 180, 270.
+
+ARGUMENT:: deviceReceivePort
+Serialosc device port
+
+ARGUMENT:: deviceRotation
+Degrees to change to
+
+ARGUMENT:: serialOSCHost
+Serialosc host. If omitted, defaultSerialOSCHost is used.
+
+
+SUBSECTION::To serialosc device (info)
+
+METHOD:: requestInformationAboutDevice
+Request information (settings) about a device by sending "/sys/info" to its port. Requested information consists of id, size, host, port, prefix and rotation. This call is asynchronous
+
+ARGUMENT:: deviceReceivePort
+Serialosc device port
+
+ARGUMENT:: func
+Function to be evaluated after timeout milliseconds. The function is passed a link::Classes/IdentityDictionary:: of information for the device.
+
+ARGUMENT:: timeout
+Milliseconds to wait for "/sys/id|size|host|port|prefix|rotation" messages before evaluating func.
+
+ARGUMENT:: serialOSCHost
+Serialosc host. If omitted, defaultSerialOSCHost is used.
+
+
+SUBSECTION::Defaults
+
+METHOD:: defaultSerialOSCHost
+Sets or gets the default serialosc hostname. The default is "127.0.0.1".
+
+METHOD:: defaultSerialOSCPort
+Sets or gets the default serialosc port. The default is 12002.
+
+
+SUBSECTION::Debugging
+
+METHOD:: trace
+Trace system messages sent and received by this class.
+
+ARGUMENT:: on
+A Boolean indicating whether to trace messages or not.
+
+
+EXAMPLES::
+
+code::
+(some example code)
+::

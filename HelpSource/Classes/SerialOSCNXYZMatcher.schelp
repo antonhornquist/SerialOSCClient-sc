@@ -1,4 +1,4 @@
-TITLE:: EncDeltaFunc
+TITLE:: SerialOSCNXYZMatcher
 summary:: (put short description here)
 categories:: Undocumented classes
 related:: Classes/SomeRelatedClass, Reference/SomeRelatedStuff, etc.
@@ -12,75 +12,66 @@ CLASSMETHODS::
 METHOD:: new
 (describe method here)
 
-ARGUMENT:: func
-(describe argument here)
-
 ARGUMENT:: n
 (describe argument here)
 
-ARGUMENT:: delta
+ARGUMENT:: x
 (describe argument here)
 
-ARGUMENT:: device
+ARGUMENT:: y
 (describe argument here)
 
-returns:: (describe returnvalue here)
+ARGUMENT:: z
+(describe argument here)
 
-METHOD:: initClass
-(describe method here)
+ARGUMENT:: func
+(describe argument here)
 
 returns:: (describe returnvalue here)
 
 
 INSTANCEMETHODS::
 
-METHOD:: init
+METHOD:: value
 (describe method here)
 
-ARGUMENT:: argfunc
+ARGUMENT:: testN
 (describe argument here)
+
+ARGUMENT:: testX
+(describe argument here)
+
+ARGUMENT:: testY
+(describe argument here)
+
+ARGUMENT:: testZ
+(describe argument here)
+
+ARGUMENT:: time
+(describe argument here)
+
+ARGUMENT:: srcID
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: init
+(describe method here)
 
 ARGUMENT:: argn
 (describe argument here)
 
-ARGUMENT:: argdelta
+ARGUMENT:: argx
 (describe argument here)
 
-ARGUMENT:: argdevice
+ARGUMENT:: argy
 (describe argument here)
 
-returns:: (describe returnvalue here)
-
-METHOD:: learn
-(describe method here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: delta
-(describe method here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: type
-(describe method here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: printOn
-(describe method here)
-
-ARGUMENT:: stream
+ARGUMENT:: argz
 (describe argument here)
 
-returns:: (describe returnvalue here)
-
-METHOD:: learnFunc
-(describe method here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: n
-(describe method here)
+ARGUMENT:: argfunc
+(describe argument here)
 
 returns:: (describe returnvalue here)
 

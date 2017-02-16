@@ -1,4 +1,4 @@
-TITLE:: EncDeltaFunc
+TITLE:: SerialOSCMessageDispatcher
 summary:: (put short description here)
 categories:: Undocumented classes
 related:: Classes/SomeRelatedClass, Reference/SomeRelatedStuff, etc.
@@ -9,20 +9,8 @@ DESCRIPTION::
 
 CLASSMETHODS::
 
-METHOD:: new
+METHOD:: default
 (describe method here)
-
-ARGUMENT:: func
-(describe argument here)
-
-ARGUMENT:: n
-(describe argument here)
-
-ARGUMENT:: delta
-(describe argument here)
-
-ARGUMENT:: device
-(describe argument here)
 
 returns:: (describe returnvalue here)
 
@@ -34,53 +22,51 @@ returns:: (describe returnvalue here)
 
 INSTANCEMETHODS::
 
-METHOD:: init
+METHOD:: getKeysForFuncProxy
 (describe method here)
 
-ARGUMENT:: argfunc
-(describe argument here)
-
-ARGUMENT:: argn
-(describe argument here)
-
-ARGUMENT:: argdelta
-(describe argument here)
-
-ARGUMENT:: argdevice
+ARGUMENT:: funcProxy
 (describe argument here)
 
 returns:: (describe returnvalue here)
 
-METHOD:: learn
+METHOD:: unregister
 (describe method here)
 
 returns:: (describe returnvalue here)
 
-METHOD:: delta
+METHOD:: register
 (describe method here)
 
 returns:: (describe returnvalue here)
 
-METHOD:: type
+METHOD:: wrapFunc
 (describe method here)
 
-returns:: (describe returnvalue here)
-
-METHOD:: printOn
-(describe method here)
-
-ARGUMENT:: stream
+ARGUMENT:: funcProxy
 (describe argument here)
 
 returns:: (describe returnvalue here)
 
-METHOD:: learnFunc
+METHOD:: typeKey
 (describe method here)
 
 returns:: (describe returnvalue here)
 
-METHOD:: n
+METHOD:: value
 (describe method here)
+
+ARGUMENT:: type
+(describe argument here)
+
+ARGUMENT:: args
+(describe argument here)
+
+ARGUMENT:: time
+(describe argument here)
+
+ARGUMENT:: srcID
+(describe argument here)
 
 returns:: (describe returnvalue here)
 

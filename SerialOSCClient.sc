@@ -5,6 +5,7 @@ SerialOSCClient {
 		devicesSemaphore,
 		<initialized=false,
 		<connectedDevices,
+		<prefix='/monome',
 		oscRecvFunc,
 		autoconnectDevices,
 		recvSerialOSCFunc,
@@ -19,7 +20,7 @@ SerialOSCClient {
 	var encDeltaResponder, encKeyResponder, encDependantFunc;
 	var <>willFree;
 	var <>permanent;
-	var <>onFree; // TODO: to docs -> The action object to be evaluated when the client is freed.
+	var <>onFree;
 
 	var <>onGridConnected, <>onGridDisconnected, <>gridRefreshAction;
 	var <>onEncConnected, <>onEncDisconnected, <>encRefreshAction;
@@ -55,7 +56,6 @@ SerialOSCClient {
 
 		if (supportHotPlugging) {
 			SerialOSCComm.startTrackingConnectedDevicesChanges(
-				"127.0.0.1",
 				{ |id|
 					fork {
 						devicesSemaphore.wait;
@@ -124,6 +124,10 @@ SerialOSCClient {
 		all.reject { |client| client.permanent }.copy.do(_.free);
 	}
 
+	*prGetPrefixedAddress { |address|
+		^(prefix.asString++address.asString).asSymbol
+	}
+
 	*prNotifyChangesInDevicesList { |devicesAddedToDevicesList, devicesRemovedFromDevicesList|
 		devicesAddedToDevicesList do: { |device| this.changed(\added, device) };
 		devicesRemovedFromDevicesList do: { |device| this.changed(\removed, device) };
@@ -177,13 +181,11 @@ SerialOSCClient {
 
 		if (connectedDevices.includes(device).not) {
 			SerialOSCComm.changeDeviceMessagePrefix(
-				"127.0.0.1",
 				device.port,
-				SerialOSCComm.prefix
+				SerialOSCClient.prefix
 			);
 
 			SerialOSCComm.changeDeviceDestinationPort(
-				"127.0.0.1",
 				device.port,
 				NetAddr.langPort
 			);
@@ -282,31 +284,28 @@ SerialOSCClient {
 	}
 
 	*prUpdateDevicesListAsync { |completionFunc|
-		SerialOSCComm.requestListOfDevices(
-			"127.0.0.1",
-			{ |list|
-				var currentDevices, foundDevices, devicesToRemove, devicesToAdd;
+		SerialOSCComm.requestListOfDevices { |list|
+			var currentDevices, foundDevices, devicesToRemove, devicesToAdd;
 
-				currentDevices = devices.as(IdentitySet);
-				foundDevices = list.collect { |entry|
-					devices.detect { |serialOSCDevice| serialOSCDevice.id == entry[\id] } ?? {
-						if (this.prListEntryIsEncByType(entry)) {
-							SerialOSCEnc(entry[\type], entry[\id], entry[\receivePort]);
-						} {
-							SerialOSCGrid(entry[\type], entry[\id], entry[\receivePort], 0);
-						};
+			currentDevices = devices.as(IdentitySet);
+			foundDevices = list.collect { |entry|
+				devices.detect { |serialOSCDevice| serialOSCDevice.id == entry[\id] } ?? {
+					if (this.prListEntryIsEncByType(entry)) {
+						SerialOSCEnc(entry[\type], entry[\id], entry[\receivePort]);
+					} {
+						SerialOSCGrid(entry[\type], entry[\id], entry[\receivePort], 0);
 					};
-				}.as(IdentitySet);
+				};
+			}.as(IdentitySet);
 
-				devicesToRemove = currentDevices - foundDevices;
-				devicesToAdd = foundDevices - currentDevices;
+			devicesToRemove = currentDevices - foundDevices;
+			devicesToAdd = foundDevices - currentDevices;
 
-				devices.removeAll(devicesToRemove);
-				devices = devices.addAll(devicesToAdd);
+			devices.removeAll(devicesToRemove);
+			devices = devices.addAll(devicesToAdd);
 
-				completionFunc.(devicesToAdd.as(Array), devicesToRemove.as(Array));
-			}
-		);
+			completionFunc.(devicesToAdd.as(Array), devicesToRemove.as(Array));
+		};
 	}
 
 	*prLookupDeviceById { |id|
@@ -1014,7 +1013,7 @@ SerialOSCDevice {
 	}
 
 	prSendMsg { |address ...args|
-		NetAddr("127.0.0.1", port).sendMsg(SerialOSCComm.getPrefixedAddress(address), *args);
+		NetAddr("127.0.0.1", port).sendMsg(SerialOSCClient.prGetPrefixedAddress(address), *args);
 	}
 
 	matches { |that|
@@ -1039,55 +1038,49 @@ SerialOSCComm {
 		deviceListSemaphore,
 		deviceInfoSemaphore,
 		<isTrackingConnectedDevicesChanges=false,
-		serialoscAddResponseListener,
-		serialoscRemoveResponseListener,
-		<prefix='/monome',
-		<serialoscPort = 12002
+		serialOSCAddResponseListener,
+		serialOSCRemoveResponseListener,
+		<>defaultSerialOSCHost = "127.0.0.1",
+		<>defaultSerialOSCPort = 12002
 	;
 
 	*trace { |on=true| trace = on }
-
-	*traceOutput { |str|
-		trace.if {
-			("SerialOSCComm trace:" + str).postln;
-		};
-	}
 
 	*initClass {
 		deviceListSemaphore = Semaphore.new;
 		deviceInfoSemaphore = Semaphore.new;
 	}
 
-	*requestListOfDevices { |serialoscHost, func, timeout=0.1|
+	*requestListOfDevices { |func, timeout=0.1, serialOSCHost, serialOSCPort|
 		var
-			serialoscNetAddr,
+			serialOSCNetAddr,
 			startListeningForSerialoscResponses,
 			stopListeningForSerialoscResponses,
 			setupListener,
 			teardownListener,
-			serialoscResponseListener
+			serialOSCResponseListener
 		;
 
-		serialoscNetAddr=NetAddr(serialoscHost, SerialOSCComm.serialoscPort);
+		serialOSCNetAddr=NetAddr(serialOSCHost ? SerialOSCComm.defaultSerialOSCHost, serialOSCPort ? SerialOSCComm.defaultSerialOSCPort);
 
-		startListeningForSerialoscResponses = { |serialoscNetAddr, listOfDevices|
-			setupListener.(serialoscNetAddr, listOfDevices);
-			this.traceOutput( "Started listening to serialosc device list OSC responses" )
+		startListeningForSerialoscResponses = { |serialOSCNetAddr, listOfDevices|
+			setupListener.(serialOSCNetAddr, listOfDevices);
+			this.prTraceOutput( "Started listening to serialosc device list OSC responses" )
 		};
 
 		stopListeningForSerialoscResponses = {
 			teardownListener.();
-			this.traceOutput( "Stopped listening to serialosc device list OSC responses" )
+			this.prTraceOutput( "Stopped listening to serialosc device list OSC responses" )
 		};
 
-		setupListener = { |serialoscNetAddr, listOfDevices|
-			serialoscResponseListener=OSCFunc.new(
+		setupListener = { |serialOSCNetAddr, listOfDevices|
+			serialOSCResponseListener=OSCFunc.new(
 				{ |msg, time, addr, recvPort|
 					var id, type, receivePort;
 					id = msg[1];
 					type = msg[2];
 					receivePort = msg[3].asInteger;
-					this.traceOutput( "received: /serialosc/device % % % from %".format(id, type, receivePort, addr) );
+					this.prTraceOutput( "received: /serialosc/device % % % from %".format(id, type, receivePort, addr) );
 					listOfDevices.add(
 						IdentityDictionary[
 							\id -> id,
@@ -1097,12 +1090,12 @@ SerialOSCComm {
 					);
 				},
 				'/serialosc/device',
-				serialoscNetAddr
+				serialOSCNetAddr
 			);
 		};
 
 		teardownListener = {
-			serialoscResponseListener.free;
+			serialOSCResponseListener.free;
 		};
 
 		fork {
@@ -1112,10 +1105,10 @@ SerialOSCComm {
 
 			listOfDevices = List.new();
 
-			startListeningForSerialoscResponses.(serialoscNetAddr, listOfDevices);
+			startListeningForSerialoscResponses.(serialOSCNetAddr, listOfDevices);
 
-			this.prSendSerialoscListMsg(serialoscNetAddr);
-			this.traceOutput( "waiting % seconds serialosc device list reponses...".format(timeout) );
+			this.prSendSerialoscListMsg(serialOSCNetAddr);
+			this.prTraceOutput( "waiting % seconds serialosc device list reponses...".format(timeout) );
 			timeout.wait;
 			stopListeningForSerialoscResponses.();
 
@@ -1125,44 +1118,40 @@ SerialOSCComm {
 		}
 	}
 
-	*getPrefixedAddress { |address|
-		^(prefix.asString++address.asString).asSymbol
-	}
-
-	*prSendSerialoscListMsg { |serialoscNetAddr|
+	*prSendSerialoscListMsg { |serialOSCNetAddr|
 		var ip, port;
 
 		ip = NetAddr.localAddr.ip;
 		port = NetAddr.langPort;
-		serialoscNetAddr.sendMsg("/serialosc/list", ip, port); // request a list of the currently connected devices, sent to host:port of SCLang
-		this.traceOutput( "sent: /serialosc/list % % to %".format(ip, port, serialoscNetAddr) );
+		serialOSCNetAddr.sendMsg("/serialosc/list", ip, port); // request a list of the currently connected devices, sent to host:port of SCLang
+		this.prTraceOutput( "sent: /serialosc/list % % to %".format(ip, port, serialOSCNetAddr) );
 	}
 
-	*requestInformationAboutDevice { |serialoscHost, deviceReceivePort, func, timeout=0.1|
+	*requestInformationAboutDevice { |deviceReceivePort, func, timeout=0.1, serialOSCHost|
 		var
 			deviceReceiveNetAddr,
 			startListeningForSerialoscDeviceResponses,
 			stopListeningForSerialoscDeviceResponses,
 			setupListeners,
 			teardownListeners,
-			serialoscDeviceResponseListeners
+			serialOSCDeviceResponseListeners
 		;
 
 		startListeningForSerialoscDeviceResponses = { |deviceReceiveNetAddr, deviceInfo|
 			setupListeners.(deviceReceiveNetAddr, deviceInfo);
-			this.traceOutput( "Started listening to serialosc device info OSC responses" )
+			this.prTraceOutput( "Started listening to serialosc device info OSC responses" )
 		};
 
 		stopListeningForSerialoscDeviceResponses = {
 			teardownListeners.();
-			this.traceOutput( "Stopped listening to serialosc device info OSC responses" )
+			this.prTraceOutput( "Stopped listening to serialosc device info OSC responses" )
 		};
 
 		setupListeners = { |deviceReceiveNetAddr, deviceInfo|
-			serialoscDeviceResponseListeners=['port', 'host', 'id', 'prefix', 'rotation', 'size'].collect { |attribute|
+			serialOSCDeviceResponseListeners=['port', 'host', 'id', 'prefix', 'rotation', 'size'].collect { |attribute|
 				OSCFunc.new(
 					{ |msg, time, addr, recvPort|
-						this.traceOutput( "received: % from %".format(msg, addr) );
+						this.prTraceOutput( "received: % from %".format(msg, addr) );
 						switch (attribute,
 							'port', { deviceInfo.put('destinationPort', msg[1].asInteger) },
 							'host', { deviceInfo.put('destinationHost', msg[1]) },
@@ -1186,7 +1175,7 @@ SerialOSCComm {
 		};
 
 		teardownListeners = {
-			serialoscDeviceResponseListeners.do(_.free);
+			serialOSCDeviceResponseListeners.do(_.free);
 		};
 
 		fork {
@@ -1194,7 +1183,7 @@ SerialOSCComm {
 
 			deviceListSemaphore.wait;
 
-			deviceReceiveNetAddr=NetAddr(serialoscHost, deviceReceivePort);
+			deviceReceiveNetAddr=NetAddr(serialOSCHost ? SerialOSCComm.defaultSerialOSCHost, deviceReceivePort);
 			deviceInfo = IdentityDictionary.new;
 			startListeningForSerialoscDeviceResponses.(deviceReceiveNetAddr, deviceInfo);
 
@@ -1215,83 +1204,83 @@ SerialOSCComm {
 		ip = NetAddr.localAddr.ip;
 		port = NetAddr.langPort;
 		deviceReceiveNetAddr.sendMsg("/sys/info", ip, port); // request a list of the currently connected devices, sent to host:port of SCLang
-		this.traceOutput( "sent: /sys/info % % to %".format(ip, port, deviceReceiveNetAddr) );
+		this.prTraceOutput( "sent: /sys/info % % to %".format(ip, port, deviceReceiveNetAddr) );
 	}
 
-	*changeDeviceDestinationPort { |serialoscHost, deviceReceivePort, deviceDestinationPort|
+	*changeDeviceDestinationPort { |deviceReceivePort, deviceDestinationPort, serialOSCHost|
 		var deviceReceiveNetAddr;
-		deviceReceiveNetAddr = NetAddr(serialoscHost, deviceReceivePort);
+		deviceReceiveNetAddr = NetAddr(serialOSCHost ? SerialOSCComm.defaultSerialOSCHost, deviceReceivePort);
 		deviceReceiveNetAddr.sendMsg("/sys/port", deviceDestinationPort.asInteger);
-		this.traceOutput( "sent: /sys/port % to %".format(deviceDestinationPort, deviceReceiveNetAddr) );
+		this.prTraceOutput( "sent: /sys/port % to %".format(deviceDestinationPort, deviceReceiveNetAddr) );
 	}
 
-	*changeDeviceDestinationHost { |serialoscHost, deviceReceivePort, deviceDestinationHost|
+	*changeDeviceDestinationHost { |deviceReceivePort, deviceDestinationHost, serialOSCHost|
 		var deviceReceiveNetAddr;
-		deviceReceiveNetAddr = NetAddr(serialoscHost, deviceReceivePort);
+		deviceReceiveNetAddr = NetAddr(serialOSCHost ? SerialOSCComm.defaultSerialOSCHost, deviceReceivePort);
 		deviceReceiveNetAddr.sendMsg("/sys/host", deviceDestinationHost.asString);
-		this.traceOutput( "sent: /sys/host % to %".format(deviceDestinationHost.asString, deviceReceiveNetAddr) );
+		this.prTraceOutput( "sent: /sys/host % to %".format(deviceDestinationHost.asString, deviceReceiveNetAddr) );
 	}
 
-	*changeDeviceMessagePrefix { |serialoscHost, deviceReceivePort, deviceMessagePrefix|
+	*changeDeviceMessagePrefix { |deviceReceivePort, deviceMessagePrefix, serialOSCHost|
 		var deviceReceiveNetAddr;
-		deviceReceiveNetAddr = NetAddr(serialoscHost, deviceReceivePort);
+		deviceReceiveNetAddr = NetAddr(serialOSCHost ? SerialOSCComm.defaultSerialOSCHost, deviceReceivePort);
 		deviceReceiveNetAddr.sendMsg("/sys/prefix", deviceMessagePrefix.asString);
-		this.traceOutput( "sent: /sys/prefix % to %".format(deviceMessagePrefix.asString, deviceReceiveNetAddr) );
+		this.prTraceOutput( "sent: /sys/prefix % to %".format(deviceMessagePrefix.asString, deviceReceiveNetAddr) );
 	}
 
-	*changeDeviceRotation { |serialoscHost, deviceReceivePort, deviceRotation|
+	*changeDeviceRotation { |deviceReceivePort, deviceRotation, serialOSCHost|
 		var rotation;
 		var deviceReceiveNetAddr;
 
-		deviceReceiveNetAddr = NetAddr(serialoscHost, deviceReceivePort);
+		deviceReceiveNetAddr = NetAddr(serialOSCHost ? SerialOSCComm.defaultSerialOSCHost, deviceReceivePort);
 
 		rotation = deviceRotation.asInteger;
 		[0, 90, 180, 270].includes(rotation).not.if { Error("Bad rotation: %".format(rotation)).throw };
 		deviceReceiveNetAddr.sendMsg("/sys/rotation", rotation);
-		this.traceOutput( "sent: /sys/rotation % to %".format(rotation, deviceReceiveNetAddr) );
+		this.prTraceOutput( "sent: /sys/rotation % to %".format(rotation, deviceReceiveNetAddr) );
 	}
 
-	*startTrackingConnectedDevicesChanges { |serialoscHost, addedFunc, removedFunc|
+	*startTrackingConnectedDevicesChanges { |addedFunc, removedFunc, serialOSCHost, serialOSCPort|
 		var
-			serialoscNetAddr,
+			serialOSCNetAddr,
 			startListeningForSerialoscResponses,
 			setupListeners
 		;
 
-		startListeningForSerialoscResponses = { |serialoscNetAddr, addedFunc, removedFunc|
-			setupListeners.(serialoscNetAddr, addedFunc, removedFunc);
+		startListeningForSerialoscResponses = { |serialOSCNetAddr, addedFunc, removedFunc|
+			setupListeners.(serialOSCNetAddr, addedFunc, removedFunc);
 			isTrackingConnectedDevicesChanges = true;
 		};
 
-		setupListeners = { |serialoscNetAddr, addedFunc, removedFunc|
-			serialoscAddResponseListener=OSCFunc.new(
+		setupListeners = { |serialOSCNetAddr, addedFunc, removedFunc|
+			serialOSCAddResponseListener=OSCFunc.new(
 				{ |msg, time, addr, recvPort|
-					this.traceOutput( "received: % from %".format(msg, addr) );
+					this.prTraceOutput( "received: % from %".format(msg, addr) );
 					addedFunc.(msg[1]);
-					serialoscNetAddr.sendMsg("/serialosc/notify", "127.0.0.1", NetAddr.langPort);
+					serialOSCNetAddr.sendMsg("/serialosc/notify", "127.0.0.1", NetAddr.langPort);
 				},
 				'/serialosc/add',
-				serialoscNetAddr
+				serialOSCNetAddr
 			);
-			serialoscRemoveResponseListener=OSCFunc.new(
+			serialOSCRemoveResponseListener=OSCFunc.new(
 				{ |msg, time, addr, recvPort|
-					this.traceOutput( "received: % from %".format(msg, addr) );
+					this.prTraceOutput( "received: % from %".format(msg, addr) );
 					removedFunc.(msg[1]);
-					serialoscNetAddr.sendMsg("/serialosc/notify", "127.0.0.1", NetAddr.langPort);
+					serialOSCNetAddr.sendMsg("/serialosc/notify", "127.0.0.1", NetAddr.langPort);
 				},
 				'/serialosc/remove',
-				serialoscNetAddr
+				serialOSCNetAddr
 			);
-			this.traceOutput( "Started listening to serialosc device add / remove OSC messages" )
+			this.prTraceOutput( "Started listening to serialosc device add / remove OSC messages" )
 		};
 
 		isTrackingConnectedDevicesChanges.if { Error("Already tracking serialosc device changes.").throw };
 
-		serialoscNetAddr=NetAddr(serialoscHost, SerialOSCComm.serialoscPort);
+		serialOSCNetAddr=NetAddr(serialOSCHost ? SerialOSCComm.defaultSerialOSCHost, serialOSCPort ? SerialOSCComm.defaultSerialOSCPort);
 
-		startListeningForSerialoscResponses.(serialoscNetAddr, addedFunc, removedFunc);
+		startListeningForSerialoscResponses.(serialOSCNetAddr, addedFunc, removedFunc);
 
-		serialoscNetAddr.sendMsg("/serialosc/notify", "127.0.0.1", NetAddr.langPort); // request that next device change (connect/disconnect) is sent to host:port
+		serialOSCNetAddr.sendMsg("/serialosc/notify", "127.0.0.1", NetAddr.langPort); // request that next device change (connect/disconnect) is sent to host:port
 	}
 
 	*stopTrackingConnectedDevicesChanges {
@@ -1305,13 +1294,19 @@ SerialOSCComm {
 		};
 
 		teardownListeners = {
-			serialoscAddResponseListener.free;
-			serialoscRemoveResponseListener.free;
-			this.traceOutput( "Stopped listening to serialosc device add / remove OSC messages" )
+			serialOSCAddResponseListener.free;
+			serialOSCRemoveResponseListener.free;
+			this.prTraceOutput( "Stopped listening to serialosc device add / remove OSC messages" )
 		};
 
 		isTrackingConnectedDevicesChanges.not.if { Error("Not listening for serialosc responses.").throw };
 		stopListeningForSerialoscResponses.();
+	}
+
+	*prTraceOutput { |str|
+		trace.if {
+			("SerialOSCComm trace:" + str).postln;
+		};
 	}
 }
 
@@ -1397,15 +1392,6 @@ GridKeyFunc : AbstractResponderFunc {
 	}
 
 	type { ^'/grid/key' }
-
-/*
-	TODO: To docs
-
-Train this MIDIFunc to respond to the next message of its type. Arguments passed at creation (e.g. chan, srcID, msgNum, etc.) will filter the training to the next matching message received.
-Arguments:
-learnVal	
-A Boolean indicating whether the responder should learn the specific value. For example, if used with a control change MIDIFunc, the object would learn to match the next specific control change value. If used with a note on MIDIFunc, it would match only a specific velocity. The default is false.
-*/
 
 	// swap out func and wait
 	learn {|learnState = false|

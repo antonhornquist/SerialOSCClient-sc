@@ -71,8 +71,30 @@ returns:: (describe returnvalue here)
 
 INSTANCEMETHODS::
 
+METHOD:: learn
+Train this Func to respond to the next message of its type. Arguments passed at creation (e.g. x, y, state, device) will filter the training to the next matching message received.
+
+ARGUMENT:: learnState
+A Boolean indicating whether the responder should learn the specific state. The default is false.
+
+METHOD:: learnFunc
+(describe method here)
+
+ARGUMENT:: learnState
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
 METHOD:: x
 (describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: printOn
+(describe method here)
+
+ARGUMENT:: stream
+(describe argument here)
 
 returns:: (describe returnvalue here)
 
@@ -103,14 +125,6 @@ returns:: (describe returnvalue here)
 
 METHOD:: type
 (describe method here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: printOn
-(describe method here)
-
-ARGUMENT:: stream
-(describe argument here)
 
 returns:: (describe returnvalue here)
 

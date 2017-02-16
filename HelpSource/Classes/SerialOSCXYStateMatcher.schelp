@@ -1,4 +1,4 @@
-TITLE:: EncDeltaFunc
+TITLE:: SerialOSCXYStateMatcher
 summary:: (put short description here)
 categories:: Undocumented classes
 related:: Classes/SomeRelatedClass, Reference/SomeRelatedStuff, etc.
@@ -12,75 +12,57 @@ CLASSMETHODS::
 METHOD:: new
 (describe method here)
 
+ARGUMENT:: x
+(describe argument here)
+
+ARGUMENT:: y
+(describe argument here)
+
+ARGUMENT:: state
+(describe argument here)
+
 ARGUMENT:: func
 (describe argument here)
-
-ARGUMENT:: n
-(describe argument here)
-
-ARGUMENT:: delta
-(describe argument here)
-
-ARGUMENT:: device
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: initClass
-(describe method here)
 
 returns:: (describe returnvalue here)
 
 
 INSTANCEMETHODS::
 
+METHOD:: value
+(describe method here)
+
+ARGUMENT:: testX
+(describe argument here)
+
+ARGUMENT:: testY
+(describe argument here)
+
+ARGUMENT:: testState
+(describe argument here)
+
+ARGUMENT:: time
+(describe argument here)
+
+ARGUMENT:: srcID
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
 METHOD:: init
 (describe method here)
 
+ARGUMENT:: argx
+(describe argument here)
+
+ARGUMENT:: argy
+(describe argument here)
+
+ARGUMENT:: argstate
+(describe argument here)
+
 ARGUMENT:: argfunc
 (describe argument here)
-
-ARGUMENT:: argn
-(describe argument here)
-
-ARGUMENT:: argdelta
-(describe argument here)
-
-ARGUMENT:: argdevice
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: learn
-(describe method here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: delta
-(describe method here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: type
-(describe method here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: printOn
-(describe method here)
-
-ARGUMENT:: stream
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: learnFunc
-(describe method here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: n
-(describe method here)
 
 returns:: (describe returnvalue here)
 

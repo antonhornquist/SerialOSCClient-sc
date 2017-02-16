@@ -1,4 +1,4 @@
-TITLE:: EncDeltadef
+TITLE:: SerialOSCNStateMatcher
 summary:: (put short description here)
 categories:: Undocumented classes
 related:: Classes/SomeRelatedClass, Reference/SomeRelatedStuff, etc.
@@ -9,67 +9,51 @@ DESCRIPTION::
 
 CLASSMETHODS::
 
-METHOD:: freeAll
-(describe method here)
-
-returns:: (describe returnvalue here)
-
 METHOD:: new
 (describe method here)
-
-ARGUMENT:: key
-(describe argument here)
-
-ARGUMENT:: func
-(describe argument here)
 
 ARGUMENT:: n
 (describe argument here)
 
-ARGUMENT:: delta
+ARGUMENT:: state
 (describe argument here)
 
-ARGUMENT:: device
+ARGUMENT:: func
 (describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: all
-(describe method here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: initClass
-(describe method here)
 
 returns:: (describe returnvalue here)
 
 
 INSTANCEMETHODS::
 
-METHOD:: addToAll
+METHOD:: value
 (describe method here)
 
-ARGUMENT:: argkey
+ARGUMENT:: testN
+(describe argument here)
+
+ARGUMENT:: testState
+(describe argument here)
+
+ARGUMENT:: time
+(describe argument here)
+
+ARGUMENT:: srcID
 (describe argument here)
 
 returns:: (describe returnvalue here)
 
-METHOD:: free
+METHOD:: init
 (describe method here)
 
-returns:: (describe returnvalue here)
-
-METHOD:: printOn
-(describe method here)
-
-ARGUMENT:: stream
+ARGUMENT:: argn
 (describe argument here)
 
-returns:: (describe returnvalue here)
+ARGUMENT:: argstate
+(describe argument here)
 
-METHOD:: key
-(describe method here)
+ARGUMENT:: argfunc
+(describe argument here)
 
 returns:: (describe returnvalue here)
 

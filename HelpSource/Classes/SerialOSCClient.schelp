@@ -1,5 +1,5 @@
 TITLE:: SerialOSCClient
-summary:: SuperCollider Support for SerialOSCClient devices
+summary:: (SuperCollider Support for SerialOSCClient devices?)
 categories:: External Control
 related:: Guides/UsingSerialOSCClient, Classes/MIDIClient
 
@@ -11,37 +11,21 @@ TODO: Look at MIDIClient
 OSC routing is handled internally alleviating the need to use OSCdefs to listen to and respond to events from SerialOSC devices. 
 
 
+
 CLASSMETHODS::
 
-METHOD:: prLookupDeviceByPort
+METHOD:: explicitlyAddDevice
 (describe method here)
-
-ARGUMENT:: receivePort
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: disconnect
-(describe method here)
-
-ARGUMENT:: id
-(describe argument here)
-
-ARGUMENT:: verbose
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: prSpoofAction
-(describe method here)
-
-ARGUMENT:: type
-(describe argument here)
-
-ARGUMENT:: args
-(describe argument here)
 
 ARGUMENT:: device
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: findEnc
+(describe method here)
+
+ARGUMENT:: encSpec
 (describe argument here)
 
 returns:: (describe returnvalue here)
@@ -70,6 +54,17 @@ METHOD:: initialized
 
 returns:: (describe returnvalue here)
 
+METHOD:: prUpdateDefaultDevices
+(describe method here)
+
+ARGUMENT:: devicesAddedToDevicesList
+(describe argument here)
+
+ARGUMENT:: devicesRemovedFromDevicesList
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
 METHOD:: doEncKeyAction
 (describe method here)
 
@@ -84,37 +79,32 @@ ARGUMENT:: device
 
 returns:: (describe returnvalue here)
 
-METHOD:: prUpdateDefaultDevices
-(describe method here)
-
-ARGUMENT:: addedDevices
-(describe argument here)
-
-ARGUMENT:: removedDevices
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: connectAll
-(describe method here)
-
-ARGUMENT:: verbose
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
 METHOD:: prPostDeviceRemoved
 (describe method here)
 
-ARGUMENT:: id
+ARGUMENT:: device
 (describe argument here)
 
 returns:: (describe returnvalue here)
 
-METHOD:: prLookupDeviceById
+METHOD:: gridMatchSpec
 (describe method here)
 
-ARGUMENT:: id
+ARGUMENT:: grid
+(describe argument here)
+
+ARGUMENT:: gridSpec
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: encMatchSpec
+(describe method here)
+
+ARGUMENT:: enc
+(describe argument here)
+
+ARGUMENT:: encSpec
 (describe argument here)
 
 returns:: (describe returnvalue here)
@@ -124,14 +114,54 @@ METHOD:: devices
 
 returns:: (describe returnvalue here)
 
+METHOD:: connectedDevices
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: freeAll
+(describe method here)
+
+returns:: (describe returnvalue here)
+
 METHOD:: connect
 (describe method here)
 
-ARGUMENT:: id
+ARGUMENT:: device
 (describe argument here)
 
-ARGUMENT:: verbose
+returns:: (describe returnvalue here)
+
+METHOD:: prUpdateDefaultGrid
+(describe method here)
+
+ARGUMENT:: devicesAddedToDevicesList
 (describe argument here)
+
+ARGUMENT:: devicesRemovedFromDevicesList
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: grid
+(describe method here)
+
+ARGUMENT:: name
+(describe argument here)
+
+ARGUMENT:: func
+(describe argument here)
+
+ARGUMENT:: spec
+(describe argument here)
+
+ARGUMENT:: autoconnect
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: prAutorouteDeviceToClients
+(describe method here)
 
 returns:: (describe returnvalue here)
 
@@ -139,31 +169,6 @@ METHOD:: prListEntryIsEncByType
 (describe method here)
 
 ARGUMENT:: device
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: doGridKeyAction
-(describe method here)
-
-ARGUMENT:: x
-(describe argument here)
-
-ARGUMENT:: y
-(describe argument here)
-
-ARGUMENT:: state
-(describe argument here)
-
-ARGUMENT:: device
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: addSerialOSCRecvFunc
-(describe method here)
-
-ARGUMENT:: func
 (describe argument here)
 
 returns:: (describe returnvalue here)
@@ -204,10 +209,22 @@ ARGUMENT:: device
 
 returns:: (describe returnvalue here)
 
-METHOD:: prPostDeviceAdded
+METHOD:: new
 (describe method here)
 
-ARGUMENT:: id
+ARGUMENT:: name
+(describe argument here)
+
+ARGUMENT:: gridSpec
+(describe argument here)
+
+ARGUMENT:: encSpec
+(describe argument here)
+
+ARGUMENT:: func
+(describe argument here)
+
+ARGUMENT:: autoconnect
 (describe argument here)
 
 returns:: (describe returnvalue here)
@@ -224,21 +241,18 @@ ARGUMENT:: autoconnect
 ARGUMENT:: supportHotPlugging
 (describe argument here)
 
+ARGUMENT:: verbose
+(describe argument here)
+
 returns:: (describe returnvalue here)
 
-METHOD:: removeSerialOSCRecvFunc
+METHOD:: defaultGridIfFree
 (describe method here)
-
-ARGUMENT:: func
-(describe argument here)
 
 returns:: (describe returnvalue here)
 
 METHOD:: disconnectAll
 (describe method here)
-
-ARGUMENT:: verbose
-(describe argument here)
 
 returns:: (describe returnvalue here)
 
@@ -250,7 +264,7 @@ ARGUMENT:: completionFunc
 
 returns:: (describe returnvalue here)
 
-METHOD:: initClass
+METHOD:: defaultEncIfFree
 (describe method here)
 
 returns:: (describe returnvalue here)
@@ -260,8 +274,650 @@ METHOD:: postDevices
 
 returns:: (describe returnvalue here)
 
+METHOD:: prLookupDeviceByPort
+(describe method here)
+
+ARGUMENT:: receivePort
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: disconnect
+(describe method here)
+
+ARGUMENT:: device
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: enc
+(describe method here)
+
+ARGUMENT:: name
+(describe argument here)
+
+ARGUMENT:: func
+(describe argument here)
+
+ARGUMENT:: spec
+(describe argument here)
+
+ARGUMENT:: autoconnect
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: gridEnc
+(describe method here)
+
+ARGUMENT:: name
+(describe argument here)
+
+ARGUMENT:: func
+(describe argument here)
+
+ARGUMENT:: gridSpec
+(describe argument here)
+
+ARGUMENT:: encSpec
+(describe argument here)
+
+ARGUMENT:: autoconnect
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: findGrid
+(describe method here)
+
+ARGUMENT:: gridSpec
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: freeEncs
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: route
+(describe method here)
+
+ARGUMENT:: device
+(describe argument here)
+
+ARGUMENT:: client
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: connectAll
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: prLookupDeviceById
+(describe method here)
+
+ARGUMENT:: id
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: defaultEncIfFreeAndMatching
+(describe method here)
+
+ARGUMENT:: encSpec
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: prUpdateDefaultEnc
+(describe method here)
+
+ARGUMENT:: devicesAddedToDevicesList
+(describe argument here)
+
+ARGUMENT:: devicesRemovedFromDevicesList
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: prDispatchEvent
+(describe method here)
+
+ARGUMENT:: type
+(describe argument here)
+
+ARGUMENT:: args
+(describe argument here)
+
+ARGUMENT:: device
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: defaultGridIfFreeAndMatching
+(describe method here)
+
+ARGUMENT:: gridSpec
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: firstFreeGridMatching
+(describe method here)
+
+ARGUMENT:: gridSpec
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: doGridKeyAction
+(describe method here)
+
+ARGUMENT:: x
+(describe argument here)
+
+ARGUMENT:: y
+(describe argument here)
+
+ARGUMENT:: state
+(describe argument here)
+
+ARGUMENT:: device
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: addSerialOSCRecvFunc
+(describe method here)
+
+ARGUMENT:: func
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: firstFreeEncMatching
+(describe method here)
+
+ARGUMENT:: encSpec
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: prPostDeviceAdded
+(describe method here)
+
+ARGUMENT:: device
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: removeSerialOSCRecvFunc
+(describe method here)
+
+ARGUMENT:: func
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: all
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: prNotifyChangesInDevicesList
+(describe method here)
+
+ARGUMENT:: devicesAddedToDevicesList
+(describe argument here)
+
+ARGUMENT:: devicesRemovedFromDevicesList
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: freeGrids
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: initClass
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: cmdPeriod
+(describe method here)
+
+returns:: (describe returnvalue here)
+
 
 INSTANCEMETHODS::
+
+METHOD:: grid
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: refreshGrid
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: initSerialOSCClient
+(describe method here)
+
+ARGUMENT:: argName
+(describe argument here)
+
+ARGUMENT:: argGridSpec
+(describe argument here)
+
+ARGUMENT:: argEncSpec
+(describe argument here)
+
+ARGUMENT:: func
+(describe argument here)
+
+ARGUMENT:: argAutoconnect
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: clearLeds
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: ledIntensity
+(describe method here)
+
+ARGUMENT:: i
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: findAndRouteAnyUnusedEncToClient
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: clearRings
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: encSpec
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: ledMap
+(describe method here)
+
+ARGUMENT:: xOffset
+(describe argument here)
+
+ARGUMENT:: yOffset
+(describe argument here)
+
+ARGUMENT:: bitmasks
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: ledLevelCol
+(describe method here)
+
+ARGUMENT:: x
+(describe argument here)
+
+ARGUMENT:: yOffset
+(describe argument here)
+
+ARGUMENT:: levels
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: autoconnect
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: enableTilt
+(describe method here)
+
+ARGUMENT:: n
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: refreshEnc
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: ledLevelMap
+(describe method here)
+
+ARGUMENT:: xOffset
+(describe argument here)
+
+ARGUMENT:: yOffset
+(describe argument here)
+
+ARGUMENT:: levels
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: usesGrid
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: free
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: willFree
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: printOn
+(describe method here)
+
+ARGUMENT:: stream
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: warnIfEncDoNotMatchSpec
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: ringSet
+(describe method here)
+
+ARGUMENT:: n
+(describe argument here)
+
+ARGUMENT:: x
+(describe argument here)
+
+ARGUMENT:: level
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: name
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: ringMap
+(describe method here)
+
+ARGUMENT:: n
+(describe argument here)
+
+ARGUMENT:: levels
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: onFree
+The action object to be evaluated when the client is freed.
+
+METHOD:: onGridDisconnected
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: gridKeyAction
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: usesEnc
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: enc
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: ledSet
+(describe method here)
+
+ARGUMENT:: x
+(describe argument here)
+
+ARGUMENT:: y
+(describe argument here)
+
+ARGUMENT:: state
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: ringRange
+(describe method here)
+
+ARGUMENT:: n
+(describe argument here)
+
+ARGUMENT:: x1
+(describe argument here)
+
+ARGUMENT:: x2
+(describe argument here)
+
+ARGUMENT:: level
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: onGridConnected
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: encDeltaAction
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: encRefreshAction
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: onEncDisconnected
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: gridSpec
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: prRouteGridToClient
+(describe method here)
+
+ARGUMENT:: argGrid
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: unrouteGridFromClient
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: ledLevelSet
+(describe method here)
+
+ARGUMENT:: x
+(describe argument here)
+
+ARGUMENT:: y
+(describe argument here)
+
+ARGUMENT:: l
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: onEncConnected
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: findAndRouteAnyUnusedGridToClient
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: warnIfGridDoNotMatchSpec
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: unrouteEncFromClient
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: ledLevelAll
+(describe method here)
+
+ARGUMENT:: l
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: findAndRouteUnusedDevicesToClient
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: permanent
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: encKeyAction
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: tiltAction
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: ledAll
+(describe method here)
+
+ARGUMENT:: state
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: ringAll
+(describe method here)
+
+ARGUMENT:: n
+(describe argument here)
+
+ARGUMENT:: level
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: ledCol
+(describe method here)
+
+ARGUMENT:: x
+(describe argument here)
+
+ARGUMENT:: yOffset
+(describe argument here)
+
+ARGUMENT:: bitmasks
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: disableTilt
+(describe method here)
+
+ARGUMENT:: n
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: ledRow
+(describe method here)
+
+ARGUMENT:: xOffset
+(describe argument here)
+
+ARGUMENT:: y
+(describe argument here)
+
+ARGUMENT:: bitmasks
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: ledLevelRow
+(describe method here)
+
+ARGUMENT:: xOffset
+(describe argument here)
+
+ARGUMENT:: y
+(describe argument here)
+
+ARGUMENT:: levels
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: tiltSet
+(describe method here)
+
+ARGUMENT:: n
+(describe argument here)
+
+ARGUMENT:: state
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: prRouteEncToClient
+(describe method here)
+
+ARGUMENT:: argEnc
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: gridRefreshAction
+(describe method here)
+
+returns:: (describe returnvalue here)
 
 
 EXAMPLES::

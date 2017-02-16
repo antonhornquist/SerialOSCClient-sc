@@ -6,6 +6,7 @@ related:: Reference/UsingSerialOSCClient, Classes/SerialOSCGrid, Classes/SerialO
 DESCRIPTION::
 Represents a physical SerialOSC compatible device - such as monome grid or arc - connected to the computer. Subclasses link::Classes/SerialOSCGrid:: and link::Classes/SerialOSCEnc:: are concrete implementations of this class.
 
+
 CLASSMETHODS::
 
 METHOD:: new
@@ -20,15 +21,13 @@ ARGUMENT:: id
 ARGUMENT:: port
 (describe argument here)
 
+ARGUMENT:: rotation
+(describe argument here)
+
 returns:: (describe returnvalue here)
 
 
 INSTANCEMETHODS::
-
-METHOD:: type
-(describe method here)
-
-returns:: (describe returnvalue here)
 
 METHOD:: matches
 (describe method here)
@@ -38,18 +37,20 @@ ARGUMENT:: that
 
 returns:: (describe returnvalue here)
 
-METHOD:: prSendMsg
+METHOD:: id
 (describe method here)
 
-ARGUMENT:: address
-(describe argument here)
+returns:: (describe returnvalue here)
 
-ARGUMENT::  ... args
+METHOD:: setRotation
+(describe method here)
+
+ARGUMENT:: degrees
 (describe argument here)
 
 returns:: (describe returnvalue here)
 
-METHOD:: port
+METHOD:: isConnected
 (describe method here)
 
 returns:: (describe returnvalue here)
@@ -62,7 +63,41 @@ ARGUMENT:: stream
 
 returns:: (describe returnvalue here)
 
-METHOD:: id
+METHOD:: remove
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: rotation
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: client
+(describe method here)
+
+ARGUMENT:: argClient
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: prSendMsg
+(describe method here)
+
+ARGUMENT:: address
+(describe argument here)
+
+ARGUMENT::  ... args
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: port
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: type
 (describe method here)
 
 returns:: (describe returnvalue here)
@@ -70,7 +105,7 @@ returns:: (describe returnvalue here)
 
 EXAMPLES::
 
-Using dependancy support it is possible to observe when new devices are attached or detached, connected or disconnected.
+Using dependancy support it is possible to observe when new devices are attached or detached, connected or disconnected. It is also possible to get notified when a new default of either SerialOSCDevice kind is set.
 
 code::
 SerialOSCClient.init;

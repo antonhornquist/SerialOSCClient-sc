@@ -133,6 +133,9 @@ ARGUMENT:: id
 ARGUMENT:: port
 (describe argument here)
 
+ARGUMENT:: rotation
+(describe argument here)
+
 returns:: (describe returnvalue here)
 
 METHOD:: ledLevelSet
@@ -212,70 +215,6 @@ returns:: (describe returnvalue here)
 
 INSTANCEMETHODS::
 
-METHOD:: ledXSpec
-(describe method here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: tiltSet
-(describe method here)
-
-ARGUMENT:: n
-(describe argument here)
-
-ARGUMENT:: state
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: ledYSpec
-(describe method here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: initSerialOSCGrid
-(describe method here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: ledLevelMap
-(describe method here)
-
-ARGUMENT:: xOffset
-(describe argument here)
-
-ARGUMENT:: yOffset
-(describe argument here)
-
-ARGUMENT:: levels
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: prRemove
-(describe method here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: ledLevelSet
-(describe method here)
-
-ARGUMENT:: x
-(describe argument here)
-
-ARGUMENT:: y
-(describe argument here)
-
-ARGUMENT:: l
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: clearLeds
-(describe method here)
-
-returns:: (describe returnvalue here)
-
 METHOD:: ledCol
 (describe method here)
 
@@ -290,16 +229,21 @@ ARGUMENT:: bitmasks
 
 returns:: (describe returnvalue here)
 
-METHOD:: ledLevelRow
+METHOD:: getEffectiveNumCols
 (describe method here)
 
-ARGUMENT:: xOffset
+returns:: (describe returnvalue here)
+
+METHOD:: ledSet
+(describe method here)
+
+ARGUMENT:: x
 (describe argument here)
 
 ARGUMENT:: y
 (describe argument here)
 
-ARGUMENT:: levels
+ARGUMENT:: state
 (describe argument here)
 
 returns:: (describe returnvalue here)
@@ -318,6 +262,20 @@ ARGUMENT:: levels
 
 returns:: (describe returnvalue here)
 
+METHOD:: ledLevelSet
+(describe method here)
+
+ARGUMENT:: x
+(describe argument here)
+
+ARGUMENT:: y
+(describe argument here)
+
+ARGUMENT:: l
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
 METHOD:: ledIntensity
 (describe method here)
 
@@ -326,24 +284,15 @@ ARGUMENT:: i
 
 returns:: (describe returnvalue here)
 
+METHOD:: remove
+(describe method here)
+
+returns:: (describe returnvalue here)
+
 METHOD:: ledLevelAll
 (describe method here)
 
 ARGUMENT:: l
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: ledMap
-(describe method here)
-
-ARGUMENT:: xOffset
-(describe argument here)
-
-ARGUMENT:: yOffset
-(describe argument here)
-
-ARGUMENT:: bitmasks
 (describe argument here)
 
 returns:: (describe returnvalue here)
@@ -362,7 +311,96 @@ ARGUMENT:: bitmasks
 
 returns:: (describe returnvalue here)
 
+METHOD:: tiltSet
+(describe method here)
+
+ARGUMENT:: n
+(describe argument here)
+
+ARGUMENT:: state
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: clearLeds
+(describe method here)
+
+returns:: (describe returnvalue here)
+
 METHOD:: disableTilt
+(describe method here)
+
+ARGUMENT:: n
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: deviceNumRowsFromType
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: ledMap
+(describe method here)
+
+ARGUMENT:: xOffset
+(describe argument here)
+
+ARGUMENT:: yOffset
+(describe argument here)
+
+ARGUMENT:: bitmasks
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: initSerialOSCGrid
+(describe method here)
+
+ARGUMENT:: argRotation
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: ledLevelMap
+(describe method here)
+
+ARGUMENT:: xOffset
+(describe argument here)
+
+ARGUMENT:: yOffset
+(describe argument here)
+
+ARGUMENT:: levels
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: ledLevelRow
+(describe method here)
+
+ARGUMENT:: xOffset
+(describe argument here)
+
+ARGUMENT:: y
+(describe argument here)
+
+ARGUMENT:: levels
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: deviceNumColsFromType
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: ledYSpec
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: enableTilt
 (describe method here)
 
 ARGUMENT:: n
@@ -378,56 +416,19 @@ ARGUMENT:: state
 
 returns:: (describe returnvalue here)
 
-METHOD:: enableTilt
+METHOD:: ledXSpec
 (describe method here)
-
-ARGUMENT:: n
-(describe argument here)
 
 returns:: (describe returnvalue here)
 
-METHOD:: ledSet
+METHOD:: getEffectiveNumRows
 (describe method here)
-
-ARGUMENT:: x
-(describe argument here)
-
-ARGUMENT:: y
-(describe argument here)
-
-ARGUMENT:: state
-(describe argument here)
 
 returns:: (describe returnvalue here)
 
 
 EXAMPLES::
 
-Using dependancy support it is possible to observe when new devices are attached or detached, connected or disconnected.
-
 code::
-SerialOSCClient.init;
-
-(
-SerialOSCGrid.addDependant { |thechanged, what, device|
-	switch ( what )
-	{'attached'} {
-		("grid" + device + "was attached").postln;
-	}
-	{'detached'} {
-		("grid" + device + "was detached").postln;
-	}
-	{'connected'} {
-		("grid" + device + "was connected").postln;
-	}
-	{'disconnected'} {
-		("grid" + device + "was disconnected").postln;
-	}
-	{'default'} {
-		("grid" + device + "was set as default").postln;
-	};
-};
-)
-
-SerialOSCGrid.releaseAllDependants; // stop listening to grid notifications
+(some example code)
 ::

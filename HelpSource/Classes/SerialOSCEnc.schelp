@@ -117,25 +117,6 @@ METHOD:: initSerialOSCEnc
 
 returns:: (describe returnvalue here)
 
-METHOD:: clearRings
-(describe method here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: ringSet
-(describe method here)
-
-ARGUMENT:: n
-(describe argument here)
-
-ARGUMENT:: x
-(describe argument here)
-
-ARGUMENT:: level
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
 METHOD:: ringAll
 (describe method here)
 
@@ -143,17 +124,6 @@ ARGUMENT:: n
 (describe argument here)
 
 ARGUMENT:: level
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: ringMap
-(describe method here)
-
-ARGUMENT:: n
-(describe argument here)
-
-ARGUMENT:: levels
 (describe argument here)
 
 returns:: (describe returnvalue here)
@@ -175,34 +145,49 @@ ARGUMENT:: level
 
 returns:: (describe returnvalue here)
 
+METHOD:: remove
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: clearRings
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: getNumEncs
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: ringSet
+(describe method here)
+
+ARGUMENT:: n
+(describe argument here)
+
+ARGUMENT:: x
+(describe argument here)
+
+ARGUMENT:: level
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: ringMap
+(describe method here)
+
+ARGUMENT:: n
+(describe argument here)
+
+ARGUMENT:: levels
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
 
 EXAMPLES::
 
-Using dependancy support it is possible to observe when new devices are attached or detached, connected or disconnected.
-
 code::
-SerialOSCClient.init;
-
-(
-SerialOSCEnc.addDependant { |thechanged, what, device|
-	switch ( what )
-	{'attached'} {
-		("encoder" + device + "was attached").postln;
-	}
-	{'detached'} {
-		("encoder" + device + "was detached").postln;
-	}
-	{'connected'} {
-		("encoder" + device + "was connected").postln;
-	}
-	{'disconnected'} {
-		("encoder" + device + "was disconnected").postln;
-	}
-	{'default'} {
-		("encoder" + device + "was set as default").postln;
-	};
-};
-)
-
-SerialOSCEnc.releaseAllDependants; // stop listening to encoder notifications
+(some example code)
 ::
