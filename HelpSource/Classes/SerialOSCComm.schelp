@@ -141,5 +141,335 @@ A Boolean indicating whether to trace messages or not.
 EXAMPLES::
 
 code::
-(some example code)
+
+// Mocking a serialosc server
+
+// Might need to comment out serialoscNetAddr clause in OSCFuncs in SerialOSCClient.sc to get this to work
+
+(
+OSCdef(
+	'/serialosc/list',
+	{|msg, time, addr, recvPort|
+		var host, port, replyaddr;
+		host = msg[1];
+		port = msg[2];
+		replyaddr = NetAddr(host.asString, port.asInteger);
+
+		~devices.do { |entry|
+			replyaddr.sendMsg(
+				"/serialosc/device",
+				entry[\id],
+				entry[\type],
+				entry[\receivePort]
+			);
+		};
+	},
+	'/serialosc/list',
+	recvPort: SerialOSCComm.serialoscPort
+);
+
+OSCdef(
+	'/serialosc/notify',
+	{|msg, time, addr, recvPort|
+		var host, port, replyaddr;
+		host = msg[1];
+		port = msg[2];
+		~registered_listeners = ~registered_listeners.add(NetAddr(host.asString, port.asInteger));
+	},
+	'/serialosc/notify',
+	recvPort: SerialOSCComm.serialoscPort
+);
+
+~add_device = { |device| // :: IdentityDictionary
+	var typesigFunction = '~add_device'; // typesig
+	var newDevice;
+	if (device.isKindOf(IdentityDictionary).not) { Error("TYPE ERROR: Function %'s argument % expects kind % but got % (class %)".format(thisFunction, "device", IdentityDictionary, device, device.class)).throw }; // typesig: device argument
+
+	newDevice = device.copy;
+	~setup_device_oscfuncs.(newDevice);
+	~devices = ~devices.add(newDevice);
+
+	~registered_listeners.size.do {
+		~listener = ~registered_listeners.removeAt(0);
+		~listener.sendMsg("/serialosc/add", device[\id]);
+	};
+	nil
+};
+
+~remove_device = { |id|
+	var device;
+	device = ~devices.detect { |device| device[\id] == id };
+	if (device.isNil) {
+		Error("No device match id %".format(id)).throw;
+	};
+	device[\oscFuncs] do: _.free;
+
+	~registered_listeners.size.do {
+		var listener;
+		listener = ~registered_listeners.removeAt(0);
+		listener.sendMsg("/serialosc/remove", id);
+	};
+	nil
+};
+
+~send_grid_key = { |deviceIndex, x, y, state|
+	var device;
+	device = ~devices[deviceIndex];
+	NetAddr(device[\destinationHost], device[\destinationPort]).sendMsg((device[\prefix].asString++"/grid/key").asSymbol, x.asInteger, y.asInteger, state.asInteger);
+};
+
+~send_enc_delta = { |deviceIndex, n, delta|
+	var device;
+	device = ~devices[deviceIndex];
+	NetAddr(device[\destinationHost], device[\destinationPort]).sendMsg((device[\prefix].asString++"/enc/delta").asSymbol, n.asInteger, delta.asInteger);
+};
+
+~setup_device_oscfuncs = { |device|
+	device[\oscFuncs] = [
+		OSCFunc(
+			{|msg, time, addr, recvPort|
+				device[\prefix] = msg[1].asSymbol;
+				device[\oscFuncs] do: _.free;
+				~setup_device_oscfuncs.(device);
+			},
+			'/sys/prefix',
+			recvPort: device[\receivePort]
+		),
+		OSCFunc(
+			{|msg, time, addr, recvPort|
+				device[\destinationPort] = msg[1].asInteger;
+			},
+			'/sys/port',
+			recvPort: device[\receivePort]
+		),
+		OSCFunc(
+			{|msg, time, addr, recvPort|
+				var x, y, state;
+				x = msg[1].asInteger;
+				y = msg[2].asInteger;
+				state = msg[3].asBoolean;
+				device[\ledState][y][x] = state;
+				~device_as_string.(device).postln;
+				~plot_grid_leds.(device);
+			},
+			(device[\prefix]++"/grid/led/set").asSymbol,
+			recvPort: device[\receivePort]
+		),
+		OSCFunc(
+			{|msg, time, addr, recvPort|
+				var n, state;
+				n = msg[1].asInteger;
+				state = msg[2].asBoolean;
+				device[\tiltState][n] = state;
+				"tilt sensor % %".format(n, if (state,  "activated", "deactivated")).postln;
+			},
+			(device[\prefix]++"/tilt/set").asSymbol,
+			recvPort: device[\receivePort]
+		),
+		OSCFunc(
+			{|msg, time, addr, recvPort|
+				var x, y, state;
+				n = msg[1].asInteger;
+				x = msg[2].asInteger;
+				l = msg[3].asInteger;
+				[n, x, l].debug("enc %".format(device[\id]));
+			},
+			(device[\prefix]++"/ring/set").asSymbol,
+			recvPort: device[\receivePort]
+		)
+	];
+};
+
+~ds = [
+	(
+		type: 'monome 64',
+		receivePort: 17000,
+		id: 'm0000045',
+		size: 8@8,
+		destinationHost: "localhost",
+		destinationPort: 17001,
+		prefix: '/nubs',
+		rotation: 0,
+		ledState: Array.fill(8) { Array.fill(8) { false } },
+		tiltState: Array.fill(1) { false }
+	),
+	(
+		type: 'monome 128',
+		receivePort: 17050,
+		id: 'm0000046',
+		size: 8@16,
+		destinationHost: "localhost",
+		destinationPort: 17051,
+		prefix: '/nubs',
+		rotation: 0,
+		ledState: Array.fill(8) { Array.fill(16) { false } },
+		tiltState: Array.fill(1) { false }
+	),
+	(
+		type: 'arc 2',
+		receivePort: 18000,
+		id: 'm0000055',
+		destinationHost: "localhost",
+		destinationPort: 18001,
+		prefix: '/nubs',
+		rotation: 0
+	),
+	(
+		type: 'arc 4',
+		receivePort: 18050,
+		id: 'm0000056',
+		destinationHost: "localhost",
+		destinationPort: 18051,
+		prefix: '/nubs',
+		rotation: 0
+	)
+];
+~add_device.(~ds[0]);
+
+~device_as_string = { |device|
+	"%, a % with prefix % receiving at port % and sending at port %".format(device[\id], device[\type], device[\prefix], device[\receivePort], device[\destinationPort])
+};
+
+~plot_grid_leds = { |device|
+	device[\ledState].collect { |col|
+		col.collect { |led| if (led, "# ", "- ") }.join
+	}.join(Char.nl).postln;
+	nil;
+};
+)
+
+~plot_grid_leds.(~ds[0])
+~plot_grid_leds.(~ds[1])
+
+~add_device.(~ds[1]);
+~add_device.(~ds[2]);
+~add_device.(~ds[3]);
+~remove_device.('m0000045');
+~add_device.(~ds[0]);
+
+
+(
+~devices.do { |device|
+	~device_as_string.(device).postln
+};
+nil;
+)
+~devices
+~device_oscfuncs
+~registered_listeners
+
+
+SerialOSCClient.init
+SerialOSCClient.connectAll
+
+SerialOSCGrid.default.ledSet(0, 0, 1);
+SerialOSCGrid.default.ledSet(0, 0, 0);
+SerialOSCGrid.default.ledSet(3, 0, 1);
+SerialOSCGrid.default.ledSet(3, 0, 0);
+
+
+(
+a=GridKeyFunc.new({|...args| args.debug(\gridkeyfunc)});
+b=GridKeyFunc.press({|...args| args.debug(\gridkeyfunc_press)});
+c=GridKeyFunc.release({|...args| args.debug(\gridkeyfunc_release)});
+)
+
+(
+GridKeydef.new(\both, {|...args| args.debug(\GridKeydef)});
+GridKeydef.press(\press, {|...args| args.debug(\GridKeydef_press)});
+GridKeydef.release(\release, {|...args| args.debug(\GridKeydef_release)});
+)
+
+SerialOSCClient.doGridKeyAction(0, 0, 1)
+SerialOSCClient.doGridKeyAction(0, 0, 0)
+
+(
+d=EncDeltaFunc.new(
+	{|...args| args.debug(\encdeltafunc_n1)},
+	1
+);
+e=EncDeltaFunc.new({|...args| args.debug(\encdeltafunc_n2)},
+	delta: { |delta| delta < -15 }
+);
+)
+
+(
+a=EncKeyFunc.new({|...args| args.debug(\enckeyfunc)});
+)
+
+
+(
+a=GridKeyFunc.new({|x, y, state, time, device|
+	device.ledSet(x, y, state)
+}, 3, 1, device: SerialOSCGrid.default);
+)
+a
+(
+b=GridKeyFunc.new({|x, y, state, time, device|
+	'öh!'.debug;
+}, 3, 1);
+)
+
+TiltFunc.new({|...args| args.debug(\tiltfunc)}, x: { |x| x < -5 });
+
+
+a.free
+a.disable
+a.enable
+
+case
+
+EncDeltaFunc.allFuncProxies
+GridKeyFunc.allFuncProxies
+
+SerialOSCClient.doGridKeyAction(0, 0, 1)
+SerialOSCClient.doGridKeyAction(0, 0, 0)
+SerialOSCClient.doEncDeltaAction(0, 15)
+SerialOSCClient.doEncDeltaAction(0, -15)
+SerialOSCClient.doEncDeltaAction(1, -16)
+SerialOSCClient.doEncKeyAction(0, true)
+SerialOSCClient.doEncKeyAction(0, false)
+
+SerialOSCClient.doTiltAction(0, 1, 2, 3)
+SerialOSCClient.doTiltAction(0, 5, 10, 15)
+SerialOSCClient.doTiltAction(0, 10, 15, 30)
+SerialOSCClient.doTiltAction(0, -1, -2, -3)
+SerialOSCClient.doTiltAction(0, -5, -10, -15)
+SerialOSCClient.doTiltAction(0, -10, -15, -30)
+
+SerialOSCClient.addSerialOSCRecvFunc { |...args| args.debug }
+
+SerialOSCEnc.default.ringSet(0, 2, 20);
+
+SerialOSCClient.postDevices
+
+~devices.first[\oscFuncs]
+
+GridKeydef
+
+OSCFunc
+
+MIDIFunc
+OSCMessageDispatcher
+
+MIDIMessageDispatcher
+
+AbstractDispatcher
+AbstractResponderFunc
+
+SerialOSCComm.requestListOfDevices("127.0.0.1", { |...args| args.debug })
+SerialOSCComm.requestInformationAboutDevice("127.0.0.1", 14769, { |...args| args.debug })
+
+(
+8.do { |x| 8.do { |y|
+SerialOSCGrid.default.ledSet(x, y, 1)
+} }
+)
+
+(
+8.do { |x| 8.do { |y|
+SerialOSCGrid.default.ledSet(x, y, 0)
+} }
+)
+
 ::
