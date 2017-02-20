@@ -1,7 +1,7 @@
 TITLE:: SerialOSCGrid
 summary:: Represents a monome or other SerialOSC compliant grid connected to the computer.
 categories:: External Control
-related:: Reference/UsingSerialOSCClient, Classes/SerialOSCEnc
+related:: Guides/UsingSerialOSCClient, Classes/SerialOSCEnc
 
 DESCRIPTION::
 Represents a monome or other SerialOSC compliant grid connected to the computer.
@@ -9,426 +9,351 @@ Represents a monome or other SerialOSC compliant grid connected to the computer.
 
 CLASSMETHODS::
 
-METHOD:: ledLevelRow
-(describe method here)
-
-ARGUMENT:: xOffset
-(describe argument here)
-
-ARGUMENT:: y
-(describe argument here)
-
-ARGUMENT:: levels
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: ledLevelAll
-(describe method here)
-
-ARGUMENT:: l
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: enableTilt
-(describe method here)
-
-ARGUMENT:: n
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: ledAll
-(describe method here)
-
-ARGUMENT:: state
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: clearLeds
-(describe method here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: tiltSet
-(describe method here)
-
-ARGUMENT:: n
-(describe argument here)
-
-ARGUMENT:: state
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: default
-(describe method here)
-
-ARGUMENT:: grid
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: disableTilt
-(describe method here)
-
-ARGUMENT:: n
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: ledSet
-(describe method here)
-
-ARGUMENT:: x
-(describe argument here)
-
-ARGUMENT:: y
-(describe argument here)
-
-ARGUMENT:: state
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: ledMap
-(describe method here)
-
-ARGUMENT:: xOffset
-(describe argument here)
-
-ARGUMENT:: yOffset
-(describe argument here)
-
-ARGUMENT:: bitmasks
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: ledCol
-(describe method here)
-
-ARGUMENT:: x
-(describe argument here)
-
-ARGUMENT:: yOffset
-(describe argument here)
-
-ARGUMENT:: bitmasks
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
 METHOD:: new
-(describe method here)
+Creates a new instance. Should not be called directly. SerialOSCClient automatically creates and maintains a list of devices.
 
 ARGUMENT:: type
-(describe argument here)
+Device type
 
 ARGUMENT:: id
-(describe argument here)
+Device id
 
 ARGUMENT:: port
-(describe argument here)
+Device port
 
 ARGUMENT:: rotation
-(describe argument here)
+Grid rotation: 0, 90, 180 or 270
 
-returns:: (describe returnvalue here)
-
-METHOD:: ledLevelSet
-(describe method here)
-
-ARGUMENT:: x
-(describe argument here)
-
-ARGUMENT:: y
-(describe argument here)
-
-ARGUMENT:: l
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: ledLevelMap
-(describe method here)
-
-ARGUMENT:: xOffset
-(describe argument here)
-
-ARGUMENT:: yOffset
-(describe argument here)
-
-ARGUMENT:: levels
-(describe argument here)
-
-returns:: (describe returnvalue here)
+returns:: An instance of SerialOSCGrid
 
 METHOD:: all
-(describe method here)
+A list of all grids currently connected to the computer as detected by SerialOSCClient.
 
-returns:: (describe returnvalue here)
+returns:: An array of SerialOSCGrid instances
 
-METHOD:: ledIntensity
-(describe method here)
+METHOD:: default
+Sets or gets the default grid.
 
-ARGUMENT:: i
-(describe argument here)
+METHOD:: ledLSpec
+A ControlSpec describing the number of levels of intensity a vari-bright grid led may have. See monome homepage for details on vari-brightness support on different models.
 
-returns:: (describe returnvalue here)
+returns:: A ControlSpec
 
-METHOD:: ledLevelCol
-(describe method here)
 
-ARGUMENT:: x
-(describe argument here)
+SUBSECTION::Default grid led state
 
-ARGUMENT:: yOffset
-(describe argument here)
+These methods are equivalent to instance methods of the same name below except they are invoked for the default grid, if any.
 
-ARGUMENT:: levels
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: initClass
-(describe method here)
-
-returns:: (describe returnvalue here)
-
+METHOD:: clearLeds
+METHOD:: ledSet
+METHOD:: ledLevelSet
+METHOD:: ledAll
+METHOD:: ledLevelAll
+METHOD:: ledMap
+METHOD:: ledLevelMap
 METHOD:: ledRow
-(describe method here)
+METHOD:: ledLevelRow
+METHOD:: ledCol
+METHOD:: ledLevelCol
+METHOD:: ledIntensity
 
-ARGUMENT:: xOffset
-(describe argument here)
 
-ARGUMENT:: y
-(describe argument here)
+SUBSECTION::Default grid tilt activation
 
-ARGUMENT:: bitmasks
-(describe argument here)
+These methods are equivalent to instance methods of the same name below except they are invoked for the default grid, if any.
 
-returns:: (describe returnvalue here)
+METHOD:: enableTilt
+
+METHOD:: disableTilt
+
+METHOD:: tiltSet
 
 
 INSTANCEMETHODS::
 
-METHOD:: ledCol
-(describe method here)
-
-ARGUMENT:: x
-(describe argument here)
-
-ARGUMENT:: yOffset
-(describe argument here)
-
-ARGUMENT:: bitmasks
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: getEffectiveNumCols
-(describe method here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: ledSet
-(describe method here)
-
-ARGUMENT:: x
-(describe argument here)
-
-ARGUMENT:: y
-(describe argument here)
-
-ARGUMENT:: state
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: ledLevelCol
-(describe method here)
-
-ARGUMENT:: x
-(describe argument here)
-
-ARGUMENT:: yOffset
-(describe argument here)
-
-ARGUMENT:: levels
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: ledLevelSet
-(describe method here)
-
-ARGUMENT:: x
-(describe argument here)
-
-ARGUMENT:: y
-(describe argument here)
-
-ARGUMENT:: l
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: ledIntensity
-(describe method here)
-
-ARGUMENT:: i
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: remove
-(describe method here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: ledLevelAll
-(describe method here)
-
-ARGUMENT:: l
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: ledRow
-(describe method here)
-
-ARGUMENT:: xOffset
-(describe argument here)
-
-ARGUMENT:: y
-(describe argument here)
-
-ARGUMENT:: bitmasks
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: tiltSet
-(describe method here)
-
-ARGUMENT:: n
-(describe argument here)
-
-ARGUMENT:: state
-(describe argument here)
-
-returns:: (describe returnvalue here)
+SUBSECTION::Led state
 
 METHOD:: clearLeds
-(describe method here)
+Clears all leds. Same as ledAll(0).
 
-returns:: (describe returnvalue here)
+METHOD:: ledSet
+Set led at (x,y) to state s (0 or 1).
 
-METHOD:: disableTilt
-(describe method here)
+Sends "/grid/led/set" message to the grid device. 
 
-ARGUMENT:: n
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: deviceNumRowsFromType
-(describe method here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: ledMap
-(describe method here)
-
-ARGUMENT:: xOffset
-(describe argument here)
-
-ARGUMENT:: yOffset
-(describe argument here)
-
-ARGUMENT:: bitmasks
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: initSerialOSCGrid
-(describe method here)
-
-ARGUMENT:: argRotation
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: ledLevelMap
-(describe method here)
-
-ARGUMENT:: xOffset
-(describe argument here)
-
-ARGUMENT:: yOffset
-(describe argument here)
-
-ARGUMENT:: levels
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: ledLevelRow
-(describe method here)
-
-ARGUMENT:: xOffset
-(describe argument here)
+ARGUMENT:: x
+Led x coordinate
 
 ARGUMENT:: y
-(describe argument here)
-
-ARGUMENT:: levels
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: deviceNumColsFromType
-(describe method here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: ledYSpec
-(describe method here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: enableTilt
-(describe method here)
-
-ARGUMENT:: n
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: ledAll
-(describe method here)
+Led y coordinate
 
 ARGUMENT:: state
-(describe argument here)
+1 (to set) or 0 (to clear)
 
-returns:: (describe returnvalue here)
+METHOD:: ledLevelSet
+Set led at (x,y) to level l.
 
-METHOD:: ledXSpec
-(describe method here)
+Sends "/grid/led/level/set" message to the grid device. 
 
-returns:: (describe returnvalue here)
+ARGUMENT:: x
+Led x coordinate
+
+ARGUMENT:: y
+Led y coordinate
+
+ARGUMENT:: l
+An Integer between 0 and 15 describing led intensity
+
+METHOD:: ledAll
+Set all leds to state s (0 or 1).
+
+Sends "/grid/led/all" message to the grid device. 
+
+ARGUMENT:: state
+1 (to set) or 0 (to clear)
+
+METHOD:: ledLevelAll
+Set all leds to level l.
+
+Sends "/grid/led/level/all" message to the grid device. 
+
+ARGUMENT:: l
+An Integer between 0 and 15 describing led intensity
+
+METHOD:: ledMap
+Set states of a quad (8x8, 64 buttons) in a single message.
+
+Sends "/grid/led/map" message to the grid device. 
+
+ARGUMENT:: xOffset
+An Integer describing x offset. Must be a multiple of 8.
+
+ARGUMENT:: yOffset
+An Integer describing y offset. Must be a multiple of 8.
+
+ARGUMENT:: bitmasks
+An Array of 8 Integers. Each number in the list is a bitmask of the buttons in a row, one number in the list for each row. The message will fail if the list doesn’t have 8 entries plus offsets.
+
+METHOD:: ledLevelMap
+Set levels of a quad (8x8, 64 buttons) in a single message.
+
+Sends "/grid/led/level/map" message to the grid device. 
+
+ARGUMENT:: xOffset
+An Integer describing x offset. Must be a multiple of 8.
+
+ARGUMENT:: yOffset
+An Integer describing y offset. Must be a multiple of 8.
+
+ARGUMENT:: levels
+An Array of 64 Integers. Each number in the list describes the intensity level of a buttons in the quad.
+
+METHOD:: ledRow
+Set states of a row in a quad in a single message.
+
+Sends "/grid/led/row" message to the grid device. 
+
+ARGUMENT:: xOffset
+An Integer describing x offset. Must be a multiple of 8.
+
+ARGUMENT:: y
+An Integer describing what row to update.
+
+ARGUMENT:: bitmasks
+An Array of Integers describing led state.
+
+METHOD:: ledLevelRow
+Set levels of a row in a quad in a single message.
+
+Sends "/grid/led/level/row" message to the grid device. 
+
+ARGUMENT:: xOffset
+An Integer describing x offset. Must be a multiple of 8.
+
+ARGUMENT:: y
+An Integer describing what row to update.
+
+ARGUMENT:: levels
+Array of Integers between 0 and 15 describing levels.
+
+METHOD:: ledCol
+Set states of a column in a quad in a single message.
+
+Sends "/grid/led/col" message to the grid device. 
+
+ARGUMENT:: x
+An Integer describing what col to update.
+
+ARGUMENT:: yOffset
+An Integer describing y offset. Must be a multiple of 8.
+
+ARGUMENT:: bitmasks
+An Array of Integers describing led state.
+
+METHOD:: ledLevelCol
+Set levels of a column in a quad in a single message.
+
+Sends "/grid/led/level/col" message to the grid device. 
+
+ARGUMENT:: x
+An Integer describing what col to update.
+
+ARGUMENT:: yOffset
+An Integer describing y offset. Must be a multiple of 8.
+
+ARGUMENT:: levels
+Array of Integers between 0 and 15 describing levels.
+
+METHOD:: ledIntensity
+Change brightness of the entire grid
+
+ARGUMENT:: i
+Brightness
+
+
+SUBSECTION::Rotation and effective bounds
+
+METHOD:: rotation
+Sets or returns the rotation of the grid. Rotation is either 0, 90, 180 or 270.
+
+Setting rotation of a grid sends a "/sys/rotation" message to the grid's device port. 
+
+returns:: An Integer
+
+METHOD:: getEffectiveNumCols
+Return the current number of columns according to grid type and rotation
+
+returns:: An Integer
 
 METHOD:: getEffectiveNumRows
-(describe method here)
+Return the current number of rows according to grid type and rotation
 
-returns:: (describe returnvalue here)
+returns:: An Integer
+
+METHOD:: ledXSpec
+A ControlSpec describing the number of columns of the grid.
+
+returns:: A ControlSpec
+
+METHOD:: ledYSpec
+A ControlSpec describing the number of rows of the grid.
+
+returns:: A ControlSpec
+
+
+SUBSECTION::Tilt activation
+
+METHOD:: enableTilt
+Enable tilt sensor
+
+ARGUMENT:: n
+Tilt sensor index
+
+METHOD:: disableTilt
+Disable tilt sensor
+
+ARGUMENT:: n
+Tilt sensor index
+
+METHOD:: tiltSet
+Sends "/grid/tilt/set" message to the grid device. 
+
+ARGUMENT:: n
+Tilt sensor index
+
+ARGUMENT:: state
+1 = active, 0 = inactive
 
 
 EXAMPLES::
 
 code::
-(some example code)
+// Plug in a grid
+
+SerialOSCClient.init;
+
+// Led examples invokes class methods which update leds of default grid, but equivalent instance methods do the same thing for non-default SerialOSCGrid instances
+
+// Set single leds
+SerialOSCGrid.ledSet(0, 0, 1);
+SerialOSCGrid.ledSet(3, 2, 1);
+SerialOSCGrid.ledSet(1, 7, 1);
+
+// Set single leds (vari-bright)
+SerialOSCGrid.ledLevelSet(0, 0, 15);
+SerialOSCGrid.ledLevelSet(3, 2, 7);
+SerialOSCGrid.ledLevelSet(1, 7, 2);
+
+// Set all leds
+SerialOSCGrid.ledAll(1);
+SerialOSCGrid.ledAll(0);
+SerialOSCGrid.ledLevelAll(2);
+SerialOSCGrid.ledLevelAll(7);
+SerialOSCGrid.ledLevelAll(15);
+SerialOSCGrid.clearLeds; // same thing as SerialOSCGrid.ledAll(0)
+
+// Set quads (8x8, 64 buttons)
+SerialOSCGrid.ledMap(0, 0, 4, 4, 4, 4, 8, 8, 8, 8);
+SerialOSCGrid.ledMap(0, 0, 254, 253, 125, 247, 239, 36, 191, 4);
+SerialOSCGrid.ledMap(8, 8, 1, 2, 4, 8, 16, 32, 64, 128);
+
+// examples (for 256)
+
+// /grid/led/row 0 0 255 255
+// /grid/led/row 8 5 255
+SerialOSCGrid.ledRow(0, 0, 255, 255);
+SerialOSCGrid.ledRow(8, 5, 255);
+
+// examples (for 64)
+
+// /grid/led/row 0 0 232
+// /grid/led/row 0 3 129
+SerialOSCGrid.ledRow(0, 0, 232);
+SerialOSCGrid.ledRow(0, 3, 129);
+
+// examples (for 256)
+
+// /grid/led/col 0 0 255 255 (updates quads 1 and 3)
+// /grid/led/col 13 8 255 (updates quad 4 due to offset.)
+SerialOSCGrid.ledCol(0, 0, 255, 255);
+SerialOSCGrid.ledCol(13, 8, 255);
+
+// examples (for 64)
+
+// /grid/led/col 0 0 232
+// /grid/led/col 6 0 155 
+SerialOSCGrid.ledCol(0, 0, 232);
+SerialOSCGrid.ledCol(6, 0, 155);
+
+// Activate tilt
+Tiltdef(\test, { |...args| args.debug });
+SerialOSCGrid.activateTilt(0);
+SerialOSCGrid.deactivateTilt(0);
+Tiltdef(\test).free;
+
+// Using dependancy support it is possible to observe when new devices are attached or detached, connected or disconnected. It is also possible to get notified when a new default of either SerialOSCDevice kind is set.
+
+(
+// TODO: test what applies
+SerialOSCGrid.addDependant { |thechanged, what, device|
+	switch ( what )
+	{'attached'} {
+		("grid" + device + "was attached").postln;
+	}
+	{'detached'} {
+		("grid" + device + "was detached").postln;
+	}
+	{'connected'} {
+		("grid" + device + "was connected").postln;
+	}
+	{'disconnected'} {
+		("grid" + device + "was disconnected").postln;
+	}
+	{'default'} {
+		("grid" + device + "was set as default").postln;
+	};
+};
+)
+
+SerialOSCGrid.releaseAllDependants; // stop listening to grid notifications
 ::

@@ -102,9 +102,7 @@ SerialOSCClient {
 		this.prUpdateDevicesListAsync { |devicesAddedToDevicesList, devicesRemovedFromDevicesList|
 			this.postDevices;
 			this.prNotifyChangesInDevicesList(devicesAddedToDevicesList, devicesRemovedFromDevicesList);
-			devicesRemovedFromDevicesList.do { |serialOSCDevice|
-				serialOSCDevice.remove;
-			};
+			devicesRemovedFromDevicesList do: (_.remove);
 			if (autoconnectDevices) { this.connectAll(false) };
 			this.prUpdateDefaultDevices(devicesAddedToDevicesList, devicesRemovedFromDevicesList);
 			completionFunc.();
@@ -625,7 +623,7 @@ SerialOSCClient {
 		grid !? { |grid| grid.clearLeds };
 	}
 
-	enableTilt { |n|
+	enableTilt { |n| // TODO: rename to activate/deactivateTilt?
 		grid !? { |grid| grid.enableTilt(n) };
 	}
 
@@ -704,8 +702,11 @@ SerialOSCClient {
 
 SerialOSCGrid : SerialOSCDevice {
 	classvar <default, <all;
+	classvar <ledLSpec;
+	var <rotation;
 
 	*initClass {
+		ledLSpec = ControlSpec(0, 15, step: 1);
 		all = [];
 	}
 
@@ -726,11 +727,17 @@ SerialOSCGrid : SerialOSCDevice {
 		all = all.add(this);
 	}
 
+	rotation_ { |degrees|
+		SerialOSCComm.changeDeviceRotation("127.0.0.1", port, degrees);
+		rotation = degrees;
+		this.changed(\rotation, degrees);
+	}
+
 	*clearLeds {
 		default !? { |grid| grid.clearLeds };
 	}
 
-	*enableTilt { |n|
+	*enableTilt { |n| // TODO: rename to activate/deactivateTilt?
 		default !? { |grid| grid.enableTilt(n) };
 	}
 
@@ -818,7 +825,7 @@ SerialOSCGrid : SerialOSCDevice {
 		this.ledAll(0);
 	}
 
-	enableTilt { |n| this.tiltSet(n, true) }
+	enableTilt { |n| this.tiltSet(n, true) } // TODO: rename to activate/deactivateTilt?
 
 	disableTilt { |n| this.tiltSet(n, false) }
 
@@ -941,6 +948,10 @@ SerialOSCEnc : SerialOSCDevice {
 		default !? { |enc| enc.ringRange(n, x1, x2, level) };
 	}
 
+	nSpec {
+		// TODO
+	}
+
 	clearRings {
 		4.do { |n| this.ringAll(n, 0) };
 	}
@@ -989,11 +1000,10 @@ SerialOSCEnc : SerialOSCDevice {
 }
 
 SerialOSCDevice {
-	var <>type, <>id, <>port, <client;
-	var <rotation;
+	var <type, <id, <port, <client;
 
-	*new { arg type, id, port, rotation;
-		^super.newCopyArgs(type, id, port, rotation)
+	*new { arg type, id, port;
+		^super.newCopyArgs(type, id, port)
 	}
 
 	client_ { |argClient|
@@ -1006,23 +1016,13 @@ SerialOSCDevice {
 			[type, id, port]  <<")"
 	}
 
-	setRotation { |degrees|
-		SerialOSCComm.changeDeviceRotation("127.0.0.1", port, degrees);
-		rotation = degrees;
-		this.changed(\rotation, degrees);
-	}
-
 	prSendMsg { |address ...args|
 		NetAddr("127.0.0.1", port).sendMsg(SerialOSCClient.prGetPrefixedAddress(address), *args);
 	}
 
-	matches { |that|
-		^this==that or:{
-			(this.type == that.type) and: (this.id == that.id) and: (this.port == that.port)
-		}
-	}
-
 	remove {
+		// TODO: disconnect device if connected (so that connectedDevices no longer contain this device)
+		// TODO: probably not, but consider deattaching device (so that it is no longer in SerialOSCClient.devices, but will eventually get back on reinitialization / next attached device)
 		client = nil;
 		this.changed(\removed);
 	}
@@ -1395,9 +1395,7 @@ GridKeyFunc : AbstractResponderFunc {
 
 	// swap out func and wait
 	learn {|learnState = false|
-		// check for cc or noteon?
 		var learnFunc;
-		/*this.remove(func);*/
 		learnFunc = this.learnFunc(learnState);
 		this.disable;
 		this.init(learnFunc); // keep old args if specified, so we can learn from particular channels, srcs, etc.
@@ -1551,9 +1549,7 @@ EncDeltaFunc : AbstractResponderFunc {
 
 	// swap out func and wait
 	learn {
-		// check for cc or noteon?
 		var learnFunc;
-		/*this.remove(func);*/
 		learnFunc = this.learnFunc;
 		this.disable;
 		this.init(learnFunc); // keep old args if specified, so we can learn from particular channels, srcs, etc.

@@ -1,7 +1,7 @@
 TITLE:: SerialOSCDevice
 summary:: Abstract class that represents a physical SerialOSC compatible device connected to the computer
 categories:: External Control
-related:: Reference/UsingSerialOSCClient, Classes/SerialOSCGrid, Classes/SerialOSCEnc
+related:: Guides/UsingSerialOSCClient, Classes/SerialOSCGrid, Classes/SerialOSCEnc
 
 DESCRIPTION::
 Represents a physical SerialOSC compatible device - such as monome grid or arc - connected to the computer. Subclasses link::Classes/SerialOSCGrid:: and link::Classes/SerialOSCEnc:: are concrete implementations of this class.
@@ -10,149 +10,49 @@ Represents a physical SerialOSC compatible device - such as monome grid or arc -
 CLASSMETHODS::
 
 METHOD:: new
-(describe method here)
+Creates a new instance.
 
 ARGUMENT:: type
-(describe argument here)
+Device type
 
 ARGUMENT:: id
-(describe argument here)
+Device id
 
 ARGUMENT:: port
-(describe argument here)
+Device port
 
-ARGUMENT:: rotation
-(describe argument here)
-
-returns:: (describe returnvalue here)
+returns:: An instance of SerialOSCDevice
 
 
 INSTANCEMETHODS::
 
-METHOD:: matches
-(describe method here)
-
-ARGUMENT:: that
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: id
-(describe method here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: setRotation
-(describe method here)
-
-ARGUMENT:: degrees
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: isConnected
-(describe method here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: printOn
-(describe method here)
-
-ARGUMENT:: stream
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: remove
-(describe method here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: rotation
-(describe method here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: client
-(describe method here)
-
-ARGUMENT:: argClient
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: prSendMsg
-(describe method here)
-
-ARGUMENT:: address
-(describe argument here)
-
-ARGUMENT::  ... args
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
 METHOD:: port
-(describe method here)
+The device port
 
-returns:: (describe returnvalue here)
+returns:: An Integer
 
 METHOD:: type
-(describe method here)
+The device type
 
-returns:: (describe returnvalue here)
+returns:: A Symbol
+
+METHOD:: id
+The device id
+
+returns:: A Symbol
+
+METHOD:: isConnected
+Answers whether the instance is connected to SerialOSCClient
+
+returns:: A Boolean
+
+METHOD:: client
+Sets or returns the client the device is routed to
+
+returns:: A SerialOSCClient
 
 
 EXAMPLES::
 
-Using dependancy support it is possible to observe when new devices are attached or detached, connected or disconnected. It is also possible to get notified when a new default of either SerialOSCDevice kind is set.
-
 code::
-SerialOSCClient.init;
-
-(
-SerialOSCGrid.addDependant { |thechanged, what, device|
-	switch ( what )
-	{'attached'} {
-		("grid" + device + "was attached").postln;
-	}
-	{'detached'} {
-		("grid" + device + "was detached").postln;
-	}
-	{'connected'} {
-		("grid" + device + "was connected").postln;
-	}
-	{'disconnected'} {
-		("grid" + device + "was disconnected").postln;
-	}
-	{'default'} {
-		("grid" + device + "was set as default").postln;
-	};
-};
-)
-
-SerialOSCGrid.releaseAllDependants; // stop listening to grid notifications
-
-(
-SerialOSCEnc.addDependant { |thechanged, what, device|
-	switch ( what )
-	{'attached'} {
-		("encoder" + device + "was attached").postln;
-	}
-	{'detached'} {
-		("encoder" + device + "was detached").postln;
-	}
-	{'connected'} {
-		("encoder" + device + "was connected").postln;
-	}
-	{'disconnected'} {
-		("encoder" + device + "was disconnected").postln;
-	}
-	{'default'} {
-		("encoder" + device + "was set as default").postln;
-	};
-};
-)
-
-SerialOSCEnc.releaseAllDependants; // stop listening to encoder notifications
 ::
