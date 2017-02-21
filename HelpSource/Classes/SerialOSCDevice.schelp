@@ -23,6 +23,13 @@ Device port
 
 returns:: An instance of SerialOSCDevice
 
+METHOD:: ledLSpec
+A ControlSpec describing the number of levels of intensity a ring led or vari-bright grid led may have.
+
+Refer to the monome homepage for details on vari-brightness support for different device models.
+
+returns:: A ControlSpec
+
 
 INSTANCEMETHODS::
 

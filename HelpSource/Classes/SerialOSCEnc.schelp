@@ -36,11 +36,6 @@ A ControlSpec describing the number of leds in a ring. This is shared by all enc
 
 returns:: A ControlSpec
 
-METHOD:: ledLSpec
-A ControlSpec describing the number of levels of intensity a ring led may have. This is shared by all encs.
-
-returns:: A ControlSpec
-
 
 SUBSECTION::Default enc ring state
 

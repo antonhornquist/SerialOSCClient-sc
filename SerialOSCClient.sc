@@ -175,7 +175,7 @@ SerialOSCClient {
 	}
 
 	*connect { |device|
-		this.ensureInitialized;
+		this.prEnsureInitialized;
 
 		if (connectedDevices.includes(device).not) {
 			SerialOSCComm.changeDeviceMessagePrefix(
@@ -227,7 +227,7 @@ SerialOSCClient {
 	}
 
 	*prDispatchEvent { |type, args, device|
-		this.ensureInitialized;
+		this.prEnsureInitialized;
 		recvSerialOSCFunc.value(type, args, SystemClock.seconds, device);
 	}
 
@@ -236,7 +236,7 @@ SerialOSCClient {
 	}
 
 	*disconnect { |device|
-		this.ensureInitialized;
+		this.prEnsureInitialized;
 
 		if (connectedDevices.includes(device)) {
 			this.changed(\disconnected, device);
@@ -314,7 +314,7 @@ SerialOSCClient {
 		^devices.detect { |device| device.port == receivePort }
 	}
 
-	*ensureInitialized {
+	*prEnsureInitialized {
 		initialized.not.if { Error("SerialOSCClient has not been initialized").throw };
 	}
 
@@ -702,11 +702,9 @@ SerialOSCClient {
 
 SerialOSCGrid : SerialOSCDevice {
 	classvar <default, <all;
-	classvar <ledLSpec;
 	var <rotation;
 
 	*initClass {
-		ledLSpec = ControlSpec(0, 15, step: 1);
 		all = [];
 	}
 
@@ -906,11 +904,10 @@ SerialOSCGrid : SerialOSCDevice {
 
 SerialOSCEnc : SerialOSCDevice {
 	classvar <default, <all;
-	classvar <ledXSpec, <ledLSpec;
+	classvar <ledXSpec;
 
 	*initClass {
 		ledXSpec = ControlSpec(0, 63, step: 1);
-		ledLSpec = ControlSpec(0, 15, step: 1);
 		all = [];
 	}
 
@@ -1001,6 +998,11 @@ SerialOSCEnc : SerialOSCDevice {
 
 SerialOSCDevice {
 	var <type, <id, <port, <client;
+	classvar <ledLSpec;
+
+	*initClass {
+		ledLSpec = ControlSpec(0, 15, step: 1);
+	}
 
 	*new { arg type, id, port;
 		^super.newCopyArgs(type, id, port)

@@ -34,11 +34,6 @@ returns:: An array of SerialOSCGrid instances
 METHOD:: default
 Sets or gets the default grid.
 
-METHOD:: ledLSpec
-A ControlSpec describing the number of levels of intensity a vari-bright grid led may have. See monome homepage for details on vari-brightness support on different models.
-
-returns:: A ControlSpec
-
 
 SUBSECTION::Default grid led state
 
