@@ -1,5 +1,5 @@
 title:: Using SerialOSCClient
-summary:: Notes on using SerialOSC devices with SuperCollider and the SerialOSCClient library
+summary:: Notes on SuperCollider SerialOSC device (monome, arc) support provided by the SerialOSCClient library
 categories:: External Control
 related:: Guides/UsingMIDI
 
@@ -9,7 +9,9 @@ section::Introduction
 
 SerialOSCClient provides plug'n'play support for monome (link::http://monome.org::) grids, arcs and other SerialOSC compliant devices. In many regards SerialOSCClient and its related classes are to SerialOSC devices what link::Classes/MIDIClient:: and its related classes in the SuperCollider standard library are to MIDI devices.
 
-Once initialized SerialOSCClient automatically discovers devices (attached and detached ones), maintains a list of connected devices in code::SerialOSCClient.devices:: and uses that list to route incoming events (key presses, encoder deltas, etc) to SerialOSC device specific *Func and *def responder objects (GridKeyFunc/def for incoming grid key presses, EncDeltaFunc/def for encoder deltas, etc).
+subsection::Basic Usage
+
+Once initialized SerialOSCClient automatically discovers devices (attached and detached ones), maintains a list of connected devices in code::SerialOSCClient.devices:: and uses that list to route incoming events (key presses, encoder deltas, etc) to SerialOSC device specific responder objects (GridKeyFunc/def for incoming grid key presses, EncDeltaFunc/def for encoder deltas, etc).
 
 Instances of class link::Classes/SerialOSCGrid:: and link::Classes/SerialOSCEnc:: in the code::SerialOSCClient.devices:: list may be used to update led state of each connected device. SerialOSCClient automatically sets a default grid and arc the first time a device of either kind is attached. Led state of each default device can be updated using class methods in SerialOSCGrid and SerialOSCEnc. In the common case of using a single grid or arc or using a single grid and arc together there is no need to explicitly choose devices.
 

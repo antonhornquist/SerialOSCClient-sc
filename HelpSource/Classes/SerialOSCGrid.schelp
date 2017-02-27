@@ -42,6 +42,8 @@ Sets or gets the default grid.
 
 SUBSECTION::Default grid led state
 
+These methods are equivalent to instance methods of the same name below except they are invoked for the default grid, if any.
+
 METHOD:: clearLeds
 METHOD:: ledSet
 METHOD:: ledLevelSet
@@ -55,16 +57,14 @@ METHOD:: ledCol
 METHOD:: ledLevelCol
 METHOD:: ledIntensity
 
-These methods are equivalent to instance methods of the same name below except they are invoked for the default grid, if any.
-
 
 SUBSECTION::Default grid tilt activation
+
+These methods are equivalent to instance methods of the same name below except they are invoked for the default grid, if any.
 
 METHOD:: enableTilt
 METHOD:: disableTilt
 METHOD:: tiltSet
-
-These methods are equivalent to instance methods of the same name below except they are invoked for the default grid, if any.
 
 
 INSTANCEMETHODS::

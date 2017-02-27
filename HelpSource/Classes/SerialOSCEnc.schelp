@@ -44,13 +44,13 @@ returns:: A ControlSpec
 
 SUBSECTION::Default enc ring state
 
+These methods are equivalent to instance methods of the same name below except they are invoked for the default enc, if any.
+
 METHOD:: clearRings
 METHOD:: ringSet
 METHOD:: ringAll
 METHOD:: ringMap
 METHOD:: ringRange
-
-These methods are equivalent to instance methods of the same name below except they are invoked for the default enc, if any.
 
 
 INSTANCEMETHODS::

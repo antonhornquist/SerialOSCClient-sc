@@ -141,20 +141,24 @@ Name of the client.
 ARGUMENT:: gridSpec
 A link::Classes/Symbol::, link::Classes/Association:: or link::Classes/Dictionary:: describing grid requirements for the client.
 
-\none - the client is not designed to use a grid.
-\any - the client is designed for grids of any size.
-An Association \numCols -> x - the client is designed for a grid with a certain number of columns
-An Association \numRows -> y - the client is designed for a grid with a certain number of rows
-A Dictionary (numCols: x, numRows: y) - the client is designed for a grid of a certain size
+LIST::
+	## Symbol \none - the client is not designed to use a grid.
+	## Symbol \any - the client is designed for grids of any size.
+	## An Association \numCols -> x - the client is designed for a grid with a certain number of columns
+	## An Association \numRows -> y - the client is designed for a grid with a certain number of rows
+	## A Dictionary (numCols: x, numRows: y) - the client is designed for a grid of a certain size
+::
 
 When a grid is routed that do not match a client's gridSpec a warning is posted.
 
 ARGUMENT:: encSpec
 A link::Classes/Symbol:: or link::Classes/Integer:: describing enc requirements for the client.
 
-\none - the client is not designed to use a enc.
-\any - the client is designed for encs of any size.
-An Integer - the client is designed for an enc with a certain number of encoders
+LIST::
+	## Symbol \none - the client is not designed to use a enc.
+	## Symbol \any - the client is designed for encs of any size.
+	## An Integer - the client is designed for an enc with a certain number of encoders
+::
 
 When an enc is routed that do not match a client's encSpec a warning is posted.
 
@@ -342,14 +346,16 @@ link::Classes/Function:: invoked when enc key state change messages are received
 
 SUBSECTION::Grid tilt activation
 
+Activate / deactivate tilt sensors of grid currently routed client, if any. Refer to link::Classes/SerialOSCGrid:: for details.
+
 METHOD:: enableTilt
 METHOD:: disableTilt
 METHOD:: tiltSet
 
-Activate / deactivate tilt sensors of grid currently routed client, if any. Refer to link::Classes/SerialOSCGrid:: for details.
-
 
 SUBSECTION::Grid led state
+
+Update led state of grid currently routed client, if any. Refer to link::Classes/SerialOSCGrid:: for details.
 
 METHOD:: clearLeds
 METHOD:: ledSet
@@ -364,18 +370,16 @@ METHOD:: ledCol
 METHOD:: ledLevelCol
 METHOD:: ledIntensity
 
-Update led state of grid currently routed client, if any. Refer to link::Classes/SerialOSCGrid:: for details.
-
 
 SUBSECTION::Ring led state
+
+Update led state of enc currently routed client, if any. Refer to link::Classes/SerialOSCEnc:: for details.
 
 METHOD:: clearRings
 METHOD:: ringSet
 METHOD:: ringAll
 METHOD:: ringMap
 METHOD:: ringRange
-
-Update led state of enc currently routed client, if any. Refer to link::Classes/SerialOSCEnc:: for details.
 
 
 EXAMPLES::
