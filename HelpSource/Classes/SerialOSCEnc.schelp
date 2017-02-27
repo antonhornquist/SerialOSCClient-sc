@@ -28,6 +28,11 @@ A list of all encs currently connected to the computer as detected by SerialOSCC
 
 returns:: An array of SerialOSCEnc instances
 
+METHOD:: unrouted
+A list of encs not routed to a client.
+
+returns:: An array of SerialOSCEnc instances
+
 METHOD:: default
 Sets or gets the default enc.
 
@@ -39,13 +44,13 @@ returns:: A ControlSpec
 
 SUBSECTION::Default enc ring state
 
-These methods are equivalent to instance methods of the same name below except they are invoked for the default enc, if any.
-
 METHOD:: clearRings
 METHOD:: ringSet
 METHOD:: ringAll
 METHOD:: ringMap
 METHOD:: ringRange
+
+These methods are equivalent to instance methods of the same name below except they are invoked for the default enc, if any.
 
 
 INSTANCEMETHODS::

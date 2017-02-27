@@ -31,13 +31,16 @@ A list of all grids currently connected to the computer as detected by SerialOSC
 
 returns:: An array of SerialOSCGrid instances
 
+METHOD:: unrouted
+A list of grids not routed to a client.
+
+returns:: An array of SerialOSCGrid instances
+
 METHOD:: default
 Sets or gets the default grid.
 
 
 SUBSECTION::Default grid led state
-
-These methods are equivalent to instance methods of the same name below except they are invoked for the default grid, if any.
 
 METHOD:: clearLeds
 METHOD:: ledSet
@@ -52,16 +55,16 @@ METHOD:: ledCol
 METHOD:: ledLevelCol
 METHOD:: ledIntensity
 
+These methods are equivalent to instance methods of the same name below except they are invoked for the default grid, if any.
+
 
 SUBSECTION::Default grid tilt activation
 
-These methods are equivalent to instance methods of the same name below except they are invoked for the default grid, if any.
-
 METHOD:: enableTilt
-
 METHOD:: disableTilt
-
 METHOD:: tiltSet
+
+These methods are equivalent to instance methods of the same name below except they are invoked for the default grid, if any.
 
 
 INSTANCEMETHODS::

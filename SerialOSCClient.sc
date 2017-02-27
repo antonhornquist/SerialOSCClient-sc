@@ -15,15 +15,15 @@ SerialOSCClient {
 	var <name;
 	var <gridSpec, <encSpec;
 	var <grid, <enc;
-	var <autoconnect;
+	var <autoroute;
 	var gridResponder, tiltResponder, gridDependantFunc;
 	var encDeltaResponder, encKeyResponder, encDependantFunc;
 	var <>willFree;
 	var <>permanent;
 	var <>onFree;
 
-	var <>onGridConnected, <>onGridDisconnected, <>gridRefreshAction;
-	var <>onEncConnected, <>onEncDisconnected, <>encRefreshAction;
+	var <>onGridRouted, <>onGridUnrouted, <>gridRefreshAction;
+	var <>onEncRouted, <>onEncUnrouted, <>encRefreshAction;
 	var <>gridKeyAction, <>encDeltaAction, <>encKeyAction, <>tiltAction;
 
 	*initClass {
@@ -201,8 +201,9 @@ SerialOSCClient {
 	}
 
 	*prAutorouteDeviceToClients {
+		// TODO: route in two passes. Pass 1: devices satisfying specs. Pass 2: any device
 		SerialOSCClient.all.do { |client|
-			if (client.autoconnect) { client.findAndRouteUnusedDevicesToClient };
+			if (client.autoroute) { client.findAndRouteUnusedDevicesToClient };
 		};
 	}
 
@@ -318,29 +319,29 @@ SerialOSCClient {
 		initialized.not.if { Error("SerialOSCClient has not been initialized").throw };
 	}
 
-	*grid { |name, func, spec=\any, autoconnect=true|
-		^this.new(name, spec, \none, func, autoconnect);
+	*grid { |name, func, gridSpec=\any, autoroute=true|
+		^this.new(name, gridSpec, \none, func, autoroute);
 	}
 
-	*enc { |name, func, spec, autoconnect=true|
-		^this.new(name, \none, spec, func, autoconnect);
+	*enc { |name, func, encSpec, autoroute=true|
+		^this.new(name, \none, encSpec, func, autoroute);
 	}
 
-	*gridEnc { |name, func, gridSpec, encSpec, autoconnect=true|
-		^this.new(name, gridSpec, encSpec, func, autoconnect);
+	*gridEnc { |name, func, gridSpec, encSpec, autoroute=true|
+		^this.new(name, gridSpec, encSpec, func, autoroute);
 	}
 
-	*new { |name, gridSpec=\any, encSpec=\any, func, autoconnect=true|
-		^super.new.initSerialOSCClient(name, gridSpec, encSpec, func, autoconnect)
+	*new { |name, gridSpec=\any, encSpec=\any, func, autoroute=true|
+		^super.new.initSerialOSCClient(name, gridSpec, encSpec, func, autoroute)
 	}
 
-	initSerialOSCClient { |argName, argGridSpec, argEncSpec, func, argAutoconnect|
+	initSerialOSCClient { |argName, argGridSpec, argEncSpec, func, argAutoroute|
 		var doWhenInitialized;
 
 		name = argName;
 		gridSpec = argGridSpec;
 		encSpec = argEncSpec;
-		autoconnect = argAutoconnect;
+		autoroute = argAutoroute;
 
 		permanent = false;
 
@@ -349,7 +350,7 @@ SerialOSCClient {
 				this.unrouteGridFromClient;
 			};
 			if (what == \rotation) {
-				this.warnIfGridDoNotMatchSpec;
+				this.prWarnIfGridDoNotMatchSpec;
 			}
 		};
 
@@ -360,7 +361,7 @@ SerialOSCClient {
 		};
 
 		doWhenInitialized = {
-			if (argAutoconnect) { this.findAndRouteUnusedDevicesToClient };
+			if (argAutoroute) { this.findAndRouteUnusedDevicesToClient };
 		};
 
 		func.value(this);
@@ -386,23 +387,23 @@ SerialOSCClient {
 		^encSpec != \none
 	}
 
-	*findGrid { |gridSpec|
-		^this.defaultGridIfFreeAndMatching(gridSpec) ?
-			this.firstFreeGridMatching(gridSpec) ?
-			this.defaultGridIfFree ?
-			this.freeGrids.first;
+	*prFindGrid { |gridSpec|
+		^this.prDefaultGridIfFreeAndMatching(gridSpec) ?
+			this.prFirstFreeGridMatching(gridSpec) ?
+			this.prDefaultGridIfFree ?
+			SerialOSCGrid.unrouted.first;
 	}
 
-	*defaultGridIfFreeAndMatching { |gridSpec|
-		var freeDefaultGrid = this.defaultGridIfFree;
+	*prDefaultGridIfFreeAndMatching { |gridSpec|
+		var freeDefaultGrid = this.prDefaultGridIfFree;
 		^if (freeDefaultGrid.notNil) {
-			if (this.gridMatchSpec(freeDefaultGrid, gridSpec)) {
+			if (this.gridMatchesSpec(freeDefaultGrid, gridSpec)) {
 				freeDefaultGrid;
 			}
 		};
 	}
 
-	*defaultGridIfFree {
+	*prDefaultGridIfFree {
 		var defaultGrid = SerialOSCGrid.default;
 		^if (defaultGrid.notNil) {
 			if (defaultGrid.client.isNil) {
@@ -411,31 +412,27 @@ SerialOSCClient {
 		};
 	}
 
-	*firstFreeGridMatching { |gridSpec|
-		^this.freeGrids.select {|grid|this.gridMatchSpec(grid, gridSpec)}.first;
+	*prFirstFreeGridMatching { |gridSpec|
+		^SerialOSCGrid.unrouted.select {|grid|this.gridMatchesSpec(grid, gridSpec)}.first;
 	}
 
-	*freeGrids {
-		^SerialOSCGrid.all.select {|grid|grid.client.isNil}
+	*prFindEnc { |encSpec|
+		^this.prDefaultEncIfFreeAndMatching(encSpec) ?
+			this.prFirstFreeEncMatching(encSpec) ?
+			this.prDefaultEncIfFree ?
+			SerialOSCEnc.unrouted.first;
 	}
 
-	*findEnc { |encSpec|
-		^this.defaultEncIfFreeAndMatching(encSpec) ?
-			this.firstFreeEncMatching(encSpec) ?
-			this.defaultEncIfFree ?
-			this.freeEncs.first;
-	}
-
-	*defaultEncIfFreeAndMatching { |encSpec|
-		var freeDefaultEnc = this.defaultEncIfFree;
+	*prDefaultEncIfFreeAndMatching { |encSpec|
+		var freeDefaultEnc = this.prDefaultEncIfFree;
 		^if (freeDefaultEnc.notNil) {
-			if (this.encMatchSpec(freeDefaultEnc, encSpec)) {
+			if (this.encMatchesSpec(freeDefaultEnc, encSpec)) {
 				freeDefaultEnc;
 			}
 		};
 	}
 
-	*defaultEncIfFree {
+	*prDefaultEncIfFree {
 		var defaultEnc = SerialOSCEnc.default;
 		^if (defaultEnc.notNil) {
 			if (defaultEnc.client.isNil) {
@@ -444,12 +441,8 @@ SerialOSCClient {
 		};
 	}
 
-	*firstFreeEncMatching { |encSpec|
-		^this.freeEncs.select {|enc|this.encMatchSpec(enc, encSpec)}.first;
-	}
-
-	*freeEncs {
-		^SerialOSCEnc.all.select {|enc|enc.client.isNil}
+	*prFirstFreeEncMatching { |encSpec|
+		^SerialOSCEnc.unrouted.select {|enc|this.encMatchesSpec(enc, encSpec)}.first;
 	}
 
 	findAndRouteUnusedDevicesToClient {
@@ -459,13 +452,13 @@ SerialOSCClient {
 
 	findAndRouteAnyUnusedGridToClient {
 		if (this.usesGrid and: grid.isNil) {
-			SerialOSCClient.findGrid(gridSpec) !? { |foundGrid| this.prRouteGridToClient(foundGrid) }
+			SerialOSCClient.prFindGrid(gridSpec) !? { |foundGrid| this.prRouteGridToClient(foundGrid) }
 		};
 	}
 
 	findAndRouteAnyUnusedEncToClient {
 		if (this.usesEnc and: enc.isNil) {
-			SerialOSCClient.findEnc(encSpec) !? { |foundEnc| this.prRouteEncToClient(foundEnc) }
+			SerialOSCClient.prFindEnc(encSpec) !? { |foundEnc| this.prRouteEncToClient(foundEnc) }
 		};
 	}
 
@@ -487,11 +480,11 @@ SerialOSCClient {
 		);
 		tiltResponder.permanent = true;
 		grid.client = this;
-		onGridConnected.value(this);
+		onGridRouted.value(this);
 		beVerbose.if {
 			Post << grid << Char.space << "was routed to client" << this << Char.nl;
 		};
-		this.warnIfGridDoNotMatchSpec;
+		this.prWarnIfGridDoNotMatchSpec;
 		this.refreshGrid;
 	}
 
@@ -513,11 +506,11 @@ SerialOSCClient {
 		);
 		encKeyResponder.permanent = true;
 		enc.client = this;
-		onEncConnected.value(this);
+		onEncRouted.value(this);
 		beVerbose.if {
 			Post << enc << Char.space << "was routed to client" << this << Char.nl;
 		};
-		this.warnIfEncDoNotMatchSpec;
+		this.prWarnIfEncDoNotMatchSpec;
 		this.refreshEnc;
 	}
 
@@ -541,19 +534,19 @@ SerialOSCClient {
 		};
 	}
 
-	warnIfGridDoNotMatchSpec {
-		SerialOSCClient.gridMatchSpec(grid, gridSpec).not.if {
+	prWarnIfGridDoNotMatchSpec {
+		SerialOSCClient.gridMatchesSpec(grid, gridSpec).not.if {
 			"Note: Grid % does not match client % spec: %".format(grid, this, gridSpec).postln
 		}
 	}
 
-	warnIfEncDoNotMatchSpec {
-		SerialOSCClient.encMatchSpec(enc, encSpec).not.if {
+	prWarnIfEncDoNotMatchSpec {
+		SerialOSCClient.encMatchesSpec(enc, encSpec).not.if {
 			"Note: Enc % does not match client % spec: %".format(enc, this, encSpec).postln
 		}
 	}
 
-	*gridMatchSpec { |grid, gridSpec|
+	*gridMatchesSpec { |grid, gridSpec|
 		var numCols, numRows;
 		numCols = grid.getEffectiveNumCols;
 		numRows = grid.getEffectiveNumRows;
@@ -569,7 +562,7 @@ SerialOSCClient {
 			}
 	}
 
-	*encMatchSpec { |enc, encSpec|
+	*encMatchesSpec { |enc, encSpec|
 		^(encSpec == \any) or: (encSpec == enc.getNumEncs)
 	}
 
@@ -594,7 +587,7 @@ SerialOSCClient {
 		};
 		gridResponder.free;
 		tiltResponder.free;
-		onGridDisconnected.value(this, gridToUnroute);
+		onGridUnrouted.value(this, gridToUnroute);
 	}
 
 	unrouteEncFromClient {
@@ -608,7 +601,7 @@ SerialOSCClient {
 		};
 		encDeltaResponder.free;
 		encKeyResponder.free;
-		onEncDisconnected.value(this, encToUnroute);
+		onEncUnrouted.value(this, encToUnroute);
 	}
 
 	free {
@@ -623,7 +616,7 @@ SerialOSCClient {
 		grid !? { |grid| grid.clearLeds };
 	}
 
-	enableTilt { |n| // TODO: rename to activate/deactivateTilt?
+	enableTilt { |n| // TODO: rename to activate/deactivateTilt
 		grid !? { |grid| grid.enableTilt(n) };
 	}
 
@@ -716,6 +709,10 @@ SerialOSCGrid : SerialOSCDevice {
 		^ControlSpec(0, this.getEffectiveNumRows, step: 1);
 	}
 
+	*unrouted {
+		^all.select {|grid|grid.client.isNil}
+	}
+
 	*new { |type, id, port, rotation|
 		^super.new(type, id, port).initSerialOSCGrid(rotation);
 	}
@@ -735,7 +732,7 @@ SerialOSCGrid : SerialOSCDevice {
 		default !? { |grid| grid.clearLeds };
 	}
 
-	*enableTilt { |n| // TODO: rename to activate/deactivateTilt?
+	*enableTilt { |n| // TODO: rename to activate/deactivateTilt
 		default !? { |grid| grid.enableTilt(n) };
 	}
 
@@ -823,7 +820,7 @@ SerialOSCGrid : SerialOSCDevice {
 		this.ledAll(0);
 	}
 
-	enableTilt { |n| this.tiltSet(n, true) } // TODO: rename to activate/deactivateTilt?
+	enableTilt { |n| this.tiltSet(n, true) } // TODO: rename to activate/deactivateTilt
 
 	disableTilt { |n| this.tiltSet(n, false) }
 
@@ -909,6 +906,10 @@ SerialOSCEnc : SerialOSCDevice {
 	*initClass {
 		ledXSpec = ControlSpec(0, 63, step: 1);
 		all = [];
+	}
+
+	*unrouted {
+		^all.select {|enc|enc.client.isNil}
 	}
 
 	*new { |type, id, port|

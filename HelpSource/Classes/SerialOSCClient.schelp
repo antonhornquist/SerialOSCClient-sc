@@ -15,18 +15,18 @@ OSC routing is handled internally alleviating the need to use OSCdefs to listen 
 CLASSMETHODS::
 
 METHOD:: init
-Initializes SerialOSCClient and updates the code::devices:: list with currently attached devices. This method is asynchronous. It will call completionFunc once completed.
+Initializes SerialOSCClient and updates the code::devices:: list with currently attached devices. This method is asynchronous. Function completionFunc will be invoked once initialization is completed.
 
 ARGUMENT:: completionFunc
 Func to evaluate after initialization is completed.
 
 ARGUMENT:: autoconnect
-Whether to automatically connect discovered attached devices to SerialOSCClient. The default is true.
+A Boolean that determines whether SerialOSCClient automatically connects discovered attached devices making them possible to match with *def and *Func responders. The default is true.
 
 ARGUMENT:: supportHotPlugging
-Whether to listen to changes when devices are attached and detached from the computer and update code::devices:: list continuously. The default is true.
+A Boolean that determines whether SerialOSCClient automatically discovers devices attached and detached from the computer and updates code::devices:: list continuously. The default is true.
 
-When this is false a new call to code::init:: is needed to refresh the devices list.
+When supportHotPlugging is set false a new call to code::init:: is needed to refresh the devices list.
 
 ARGUMENT:: verbose
 Print extended information to the Post Window. The default is false.
@@ -41,16 +41,13 @@ A list of devices currently attached to the computer as detected by SerialOSCCli
 
 returns:: An array of SerialOSCGrid and SerialOSCEnc instances
 
-METHOD:: postDevices
-Print devices list
-
 METHOD:: connectedDevices
 A list of devices currently connected to SerialOSCClient.
 
 returns:: An array of SerialOSCGrid and SerialOSCEnc instances
 
 METHOD:: connect
-Connects a device to SerialOSCClient. SerialOSCClient responders only work with devices connected to SerialOSCClient.
+Connects an attached device to SerialOSCClient. SerialOSCClient responders only work with devices connected to SerialOSCClient.
 
 ARGUMENT:: device
 Device to connect
@@ -67,153 +64,127 @@ Connect all devices
 METHOD:: disconnectAll
 Disconnect all devices
 
+METHOD:: postDevices
+Prints the list of devices to the Post Window.
+
 
 SUBSECTION::Spoofing actions
 
 METHOD:: doGridKeyAction
-(describe method here)
+Emulates a key state change at (x,y) to state (0 or 1, 1 = key down, 0 = key up) equivalent to a "/grid/key x y state" OSC message from a connected device.
 
 ARGUMENT:: x
-(describe argument here)
+Button column
 
 ARGUMENT:: y
-(describe argument here)
+Button row
 
 ARGUMENT:: state
-(describe argument here)
+New key state: 0 or 1, 1 = key down, 0 = key up
 
 ARGUMENT:: device
-(describe argument here)
-
-returns:: (describe returnvalue here)
+A connected device
 
 METHOD:: doEncDeltaAction
-(describe method here)
+Emulates a position change on encoder n by value delta (signed) equivalent to a "/enc/delta" OSC message sent from a connected device. 
 
 ARGUMENT:: n
-(describe argument here)
+Encoder index
 
 ARGUMENT:: delta
-(describe argument here)
+Delta, clockwise is positive
 
 ARGUMENT:: device
-(describe argument here)
-
-returns:: (describe returnvalue here)
+A connected device
 
 METHOD:: doEncKeyAction
-(describe method here)
+Emulates a key state change on encoder n to state (0 or 1, 1 = key down, 0 = key up) equivalent to a "/enc/key" OSC message sent from a connected device.
 
 ARGUMENT:: n
-(describe argument here)
+Encoder index
 
 ARGUMENT:: state
-(describe argument here)
+New key state: 0 or 1, 1 = key down, 0 = key up
 
 ARGUMENT:: device
-(describe argument here)
-
-returns:: (describe returnvalue here)
+A connected device.
 
 METHOD:: doTiltAction
-(describe method here)
+Emulates a position change on tilt sensor n, integer (8-bit) values (x, y, z) equivalent to a "/tilt" OSC message sent from a connected device.
 
 ARGUMENT:: n
-(describe argument here)
+Tilt sensor
 
 ARGUMENT:: x
-(describe argument here)
+Integer value
 
 ARGUMENT:: y
-(describe argument here)
+Integer value
 
 ARGUMENT:: z
-(describe argument here)
+Integer value
 
 ARGUMENT:: device
-(describe argument here)
-
-returns:: (describe returnvalue here)
+A connected device.
 
 
 SUBSECTION::Instantiating SerialOSCClient
 
 METHOD:: new
-(describe method here)
+Creates a new SerialOSCClient instance facilitating single-grid, single-enc or one-grid-one-enc scenarios providing callback functions for refresh of grid and encoder leds as well as responding to grid key, tilt, encoder key and encoder delta actions.
+
+If not already initialized, SerialOSCClient will be initialized upon creating a new instance.
 
 ARGUMENT:: name
-(describe argument here)
+Name of the client.
 
 ARGUMENT:: gridSpec
-(describe argument here)
+A link::Classes/Symbol::, link::Classes/Association:: or link::Classes/Dictionary:: describing grid requirements for the client.
+
+\none - the client is not designed to use a grid.
+\any - the client is designed for grids of any size.
+An Association \numCols -> x - the client is designed for a grid with a certain number of columns
+An Association \numRows -> y - the client is designed for a grid with a certain number of rows
+A Dictionary (numCols: x, numRows: y) - the client is designed for a grid of a certain size
+
+When a grid is routed that do not match a client's gridSpec a warning is posted.
 
 ARGUMENT:: encSpec
-(describe argument here)
+A link::Classes/Symbol:: or link::Classes/Integer:: describing enc requirements for the client.
+
+\none - the client is not designed to use a enc.
+\any - the client is designed for encs of any size.
+An Integer - the client is designed for an enc with a certain number of encoders
+
+When an enc is routed that do not match a client's encSpec a warning is posted.
 
 ARGUMENT:: func
-(describe argument here)
+Client initialization link::Classes/Function:: evaluated after the instance is initialized, passed the instance as an argument typically used for setting up default state and callback functions.
 
-ARGUMENT:: autoconnect
-(describe argument here)
+ARGUMENT:: autoroute
+A Boolean that determine whether the client automatically routes newly connected devices, if needed. The default is true.
 
-returns:: (describe returnvalue here)
+Autorouting will try to satisfy gridSpec and encSpec but not enforce any of them.
+
+returns:: A new instance of SerialOSCClient.
 
 METHOD:: grid
-(describe method here)
+Convenience function for creating a new SerialOSCClient instance designed for a grid.
 
-ARGUMENT:: name
-(describe argument here)
-
-ARGUMENT:: func
-(describe argument here)
-
-ARGUMENT:: spec
-(describe argument here)
-
-ARGUMENT:: autoconnect
-(describe argument here)
-
-returns:: (describe returnvalue here)
+returns:: A new instance of SerialOSCClient with encSpec \none
 
 METHOD:: enc
-(describe method here)
+Convenience function for creating a new SerialOSCClient instance designed for an enc.
 
-ARGUMENT:: name
-(describe argument here)
-
-ARGUMENT:: func
-(describe argument here)
-
-ARGUMENT:: spec
-(describe argument here)
-
-ARGUMENT:: autoconnect
-(describe argument here)
-
-returns:: (describe returnvalue here)
+returns:: A new instance of SerialOSCClient with gridSpec \none
 
 METHOD:: gridEnc
-(describe method here)
+Convenience function for creating a new SerialOSCClient instance designed for a grid and an enc.
 
-ARGUMENT:: name
-(describe argument here)
-
-ARGUMENT:: func
-(describe argument here)
-
-ARGUMENT:: gridSpec
-(describe argument here)
-
-ARGUMENT:: encSpec
-(describe argument here)
-
-ARGUMENT:: autoconnect
-(describe argument here)
-
-returns:: (describe returnvalue here)
+returns:: A new instance of SerialOSCClient
 
 METHOD:: all
-A list of currently instantiated SerialOSCClients
+A list of all registered SerialOSCClients
 
 returns:: An Array of SerialOSCClient
 
@@ -230,98 +201,29 @@ ARGUMENT:: client
 Client to route device to
 
 
+SUBSECTION::Matching encs and grids with encSpecs and gridSpecs
 
-SUBSECTION::Matching encoders and grids with enc- and gridSpecs
-
-METHOD:: findGrid
-(describe method here)
-
-ARGUMENT:: gridSpec
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: findEnc
-(describe method here)
-
-ARGUMENT:: encSpec
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: gridMatchSpec
-(describe method here)
+METHOD:: gridMatchesSpec
+Answers whether a grid device matches a gridSpec.
 
 ARGUMENT:: grid
-(describe argument here)
+A link::Classes/SerialOSCGrid:: instance.
 
 ARGUMENT:: gridSpec
-(describe argument here)
+Grid requirements as outlined in *new.
 
-returns:: (describe returnvalue here)
+returns:: A Boolean
 
-METHOD:: encMatchSpec
-(describe method here)
+METHOD:: encMatchesSpec
+Answers whether an enc device matches a encSpec.
 
 ARGUMENT:: enc
-(describe argument here)
+A link::Classes/SerialOSCGrid:: instance.
 
 ARGUMENT:: encSpec
-(describe argument here)
+Enc requirements as outlined in *new.
 
-returns:: (describe returnvalue here)
-
-METHOD:: defaultGridIfFree
-(describe method here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: defaultEncIfFree
-(describe method here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: freeGrids
-(describe method here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: freeEncs
-(describe method here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: defaultEncIfFreeAndMatching
-(describe method here)
-
-ARGUMENT:: encSpec
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: defaultGridIfFreeAndMatching
-(describe method here)
-
-ARGUMENT:: gridSpec
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: firstFreeGridMatching
-(describe method here)
-
-ARGUMENT:: gridSpec
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: firstFreeEncMatching
-(describe method here)
-
-ARGUMENT:: encSpec
-(describe argument here)
-
-returns:: (describe returnvalue here)
+returns:: A Boolean
 
 
 
@@ -329,13 +231,13 @@ returns:: (describe returnvalue here)
 SUBSECTION::Events handling
 
 METHOD:: addSerialOSCRecvFunc
-TODO: Register a Function to be evaluated whenever SuperCollider language (the client) receives an OSC message. This will not overwrite any previously registered functions.
+Register a Function to be evaluated whenever a SerialOSCClient event is received from one of the connected devices. This will not overwrite any previously registered functions.
 
 ARGUMENT:: func
-TODO: A link::Classes/Function:: or similar object to be added. When evaluated, this function will be passed the arguments msg, time, replyAddr, and recvPort, corresponding to the message itself as an Array, the time the message was sent, the NetAddr of the sender, and the port on which the message was received.
+A link::Classes/Function:: or similar object to be added. When evaluated, this function will be passed the arguments type, msg, time, device, corresponding to one of the link::Classes/Symbol::s '/grid/key", '/tilt', '/enc/delta', '/enc/key', the message as an Array, the time the message was sent, the device the message originates from.
 
 METHOD:: removeSerialOSCRecvFunc
-TODO: Remove a Function from the list of those evaluated whenever SuperCollider language (the client) receives an OSC message. This will leave any other registered functions in place.
+Remove a Function from the list of those evaluated whenever a SerialOSCClient event is received from one of the connected devices. This will leave any other registered functions in place.
 
 ARGUMENT:: func
 A link::Classes/Function:: or similar object to be removed.
@@ -346,24 +248,24 @@ INSTANCEMETHODS::
 METHOD:: name
 Returns client name
 
-METHOD:: autoconnect
-Answers whether this client autoconnects to devices connected to SerialOSCClient.
+METHOD:: autoroute
+Answers whether this client automatically routes newly connected devices to SerialOSCClient, if needed.
 
 returns:: A Boolean
 
 METHOD:: gridSpec
-Symbol, Dictionary of Association (TODO?) stating the grid requirements for this client.
+A link::Classes/Symbol::, link::Classes/Association:: or link::Classes/Dictionary:: describing grid requirements for the client.
 
 METHOD:: encSpec
-Symbol, Dictionary of Association (TODO?) stating the enc requirements for this client.
+A link::Classes/Symbol:: or link::Classes/Integer:: describing enc requirements for the client.
 
 METHOD:: grid
-Grid currently routed to this client, if any 
+Grid currently routed to this client, if any.
 
 returns:: A SerialOSCGrid
 
 METHOD:: enc
-Enc currently routed to this client, if any 
+Enc currently routed to this client, if any.
 
 returns:: A SerialOSCEnc
 
@@ -383,70 +285,32 @@ Answers whether this client is designed and can be used with a grid
 
 returns:: A Boolean
 
-METHOD:: unrouteGridFromClient
-(describe method here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: unrouteEncFromClient
-(describe method here)
-
-returns:: (describe returnvalue here)
-
 METHOD:: free
 Frees the client: disposes all resources, frees all responders. Invokes funcs (if any) willFree before freeing and onFree after.
 
 METHOD:: permanent
 If false, CmdPeriod will free the client. The default is false.
 
+METHOD:: unrouteGridFromClient
+Remove grid routed to a client
 
-SUBSECTION::Matching encoders and grids with enc- and gridSpecs
-
-METHOD:: findAndRouteUnusedDevicesToClient
-(describe method here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: findAndRouteAnyUnusedEncToClient
-(describe method here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: findAndRouteAnyUnusedGridToClient
-(describe method here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: warnIfGridDoNotMatchSpec
-(describe method here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: warnIfEncDoNotMatchSpec
-(describe method here)
-
-returns:: (describe returnvalue here)
+METHOD:: unrouteEncFromClient
+Remove enc routed to a client
 
 
-SUBSECTION::Callback functions
+SUBSECTION::SerialOSCClient event responders
 
-METHOD:: willFree
-An action object evaluated before the client is freed.
+METHOD:: onGridRouted
+Func called when a new grid is routed.
 
-METHOD:: onFree
-The action object to be evaluated when the client is freed.
+METHOD:: onGridUnrouted
+Func called when a grid is unrouted.
 
-METHOD:: onGridConnected
-Func called when a new grid is routed (TODO: rename to onGridRouted?)
+METHOD:: onEncRouted
+Func called when a new enc is routed.
 
-METHOD:: onGridDisconnected
-Func called when a grid is unrouted (TODO: rename to onGridUnrouted?)
-
-METHOD:: onEncConnected
-Func called when a new enc is routed (TODO: rename to onEncRouted?)
-
-METHOD:: onEncDisconnected
-Func called when a new enc is unrouted (TODO: rename to onEncUnrouted?)
+METHOD:: onEncUnrouted
+Func called when a new enc is unrouted.
 
 METHOD:: gridRefreshAction
 Func called when a grid is refreshed, explicitly or upon being routed to client.
@@ -454,256 +318,64 @@ Func called when a grid is refreshed, explicitly or upon being routed to client.
 METHOD:: encRefreshAction
 Func called when a enc is refreshed, explicitly or upon being routed to client.
 
+METHOD:: willFree
+An action object evaluated before the client is freed.
 
-SUBSECTION::Responders
+METHOD:: onFree
+The action object to be evaluated when the client is freed.
+
+
+SUBSECTION::SerialOSC event responders
 
 METHOD:: gridKeyAction
-(describe method here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: encDeltaAction
-(describe method here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: encKeyAction
-(describe method here)
-
-returns:: (describe returnvalue here)
+link::Classes/Function:: invoked when key state change messages are received from the grid currently routed. The Function is passed client, x, y, state and timestamp arguments.
 
 METHOD:: tiltAction
-(describe method here)
+link::Classes/Function:: invoked when tilt sensor messages are received from the grid currently routed. The Function is passed client, n, x, y, z and timestamp arguments.
 
-returns:: (describe returnvalue here)
+METHOD:: encDeltaAction
+link::Classes/Function:: invoked when enc delta messages are received from the enc currently routed. The Function is passed client, n, delta and timestamp arguments.
+
+METHOD:: encKeyAction
+link::Classes/Function:: invoked when enc key state change messages are received from the enc currently routed. The Function is passed client, n, state and timestamp arguments.
 
 
-SUBSECTION::Tilt control
+SUBSECTION::Grid tilt activation
 
 METHOD:: enableTilt
-(describe method here)
-
-ARGUMENT:: n
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
 METHOD:: disableTilt
-(describe method here)
-
-ARGUMENT:: n
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
 METHOD:: tiltSet
-(describe method here)
 
-ARGUMENT:: n
-(describe argument here)
-
-ARGUMENT:: state
-(describe argument here)
-
-returns:: (describe returnvalue here)
+Activate / deactivate tilt sensors of grid currently routed client, if any. Refer to link::Classes/SerialOSCGrid:: for details.
 
 
-SUBSECTION::Led state
+SUBSECTION::Grid led state
 
 METHOD:: clearLeds
-Clears leds of enc currently routed to client.
+METHOD:: ledSet
+METHOD:: ledLevelSet
+METHOD:: ledAll
+METHOD:: ledLevelAll
+METHOD:: ledMap
+METHOD:: ledLevelMap
+METHOD:: ledRow
+METHOD:: ledLevelRow
+METHOD:: ledCol
+METHOD:: ledLevelCol
+METHOD:: ledIntensity
+
+Update led state of grid currently routed client, if any. Refer to link::Classes/SerialOSCGrid:: for details.
+
+
+SUBSECTION::Ring led state
 
 METHOD:: clearRings
-Clears leds of grid currently routed to client.
-
-METHOD:: ledIntensity
-(describe method here)
-
-ARGUMENT:: i
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: ledMap
-(describe method here)
-
-ARGUMENT:: xOffset
-(describe argument here)
-
-ARGUMENT:: yOffset
-(describe argument here)
-
-ARGUMENT:: bitmasks
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: ledLevelCol
-(describe method here)
-
-ARGUMENT:: x
-(describe argument here)
-
-ARGUMENT:: yOffset
-(describe argument here)
-
-ARGUMENT:: levels
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: ledLevelMap
-(describe method here)
-
-ARGUMENT:: xOffset
-(describe argument here)
-
-ARGUMENT:: yOffset
-(describe argument here)
-
-ARGUMENT:: levels
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
 METHOD:: ringSet
-(describe method here)
-
-ARGUMENT:: n
-(describe argument here)
-
-ARGUMENT:: x
-(describe argument here)
-
-ARGUMENT:: level
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: ringMap
-(describe method here)
-
-ARGUMENT:: n
-(describe argument here)
-
-ARGUMENT:: levels
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: ledSet
-(describe method here)
-
-ARGUMENT:: x
-(describe argument here)
-
-ARGUMENT:: y
-(describe argument here)
-
-ARGUMENT:: state
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: ringRange
-(describe method here)
-
-ARGUMENT:: n
-(describe argument here)
-
-ARGUMENT:: x1
-(describe argument here)
-
-ARGUMENT:: x2
-(describe argument here)
-
-ARGUMENT:: level
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: ledLevelSet
-(describe method here)
-
-ARGUMENT:: x
-(describe argument here)
-
-ARGUMENT:: y
-(describe argument here)
-
-ARGUMENT:: l
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: ledLevelAll
-(describe method here)
-
-ARGUMENT:: l
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: ledAll
-(describe method here)
-
-ARGUMENT:: state
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
 METHOD:: ringAll
-(describe method here)
+METHOD:: ringMap
+METHOD:: ringRange
 
-ARGUMENT:: n
-(describe argument here)
-
-ARGUMENT:: level
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: ledCol
-(describe method here)
-
-ARGUMENT:: x
-(describe argument here)
-
-ARGUMENT:: yOffset
-(describe argument here)
-
-ARGUMENT:: bitmasks
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: ledRow
-(describe method here)
-
-ARGUMENT:: xOffset
-(describe argument here)
-
-ARGUMENT:: y
-(describe argument here)
-
-ARGUMENT:: bitmasks
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: ledLevelRow
-(describe method here)
-
-ARGUMENT:: xOffset
-(describe argument here)
-
-ARGUMENT:: y
-(describe argument here)
-
-ARGUMENT:: levels
-(describe argument here)
-
-returns:: (describe returnvalue here)
+Update led state of enc currently routed client, if any. Refer to link::Classes/SerialOSCEnc:: for details.
 
 
 EXAMPLES::

@@ -1,60 +1,48 @@
 TITLE:: SerialOSCMessageDispatcher
-summary:: (put short description here)
-categories:: Undocumented classes
-related:: Classes/SomeRelatedClass, Reference/SomeRelatedStuff, etc.
+summary:: The dispatcher for SerialOSCClient *Func's and *def's set to respond to incoming SerialOSC messages
+categories:: External Control
+related:: Classes/SerialOSCClient
 
 DESCRIPTION::
-(put long description here)
-
+Class used to dispatch incoming SerialOSC messages to matching functions. Normally users should not have to create or message instances of this class directly. This is a singleton.
 
 CLASSMETHODS::
 
 METHOD:: default
-(describe method here)
+The one and only SerialOSCMessageDispatcher used.
 
-returns:: (describe returnvalue here)
-
-METHOD:: initClass
-(describe method here)
-
-returns:: (describe returnvalue here)
+returns:: An instance of SerialOSCMessageDispatcher
 
 
 INSTANCEMETHODS::
 
 METHOD:: getKeysForFuncProxy
-(describe method here)
+Get the keys at which a responder func's functions are stored in this dispatcher's active dictionary.
 
 ARGUMENT:: funcProxy
-(describe argument here)
+The GridKey|EncDelta|EncKey|TiltFunc or GridKey|EncDelta|EncKey|Tiltdef whose keys should be returned.
 
-returns:: (describe returnvalue here)
+returns:: An link::Classes/Array:: containing the funcProxy's message number as an link::Classes/Integer::.
 
 METHOD:: unregister
-(describe method here)
-
-returns:: (describe returnvalue here)
+Removes this dispatcher from the link::Classes/SerialOSCClient:: recvSerialOSCFunc hook.
 
 METHOD:: register
-(describe method here)
-
-returns:: (describe returnvalue here)
+Adds this dispatcher to the link::Classes/SerialOSCClient:: recvSerialOSCFunc hook.
 
 METHOD:: wrapFunc
-(describe method here)
+Called internally to wrap functions in message matcher objects, if needed.
 
 ARGUMENT:: funcProxy
-(describe argument here)
-
-returns:: (describe returnvalue here)
+An instance of GridKey|EncDelta|EncKey|TiltFunc or GridKey|EncDelta|EncKey|Tiltdef whose function(s) are to be wrapped.
 
 METHOD:: typeKey
-(describe method here)
+Gets a key indicating the type of message this dispatcher responds to.
 
-returns:: (describe returnvalue here)
+returns:: A link::Classes/Symbol::.
 
 METHOD:: value
-(describe method here)
+Attempt to match an incoming SerialOSC message with this dispatcher's responder funcs, and evaluate their functions for all matches found.
 
 ARGUMENT:: type
 (describe argument here)

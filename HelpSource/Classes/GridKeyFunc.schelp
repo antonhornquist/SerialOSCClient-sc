@@ -1,72 +1,45 @@
 TITLE:: GridKeyFunc
-summary:: (put short description here)
-categories:: Undocumented classes
-related:: Classes/SomeRelatedClass, Reference/SomeRelatedStuff, etc.
+summary:: Responder for key state change messages from SerialOSCGrid devices connected to SerialOSCClient
+categories:: External Control
+related:: Classes/GridKeydef
 
 DESCRIPTION::
-(put long description here)
+GridKeyFunc (and its subclass link::Classes/GridKeydef::) registers one or more functions to respond to incoming key state change messages from link::Classes/SerialOSCGrid:: devices connected to SerialOSCClient. Many of its methods are inherited from its superclass link::Classes/AbstractResponderFunc::.
+
+Technically GridKeyFuncs responds to "/grid/key x y state" OSC messages.
 
 
 CLASSMETHODS::
 
-METHOD:: press
-(describe method here)
-
-ARGUMENT:: func
-(describe argument here)
-
-ARGUMENT:: x
-(describe argument here)
-
-ARGUMENT:: y
-(describe argument here)
-
-ARGUMENT:: device
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
 METHOD:: new
-(describe method here)
+Create a new, enabled GridKeyFunc.
 
 ARGUMENT:: func
-(describe argument here)
+A link::Classes/Function:: or similar object which will respond to the incoming message. When evaluated it will be passed the arguments x, y, state, timestamp and device, corresponding to the x and y coord of the button affected, the new key state (1 for key down, 0 for key up), the time of the event and the grid device originating the message.
 
 ARGUMENT:: x
-(describe argument here)
+An Integer indicating the button column for this GridKeyFunc. This can be an array. If nil, the GridKeyFunc will respond to messages received on all columns.
 
 ARGUMENT:: y
-(describe argument here)
+An Integer indicating the button row for this GridKeyFunc. This can be an array. If nil, the GridKeyFunc will respond to messages received on all rows.
 
 ARGUMENT:: state
-(describe argument here)
+An Integer indicating the key state for this GridKeyFunc. If nil, the GridKeyFunc will respond to both key down and key up messages.
 
 ARGUMENT:: device
-(describe argument here)
+A link::Classes/SerialOSCGrid::, link::Classes/Association:: (with key 'id', 'port', 'type' or 'client') or the link::Classes/Symbol:: 'default' used to match the grid device originating a message. If nil, the GridKeyFunc will respond to messages received from all sources. See detailed examples below.
 
-returns:: (describe returnvalue here)
+returns:: A new instance of GridKeyFunc
 
-METHOD:: initClass
-(describe method here)
+METHOD:: press
+A convenience method to create a new GridKeyFunc which responds to key down messages. See *new for argument descriptions.
 
-returns:: (describe returnvalue here)
+returns:: A new instance of GridKeyFunc which responds to key down messages
 
 METHOD:: release
-(describe method here)
+A convenience method to create a new GridKeyFunc which responds to key up messages. See *new for argument descriptions.
 
-ARGUMENT:: func
-(describe argument here)
-
-ARGUMENT:: x
-(describe argument here)
-
-ARGUMENT:: y
-(describe argument here)
-
-ARGUMENT:: device
-(describe argument here)
-
-returns:: (describe returnvalue here)
+returns:: A new instance of GridKeyFunc which responds to key up messages
 
 
 INSTANCEMETHODS::
@@ -77,65 +50,129 @@ Train this Func to respond to the next message of its type. Arguments passed at 
 ARGUMENT:: learnState
 A Boolean indicating whether the responder should learn the specific state. The default is false.
 
-METHOD:: learnFunc
-(describe method here)
-
-ARGUMENT:: learnState
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
 METHOD:: x
-(describe method here)
+Get this GridKeyFunc's x condition.
 
-returns:: (describe returnvalue here)
-
-METHOD:: printOn
-(describe method here)
-
-ARGUMENT:: stream
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: init
-(describe method here)
-
-ARGUMENT:: argfunc
-(describe argument here)
-
-ARGUMENT:: argx
-(describe argument here)
-
-ARGUMENT:: argy
-(describe argument here)
-
-ARGUMENT:: argstate
-(describe argument here)
-
-ARGUMENT:: argdevice
-(describe argument here)
-
-returns:: (describe returnvalue here)
+returns:: An Integer
 
 METHOD:: y
-(describe method here)
+Get this GridKeyFunc's y condition.
 
-returns:: (describe returnvalue here)
-
-METHOD:: type
-(describe method here)
-
-returns:: (describe returnvalue here)
+returns:: An Integer
 
 METHOD:: state
-(describe method here)
+Get this GridKeyFunc's state condition.
 
-returns:: (describe returnvalue here)
+returns:: 1 or 0
 
 
 EXAMPLES::
 
 code::
-(some example code)
+SerialOSCClient.init;
+
+// Press keys on grid connected to SerialOSCClient to test responders below
+
+(
+a=GridKeyFunc({ |x, y, state, timestamp, device|
+	"what: % at (%,%), from: %, when: %".format(
+		if (state == 1, "key down", "key up"),
+		x,
+		y,
+		device,
+		timestamp
+	).postln
+});
+)
+
+a.free; // or CmdPeriod
+
+// Match only key down messages
+(
+a=GridKeyFunc({ |x, y, state, timestamp, device|
+	if (state == 1) {
+		"key down at (%,%) variant 1".format(x,y).postln;
+	}
+});
+)
+
+// Same as...
+(
+b=GridKeyFunc({ |x, y, state, timestamp, device|
+	"key down at (%,%) variant 2".format(x,y).postln;
+}, state: 1);
+)
+
+// Same as...
+(
+c=GridKeyFunc.press({ |x, y, state, timestamp, device|
+	"key down at (%,%) variant 3".format(x,y).postln
+});
+)
+
+[a, b, c] do: _.free;
+
+// Match a specific button
+(
+a=GridKeyFunc.press({ |x, y, state, timestamp, device|
+	"key down at top leftmost button".postln
+}, x: 0, y: 0);
+)
+
+// Match a range of buttons
+(
+b=GridKeyFunc.press({ |x, y, state, timestamp, device|
+	"key down at top leftmost quad".postln
+}, x: (0..3), y: (0..3));
+)
+
+[a, b] do: _.free;
+
+// Only respond to messages from the default grid
+(
+a=GridKeyFunc({ |x, y, state, timestamp, device|
+	[x, y, state].debug(\default);
+}, device: 'default');
+)
+
+// Only respond to messages from a specific grid
+(
+b=GridKeyFunc({ |x, y, state, timestamp, device|
+	[x, y, state].debug(\default);
+}, device: SerialOSCGrid.all.last);
+)
+
+[a, b] do: _.free;
+
+// Match by grid properties...
+(
+a=GridKeyFunc({ |x, y, state, timestamp, device|
+	[x, y, state].debug(\default);
+}, device: \type -> 'monome 64'); // specific type
+)
+
+(
+b=GridKeyFunc({ |x, y, state, timestamp, device|
+	[x, y, state].debug(\default);
+}, device: \id -> 'm01234'); // specific id
+)
+
+(
+c=GridKeyFunc({ |x, y, state, timestamp, device|
+	[x, y, state].debug(\default);
+}, device: \port -> 13234); // specific port
+)
+
+(
+d=GridKeyFunc({ |x, y, state, timestamp, device|
+	[x, y, state].debug(\default);
+}, device: \port -> SerialOSCClient.all.first); // specific client
+)
+
+
+// To try above without a hardware device, emulate one
+x = SerialOSCGrid('monome 64', 'test', 1234, 0);
+SerialOSCClient.explicitlyAddDevice(x);
+SerialOSCClient.connect(x);
+SerialOSCClient.doGridKeyAction(1, 1, 1, x);
 ::
