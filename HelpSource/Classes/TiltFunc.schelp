@@ -1,104 +1,86 @@
 TITLE:: TiltFunc
-summary:: (put short description here)
-categories:: Undocumented classes
-related:: Classes/SomeRelatedClass, Reference/SomeRelatedStuff, etc.
+summary:: Responder for tilt sensor position change messages from SerialOSCGrid devices connected to SerialOSCClient
+categories:: External Control
+related:: Classes/Tiltdef
 
 DESCRIPTION::
-(put long description here)
+TiltFunc (and its subclass link::Classes/GridKeydef::) registers one or more functions to respond to incoming tilt sensor position change messages ("/tilt n x y z" OSC messages) from link::Classes/SerialOSCGrid:: devices connected to SerialOSCClient. Many of its methods are inherited from its superclass link::Classes/AbstractResponderFunc::.
 
 
 CLASSMETHODS::
 
 METHOD:: new
-(describe method here)
+Create a new, enabled TiltFunc.
 
 ARGUMENT:: func
-(describe argument here)
+A link::Classes/Function:: or similar object which will respond to the incoming message. When evaluated it will be passed the arguments n, x, y, z, timestamp and device, corresponding to the tilt sensor index, x, y and z position of the tilt sensor, the time of the event and the link::Classes/SerialOSCGrid:: device originating the message.
 
 ARGUMENT:: n
-(describe argument here)
+An Integer indicating the tilt sensor for this TiltFunc. This can be an array. If nil, the TiltFunc will respond to messages received on all sensors.
 
 ARGUMENT:: x
-(describe argument here)
+An Integer indicating the x position for this TiltFunc. This can be an array. If nil, the TiltFunc will respond to messages for all positions.
 
 ARGUMENT:: y
-(describe argument here)
+An Integer indicating the y position for this TiltFunc. This can be an array. If nil, the TiltFunc will respond to messages for all positions.
 
 ARGUMENT:: z
-(describe argument here)
+An Integer indicating the z position for this TiltFunc. This can be an array. If nil, the TiltFunc will respond to messages for all positions.
 
 ARGUMENT:: device
-(describe argument here)
+A link::Classes/SerialOSCGrid::, link::Classes/Association:: (with key 'id', 'port', 'type' or 'client') or the link::Classes/Symbol:: 'default' used to match the grid device originating a message. If nil, the TiltFunc will respond to messages received from all sources. See detailed examples below.
 
-returns:: (describe returnvalue here)
-
-METHOD:: initClass
-(describe method here)
-
-returns:: (describe returnvalue here)
+returns:: A new instance of TiltFunc
 
 
 INSTANCEMETHODS::
 
+METHOD:: n
+Get this TiltFunc's tilt sensor condition.
+
+returns:: An Integer
+
 METHOD:: x
-(describe method here)
+Get this TiltFunc's x condition.
 
-returns:: (describe returnvalue here)
-
-METHOD:: init
-(describe method here)
-
-ARGUMENT:: argfunc
-(describe argument here)
-
-ARGUMENT:: argn
-(describe argument here)
-
-ARGUMENT:: argx
-(describe argument here)
-
-ARGUMENT:: argy
-(describe argument here)
-
-ARGUMENT:: argz
-(describe argument here)
-
-ARGUMENT:: argdevice
-(describe argument here)
-
-returns:: (describe returnvalue here)
+returns:: An Integer
 
 METHOD:: y
-(describe method here)
+Get this TiltFunc's y condition.
 
-returns:: (describe returnvalue here)
-
-METHOD:: type
-(describe method here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: printOn
-(describe method here)
-
-ARGUMENT:: stream
-(describe argument here)
-
-returns:: (describe returnvalue here)
+returns:: An Integer
 
 METHOD:: z
-(describe method here)
+Get this TiltFunc's z condition.
 
-returns:: (describe returnvalue here)
-
-METHOD:: n
-(describe method here)
-
-returns:: (describe returnvalue here)
+returns:: An Integer
 
 
 EXAMPLES::
 
 code::
-(some example code)
+SerialOSCClient.init;
+
+SerialOSCClient.enableTilt(0); // enables first tilt sensor on default SerialOSCGrid, if any attached
+
+// Twist and turn grid connected to SerialOSCClient to test
+
+(
+a=TiltFunc({ |n, x, y, z, timestamp, device|
+	"what: tilt sensor % position: %/%/%, from: %, when: %".format(
+		n,
+		x,
+		y,
+		z,
+		device,
+		timestamp
+	).postln
+});
+)
+
+a.free; // or CmdPeriod
+
+SerialOSCClient.disableTilt(0); // disables tilt sensor
+
+// TiltFunc in general works like other *Funcs and *defs. Refer to Help Files of other *Func and *def classes for more detailed examples.
 ::

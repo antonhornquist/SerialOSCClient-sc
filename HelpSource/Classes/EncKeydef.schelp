@@ -1,81 +1,73 @@
 TITLE:: EncKeydef
-summary:: (put short description here)
-categories:: Undocumented classes
-related:: Classes/SomeRelatedClass, Reference/SomeRelatedStuff, etc.
+summary:: Responder for key state change messages from SerialOSCEnc devices connected to SerialOSCClient in a global dictionary
+categories:: External Control
+related:: Classes/EncKeyFunc
 
 DESCRIPTION::
-(put long description here)
+EncKeydef provides a global reference to the functionality of its superclass EncKeyFunc. Essentially it stores itself at a key within a global dictionary, allowing replacement at any time. Most methods are inherited from its superclass.
 
 
 CLASSMETHODS::
 
-METHOD:: freeAll
-(describe method here)
-
-returns:: (describe returnvalue here)
-
 METHOD:: new
-(describe method here)
+Create a new, enabled EncKeydef. If a EncKeydef already exists at this key, its parameters will be replaced with the ones provided (args for which nil is passed will use the old values).
 
 ARGUMENT:: key
-(describe argument here)
+The key at which to store this EncKeydef in the global collection. Generally this will be a Symbol.
 
 ARGUMENT:: func
-(describe argument here)
+A link::Classes/Function:: or similar object which will respond to the incoming message. When evaluated it will be passed the arguments n, state, timestamp and device, corresponding to index of encoder changed, the position change (clockwise is positive), the time of the event and the link::Classes/SerialOSCEnc:: device originating the message.
 
 ARGUMENT:: n
-(describe argument here)
+An Integer indicating the encodex for this EncKeyFunc. This can be an array. If nil, the EncKeyFunc will respond to messages received on all encoders.
 
 ARGUMENT:: state
-(describe argument here)
+An Integer indicating the key state for this EncKeyFunc. If nil, the EncKeyFunc will respond to both key down and key up messages.
 
 ARGUMENT:: device
-(describe argument here)
+A link::Classes/SerialOSCEnc::, link::Classes/Association:: (with key 'id', 'port', 'type' or 'client') or the link::Classes/Symbol:: 'default' used to match the enc device originating a message. If nil, the EncKeyFunc will respond to messages received from all sources. See detailed examples below.
 
-returns:: (describe returnvalue here)
+returns:: An instance of EncKeydef
 
 METHOD:: all
-(describe method here)
+Get the global dictionary of all EncKeydefs.
 
-returns:: (describe returnvalue here)
+returns:: An link::Classes/IdentityDictionary::.
 
-METHOD:: initClass
-(describe method here)
-
-returns:: (describe returnvalue here)
+METHOD:: freeAll
+Clears and deactivates all defs from the global collection.
 
 
 INSTANCEMETHODS::
 
-METHOD:: addToAll
-(describe method here)
+METHOD:: key
+Get this def's key.
 
-ARGUMENT:: argkey
-(describe argument here)
-
-returns:: (describe returnvalue here)
+returns:: Usually a link::Classes/Symbol::.
 
 METHOD:: free
-(describe method here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: printOn
-(describe method here)
-
-ARGUMENT:: stream
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: key
-(describe method here)
-
-returns:: (describe returnvalue here)
+Clears this def from the global collection and deactivates it.
 
 
 EXAMPLES::
 
 code::
-(some example code)
+SerialOSCClient.init;
+
+// Adjust an encoder of an enc connected to SerialOSCClient to test
+
+(
+a=EncKeydef(\test, { |n, delta, timestamp, device|
+	"what: encoder % %, from: %, when: %".format(
+		n,
+		if (state == 1, "key down", "key up"),
+		device,
+		timestamp
+	).postln
+});
+)
+
+EncKeydef(\test).free; // or CmdPeriod
+
+// EncKeydef in general works like other *Funcs and *defs. Refer to Help Files of other *Func and *def classes for more detailed examples.
 ::

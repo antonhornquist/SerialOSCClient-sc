@@ -4,9 +4,7 @@ categories:: External Control
 related:: Classes/GridKeydef
 
 DESCRIPTION::
-GridKeyFunc (and its subclass link::Classes/GridKeydef::) registers one or more functions to respond to incoming key state change messages from link::Classes/SerialOSCGrid:: devices connected to SerialOSCClient. Many of its methods are inherited from its superclass link::Classes/AbstractResponderFunc::.
-
-Technically GridKeyFuncs responds to "/grid/key x y state" OSC messages.
+GridKeyFunc (and its subclass link::Classes/GridKeydef::) registers one or more functions to respond to incoming key state change messages ("/grid/key x y state" OSC messages) from link::Classes/SerialOSCGrid:: devices connected to SerialOSCClient. Many of its methods are inherited from its superclass link::Classes/AbstractResponderFunc::.
 
 
 CLASSMETHODS::
@@ -15,7 +13,7 @@ METHOD:: new
 Create a new, enabled GridKeyFunc.
 
 ARGUMENT:: func
-A link::Classes/Function:: or similar object which will respond to the incoming message. When evaluated it will be passed the arguments x, y, state, timestamp and device, corresponding to the x and y coord of the button affected, the new key state (1 for key down, 0 for key up), the time of the event and the grid device originating the message.
+A link::Classes/Function:: or similar object which will respond to the incoming message. When evaluated it will be passed the arguments x, y, state, timestamp and device, corresponding to the x and y coord of the button affected, the new key state (1 for key down, 0 for key up), the time of the event and the link::Classes/SerialOSCGrid:: device originating the message.
 
 ARGUMENT:: x
 An Integer indicating the button column for this GridKeyFunc. This can be an array. If nil, the GridKeyFunc will respond to messages received on all columns.
@@ -71,7 +69,7 @@ EXAMPLES::
 code::
 SerialOSCClient.init;
 
-// Press keys on grid connected to SerialOSCClient to test responders below
+// Press keys on a grid connected to SerialOSCClient to test
 
 (
 a=GridKeyFunc({ |x, y, state, timestamp, device|

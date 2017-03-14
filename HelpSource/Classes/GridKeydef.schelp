@@ -9,11 +9,6 @@ GridKeydef provides a global reference to the functionality of its superclass Gr
 
 CLASSMETHODS::
 
-METHOD:: all
-Get the global dictionary of all GridKeydefs.
-
-returns:: An link::Classes/IdentityDictionary::.
-
 METHOD:: new
 Create a new, enabled GridKeydef. If a GridKeydef already exists at this key, its parameters will be replaced with the ones provided (args for which nil is passed will use the old values).
 
@@ -46,6 +41,11 @@ METHOD:: release
 A convenience method to create a new GridKeydef which responds to key up messages. See *new for argument descriptions.
 
 returns:: A new instance of GridKeydef which responds to key up messages
+
+METHOD:: all
+Get the global dictionary of all GridKeydefs.
+
+returns:: An link::Classes/IdentityDictionary::.
 
 METHOD:: freeAll
 Clears and deactivates all defs from the global collection.
@@ -81,7 +81,7 @@ GridKeydef(\test, { |x, y, state, timestamp, device|
 });
 )
 
-GridKeydef(\test).tree; // or CmdPeriod
+GridKeydef(\test).free; // or CmdPeriod
 
-// Everything works like GridKeyFunc. Refer to the Help File of that class.
+// GridKeydef works like GridKeyFunc. Refer to the Help File of that class.
 ::

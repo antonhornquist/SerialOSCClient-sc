@@ -1,82 +1,64 @@
 TITLE:: EncKeyFunc
-summary:: (put short description here)
-categories:: Undocumented classes
-related:: Classes/SomeRelatedClass, Reference/SomeRelatedStuff, etc.
+summary:: Responder for key state change messages from SerialOSCEnc devices connected to SerialOSCClient
+categories:: External Control
+related:: Classes/EncKeydef, Classes/GridKeyFunc, Classes/GridKeydef
 
 DESCRIPTION::
-(put long description here)
+EncKeyFunc (and its subclass link::Classes/EncKeydef::) registers one or more functions to respond to incoming key state change messages ("/enc/key n state" OSC messages) from link::Classes/SerialOSCEnc:: devices connected to SerialOSCClient. Many of its methods are inherited from its superclass link::Classes/AbstractResponderFunc::.
 
 
 CLASSMETHODS::
 
 METHOD:: new
-(describe method here)
+Create a new, enabled EncDeltaKey.
 
 ARGUMENT:: func
-(describe argument here)
+A link::Classes/Function:: or similar object which will respond to the incoming message. When evaluated it will be passed the arguments n, state, timestamp and device, corresponding to index of encoder changed, the position change (clockwise is positive), the time of the event and the link::Classes/SerialOSCEnc:: device originating the message.
 
 ARGUMENT:: n
-(describe argument here)
+An Integer indicating the encodex for this EncKeyFunc. This can be an array. If nil, the EncKeyFunc will respond to messages received on all encoders.
 
 ARGUMENT:: state
-(describe argument here)
+An Integer indicating the key state for this EncKeyFunc. If nil, the EncKeyFunc will respond to both key down and key up messages.
 
 ARGUMENT:: device
-(describe argument here)
+A link::Classes/SerialOSCEnc::, link::Classes/Association:: (with key 'id', 'port', 'type' or 'client') or the link::Classes/Symbol:: 'default' used to match the enc device originating a message. If nil, the EncKeyFunc will respond to messages received from all sources. See detailed examples below.
 
-returns:: (describe returnvalue here)
-
-METHOD:: initClass
-(describe method here)
-
-returns:: (describe returnvalue here)
+returns:: A new instance of EncKeyFunc
 
 
 INSTANCEMETHODS::
 
-METHOD:: state
-(describe method here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: type
-(describe method here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: init
-(describe method here)
-
-ARGUMENT:: argfunc
-(describe argument here)
-
-ARGUMENT:: argn
-(describe argument here)
-
-ARGUMENT:: argstate
-(describe argument here)
-
-ARGUMENT:: argdevice
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: printOn
-(describe method here)
-
-ARGUMENT:: stream
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
 METHOD:: n
-(describe method here)
+Get this EncKeyFunc's encoder index condition.
 
-returns:: (describe returnvalue here)
+returns:: An Integer
+
+METHOD:: state
+Get this EncKeyFunc's state condition.
+
+returns:: An Integer
 
 
 EXAMPLES::
 
 code::
-(some example code)
+SerialOSCClient.init;
+
+// Press an encoder of an enc connected to SerialOSCClient to test
+
+(
+a=EncKeyFunc({ |n, state, timestamp, device|
+	"what: encoder % %, from: %, when: %".format(
+		n,
+		if (state == 1, "key down", "key up"),
+		device,
+		timestamp
+	).postln
+});
+)
+
+a.free; // or CmdPeriod
+
+// EncKeyFunc in general works like other *Funcs and *defs. Refer to Help Files of other *Func and *def classes for more detailed examples.
 ::
