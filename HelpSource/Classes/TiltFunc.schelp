@@ -4,7 +4,7 @@ categories:: External Control
 related:: Classes/Tiltdef
 
 DESCRIPTION::
-TiltFunc (and its subclass link::Classes/GridKeydef::) registers one or more functions to respond to incoming tilt sensor position change messages ("/tilt n x y z" OSC messages) from link::Classes/SerialOSCGrid:: devices connected to SerialOSCClient. Many of its methods are inherited from its superclass link::Classes/AbstractResponderFunc::.
+TiltFunc (and its subclass link::Classes/Tiltdef::) registers one or more functions to respond to incoming tilt sensor position change messages ("/tilt n x y z" OSC messages) from link::Classes/SerialOSCGrid:: devices connected to SerialOSCClient. Many of its methods are inherited from its superclass link::Classes/AbstractResponderFunc::.
 
 
 CLASSMETHODS::
