@@ -4,7 +4,7 @@ categories:: External Control
 related:: Classes/SerialOSCClient
 
 DESCRIPTION::
-Class for discovery and connecting to serialosc devices, retrieving device information and setting device settings using SerialOSC protocol described in link::http://monome.org/docs/osc/::.
+Class for discovery of and connecting to serialosc devices, retrieving device information and setting device settings using SerialOSC protocol described in link::http://monome.org/docs/osc/::.
 
 This class is utilized by link::Classes/SerialOSCClient:: but may also be used directly.
 
@@ -29,7 +29,7 @@ ARGUMENT:: serialOSCPort
 Serialosc port. If omitted, defaultSerialOSCPort is used.
 
 METHOD:: startTrackingConnectedDevicesChanges
-Sends "/serialosc/notify" to serialosc server, starts listening to "/serialosc/add" and "/serialosc/remove" responses and executes addedFunc and removedFunc when devices are connected to or disconnected from the computer. After each response calls "/serialosc/notify" again to get updated on the next device change.
+Sends "/serialosc/notify" to serialosc server, starts listening to "/serialosc/add" and "/serialosc/remove" responses and executes addedFunc and removedFunc when devices are connected to or disconnected from the computer. After each response sends "/serialosc/notify" again to get updated on the next device change.
 
 ARGUMENT:: addedFunc
 Function to evaluate when a device is connected to the computer.
@@ -142,7 +142,7 @@ EXAMPLES::
 
 code::
 
-// Mocking a serialosc server
+// Mocking a serialosc server TODO
 
 // Might need to comment out serialoscNetAddr clause in OSCFuncs in SerialOSCClient.sc to get this to work
 

@@ -20,7 +20,7 @@ METHOD:: getKeysForFuncProxy
 Get the keys at which a responder func's functions are stored in this dispatcher's active dictionary.
 
 ARGUMENT:: funcProxy
-The GridKey|EncDelta|EncKey|TiltFunc or GridKey|EncDelta|EncKey|Tiltdef whose keys should be returned.
+The GridKeyFunc/EncDeltaFunc/EncKeyFunc/TiltFunc or GridKeydef/EncDeltadef/EncKeydef/Tiltdef whose keys should be returned.
 
 returns:: An link::Classes/Array:: containing the funcProxy's message number as an link::Classes/Integer::.
 
@@ -34,7 +34,7 @@ METHOD:: wrapFunc
 Called internally to wrap functions in message matcher objects, if needed.
 
 ARGUMENT:: funcProxy
-An instance of GridKey|EncDelta|EncKey|TiltFunc or GridKey|EncDelta|EncKey|Tiltdef whose function(s) are to be wrapped.
+An instance of GridKeyFunc/EncDeltaFunc/EncKeyFunc/TiltFunc or GridKeydef/EncDeltadef/EncKeydef/Tiltdef whose function(s) are to be wrapped.
 
 METHOD:: typeKey
 Gets a key indicating the type of message this dispatcher responds to.

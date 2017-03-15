@@ -10,7 +10,7 @@ Represents a monome or other SerialOSC compliant grid connected to the computer.
 CLASSMETHODS::
 
 METHOD:: new
-Creates a new instance. Should not be called directly. SerialOSCClient automatically creates and maintains a list of devices.
+Creates a new instance. This is typically not called directly. SerialOSCClient automatically creates and maintains a list of devices.
 
 ARGUMENT:: type
 Device type
@@ -27,7 +27,7 @@ Grid rotation: 0, 90, 180 or 270
 returns:: An instance of SerialOSCGrid
 
 METHOD:: all
-A list of all grids currently connected to the computer as detected by SerialOSCClient.
+A list of all grids currently attached to the computer as detected by SerialOSCClient.
 
 returns:: An array of SerialOSCGrid instances
 
@@ -209,6 +209,30 @@ ARGUMENT:: i
 Brightness
 
 
+SUBSECTION::Tilt activation
+
+METHOD:: enableTilt
+Enable tilt sensor
+
+ARGUMENT:: n
+Tilt sensor index
+
+METHOD:: disableTilt
+Disable tilt sensor
+
+ARGUMENT:: n
+Tilt sensor index
+
+METHOD:: tiltSet
+Sends "/grid/tilt/set" message to the grid device. 
+
+ARGUMENT:: n
+Tilt sensor index
+
+ARGUMENT:: state
+1 = active, 0 = inactive
+
+
 SUBSECTION::Rotation and effective bounds
 
 METHOD:: rotation
@@ -239,38 +263,14 @@ A ControlSpec describing the number of rows of the grid.
 returns:: A ControlSpec
 
 
-SUBSECTION::Tilt activation
-
-METHOD:: enableTilt
-Enable tilt sensor
-
-ARGUMENT:: n
-Tilt sensor index
-
-METHOD:: disableTilt
-Disable tilt sensor
-
-ARGUMENT:: n
-Tilt sensor index
-
-METHOD:: tiltSet
-Sends "/grid/tilt/set" message to the grid device. 
-
-ARGUMENT:: n
-Tilt sensor index
-
-ARGUMENT:: state
-1 = active, 0 = inactive
-
-
 EXAMPLES::
 
 code::
-// Plug in a grid
+// Plug in a grid to test
 
 SerialOSCClient.init;
 
-// Led examples invokes class methods which update leds of default grid, but equivalent instance methods do the same thing for non-default SerialOSCGrid instances
+// Led examples invokes class methods which update leds of default grid, but equivalent instance methods do the same thing for any SerialOSCGrid instance
 
 // Set single leds
 SerialOSCGrid.ledSet(0, 0, 1);
@@ -329,7 +329,7 @@ SerialOSCGrid.activateTilt(0);
 SerialOSCGrid.deactivateTilt(0);
 Tiltdef(\test).free;
 
-// Using dependancy support it is possible to observe when new devices are attached or detached, connected or disconnected. It is also possible to get notified when a new default of either SerialOSCDevice kind is set.
+// Using dependancy support it is possible to observe when new devices are attached or detached, connected or disconnected. It is also possible to get notified when a new default SerialOSCGrid is set.
 
 (
 // TODO: test what applies

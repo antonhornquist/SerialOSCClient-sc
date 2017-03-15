@@ -1,16 +1,45 @@
 TITLE:: SerialOSCClient
-summary:: (SuperCollider Support for SerialOSCClient devices?)
+summary:: SuperCollider Support for SerialOSCClient devices
 categories:: External Control
 related:: Guides/UsingSerialOSCClient, Classes/MIDIClient
 
 DESCRIPTION::
-(put long description here)
+SerialOSCClient provides access to devices connected to your computer handled by the serialosc server (daemon).
 
-TODO: Look at MIDIClient
+At its core SerialOSCClient is to SerialOSC devices what link::Classes/MIDIClient:: is to MIDI devices. In addition to this, it's possible to instantiate SerialOSCClient for common use cases (single-grid, single-enc or one-grid-and-one-enc) and rely on callback functions for refresh of leds and responding to incoming events. When instantiated built-in routing capabilities can be utilized to route devices to clients (SerialOSCClient instances).
 
-OSC routing is handled internally alleviating the need to use OSCdefs to listen to and respond to events from SerialOSC devices. 
+See the link::Guides/UsingSerialOSCClient:: helpfile for practical considerations and techniques for using SerialOSC devices in SuperCollider.
 
+SUBSECTION::Device handling
 
+SerialOSCClient differentiates each device as attached or detached, connected or disconnected and routed or unrouted.
+
+A device emphasis::attached:: to SerialOSCClient is a device physically connected to the computer, identified by the serialosc server and tracked by SerialOSCClient. A list of attached devices is maintained in the link::#*devices:: list. An attached device does not need to have its destination port directed towards the SuperCollider langPort nor message prefix set according to SerialOSCClient requirements.
+
+A device emphasis::connected:: to SerialOSCClient is an attached device that has its destination port routed to the SuperCollider langPort, message prefix "/monome" and maintained in the link::#*connectedDevices:: list.
+
+A device is considered emphasis::routed:: when it is routed to any of the SerialOSCClient instances in the link::#*all:: list. A device can only be routed to one instance at any given time.
+
+SUBSECTION::OSC handling
+
+OSC routing between SuperCollider and the serialosc server is transparently handled by SerialOSCClient alleviating the need to use OSCFunc, OSCdef or NetAddr objects to listen to and respond to events from SerialOSC devices or update leds of a device.
+
+To respond to events custom responder objects are used:
+
+list::
+## link::Classes/GridKeyFunc::
+## link::Classes/GridKeydef::
+## link::Classes/EncDeltaFunc::
+## link::Classes/EncDeltadef::
+## link::Classes/EncKeyFunc::
+## link::Classes/EncKeydef::
+## link::Classes/TiltFunc::
+## link::Classes/Tiltdef::
+::
+
+To update led state device specific methods are used. Details can be found in link::Classes/SerialOSCGrid:: and link::Classes/SerialOSCEnc:: help files.
+
+Each instantiated SerialOSCClient constitutes a self contained client handling both responding to events (via callbacks) and update of leds (via invocation of instance methods).
 
 CLASSMETHODS::
 
@@ -59,10 +88,10 @@ ARGUMENT:: device
 Device to disconnect
 
 METHOD:: connectAll
-Connect all devices
+Connect all attached devices
 
 METHOD:: disconnectAll
-Disconnect all devices
+Disconnect all connected devices
 
 METHOD:: postDevices
 Prints the list of devices to the Post Window.
@@ -86,7 +115,7 @@ ARGUMENT:: device
 A connected device
 
 METHOD:: doEncDeltaAction
-Emulates a position change on encoder n by value delta (signed) equivalent to a "/enc/delta" OSC message sent from a connected device. 
+Emulates a position change on encoder n by value delta (signed) equivalent to a "/enc/delta n delta" OSC message sent from a connected device. 
 
 ARGUMENT:: n
 Encoder index
@@ -98,7 +127,7 @@ ARGUMENT:: device
 A connected device
 
 METHOD:: doEncKeyAction
-Emulates a key state change on encoder n to state (0 or 1, 1 = key down, 0 = key up) equivalent to a "/enc/key" OSC message sent from a connected device.
+Emulates a key state change on encoder n to state (0 or 1, 1 = key down, 0 = key up) equivalent to a "/enc/key n state" OSC message sent from a connected device.
 
 ARGUMENT:: n
 Encoder index
@@ -110,7 +139,7 @@ ARGUMENT:: device
 A connected device.
 
 METHOD:: doTiltAction
-Emulates a position change on tilt sensor n, integer (8-bit) values (x, y, z) equivalent to a "/tilt" OSC message sent from a connected device.
+Emulates a position change on tilt sensor n, integer (8-bit) values (x, y, z) equivalent to a "/tilt n x y z" OSC message sent from a connected device.
 
 ARGUMENT:: n
 Tilt sensor
@@ -131,15 +160,15 @@ A connected device.
 SUBSECTION::Instantiating SerialOSCClient
 
 METHOD:: new
-Creates a new SerialOSCClient instance facilitating single-grid, single-enc or one-grid-one-enc scenarios providing callback functions for refresh of grid and encoder leds as well as responding to grid key, tilt, encoder key and encoder delta actions.
+Creates a new SerialOSCClient instance for single-grid, single-enc or one-grid-and-one-enc use providing callback functions for refresh of grid and encoder leds as well as responding to grid key, tilt, encoder key and encoder delta actions.
 
 If not already initialized, SerialOSCClient will be initialized upon creating a new instance.
 
 ARGUMENT:: name
-Name of the client.
+Name of the client. This is typically a link::Classes/Symbol::.
 
 ARGUMENT:: gridSpec
-A link::Classes/Symbol::, link::Classes/Association:: or link::Classes/Dictionary:: describing grid requirements for the client.
+A link::Classes/Symbol::, link::Classes/Association:: or link::Classes/Dictionary:: describing grid requirements for the client. The default is \any.
 
 LIST::
 	## Symbol \none - the client is not designed to use a grid.
@@ -149,10 +178,10 @@ LIST::
 	## A Dictionary (numCols: x, numRows: y) - the client is designed for a grid of a certain size
 ::
 
-When a grid is routed that do not match a client's gridSpec a warning is posted.
+When a grid that do not match a client's gridSpec is routed to a client a warning is posted.
 
 ARGUMENT:: encSpec
-A link::Classes/Symbol:: or link::Classes/Integer:: describing enc requirements for the client.
+A link::Classes/Symbol:: or link::Classes/Integer:: describing enc requirements for the client. The default is \any.
 
 LIST::
 	## Symbol \none - the client is not designed to use a enc.
@@ -160,43 +189,41 @@ LIST::
 	## An Integer - the client is designed for an enc with a certain number of encoders
 ::
 
-When an enc is routed that do not match a client's encSpec a warning is posted.
+When an enc that do not match a client's encSpec is routed to a client a warning is posted.
 
 ARGUMENT:: func
-Client initialization link::Classes/Function:: evaluated after the instance is initialized, passed the instance as an argument typically used for setting up default state and callback functions.
+Client initialization link::Classes/Function:: evaluated after the instance is initialized, passed the instance as an argument. This function is typically used to set up default state and callback functions.
 
 ARGUMENT:: autoroute
-A Boolean that determine whether the client automatically routes newly connected devices, if needed. The default is true.
-
-Autorouting will try to satisfy gridSpec and encSpec but not enforce any of them.
+A Boolean that determine whether the client automatically routes newly connected devices, if needed. The default is true. Autorouting will try to satisfy gridSpec and encSpec but not enforce any of them.
 
 returns:: A new instance of SerialOSCClient.
 
 METHOD:: grid
-Convenience function for creating a new SerialOSCClient instance designed for a grid.
+Convenience function for creating a new SerialOSCClient instance designed for a single grid.
 
 returns:: A new instance of SerialOSCClient with encSpec \none
 
 METHOD:: enc
-Convenience function for creating a new SerialOSCClient instance designed for an enc.
+Convenience function for creating a new SerialOSCClient instance designed for a single enc.
 
 returns:: A new instance of SerialOSCClient with gridSpec \none
 
 METHOD:: gridEnc
-Convenience function for creating a new SerialOSCClient instance designed for a grid and an enc.
+Convenience function for creating a new SerialOSCClient instance designed for one grid and one enc.
 
 returns:: A new instance of SerialOSCClient
 
 METHOD:: all
-A list of all registered SerialOSCClients
+A list of all registered SerialOSCClient instances
 
-returns:: An Array of SerialOSCClient
+returns:: An Array of SerialOSCClient instances
 
 METHOD:: freeAll
 Frees all registered SerialOSCClient instances
 
 METHOD:: route
-Route a device to a client
+Routes a device to a client
 
 ARGUMENT:: device
 Device to route
@@ -214,7 +241,7 @@ ARGUMENT:: grid
 A link::Classes/SerialOSCGrid:: instance.
 
 ARGUMENT:: gridSpec
-Grid requirements as outlined in *new.
+Grid requirements as outlined in link::#*new::.
 
 returns:: A Boolean
 
@@ -222,26 +249,24 @@ METHOD:: encMatchesSpec
 Answers whether an enc device matches a encSpec.
 
 ARGUMENT:: enc
-A link::Classes/SerialOSCGrid:: instance.
+A link::Classes/SerialOSCEnc:: instance.
 
 ARGUMENT:: encSpec
-Enc requirements as outlined in *new.
+Enc requirements as outlined in link::#*new::.
 
 returns:: A Boolean
 
 
-
-
-SUBSECTION::Events handling
+SUBSECTION::Low level events handling
 
 METHOD:: addSerialOSCRecvFunc
-Register a Function to be evaluated whenever a SerialOSCClient event is received from one of the connected devices. This will not overwrite any previously registered functions.
+Register a Function to be evaluated whenever a SerialOSCClient event is received from one of the devices connected to SerialOSCClient. This will not overwrite any previously registered functions.
 
 ARGUMENT:: func
-A link::Classes/Function:: or similar object to be added. When evaluated, this function will be passed the arguments type, msg, time, device, corresponding to one of the link::Classes/Symbol::s '/grid/key", '/tilt', '/enc/delta', '/enc/key', the message as an Array, the time the message was sent, the device the message originates from.
+A link::Classes/Function:: or similar object to be added. When evaluated, this function will be passed the arguments type, msg, time, device, corresponding to one of the link::Classes/Symbol::s '/grid/key", '/tilt', '/enc/delta', '/enc/key', the message as an Array, the time the message was sent and the device the message originates from.
 
 METHOD:: removeSerialOSCRecvFunc
-Remove a Function from the list of those evaluated whenever a SerialOSCClient event is received from one of the connected devices. This will leave any other registered functions in place.
+Remove a Function from the list of those evaluated whenever a SerialOSCClient event is received from one of the devices connected to SerialOSCClient. This will leave any other registered functions in place.
 
 ARGUMENT:: func
 A link::Classes/Function:: or similar object to be removed.
@@ -251,6 +276,8 @@ INSTANCEMETHODS::
 
 METHOD:: name
 Returns client name
+
+returns:: A Symbol
 
 METHOD:: autoroute
 Answers whether this client automatically routes newly connected devices to SerialOSCClient, if needed.
@@ -266,31 +293,31 @@ A link::Classes/Symbol:: or link::Classes/Integer:: describing enc requirements 
 METHOD:: grid
 Grid currently routed to this client, if any.
 
-returns:: A SerialOSCGrid
+returns:: A link::Classes/SerialOSCGrid:: or nil
 
 METHOD:: enc
 Enc currently routed to this client, if any.
 
-returns:: A SerialOSCEnc
+returns:: A link::Classes/SerialOSCEnc:: or nil
 
 METHOD:: refreshGrid
-Clears leds of grid currently routed to client and invokes gridRefreshAction to refresh leds.
+Clears leds of grid currently routed to client (if any) and invokes link::#-gridRefreshAction:: to refresh leds.
 
 METHOD:: refreshEnc
-Clears leds of enc currently routed to client and invokes encRefreshAction to refresh leds.
+Clears leds of enc currently routed to client (if any) and invokes link::#-encRefreshAction:: to refresh leds.
 
 METHOD:: usesGrid
-Answers whether this client is designed and can be used with a grid
+Answers whether this client is designed to be used with a grid
 
 returns:: A Boolean
 
 METHOD:: usesEnc
-Answers whether this client is designed and can be used with a grid
+Answers whether this client is designed to be used with an enc
 
 returns:: A Boolean
 
 METHOD:: free
-Frees the client: disposes all resources, frees all responders. Invokes funcs (if any) willFree before freeing and onFree after.
+Frees the client: disposes all resources, frees all responders. Invokes funcs (if any) link::#-willFree:: before freeing and link::#-onFree:: after.
 
 METHOD:: permanent
 If false, CmdPeriod will free the client. The default is false.
@@ -305,28 +332,28 @@ Remove enc routed to a client
 SUBSECTION::SerialOSCClient event responders
 
 METHOD:: onGridRouted
-Func called when a new grid is routed.
+Sets or gets the object to be evaluated when a new grid is routed to the client.
 
 METHOD:: onGridUnrouted
-Func called when a grid is unrouted.
+Sets or gets the object to be evaluated when a grid is unrouted from the client.
 
 METHOD:: onEncRouted
-Func called when a new enc is routed.
+Sets or gets the object to be evaluated when a new enc is routed to the client.
 
 METHOD:: onEncUnrouted
-Func called when a new enc is unrouted.
+Sets or gets the object to be evaluated when a new enc is unrouted from the client.
 
 METHOD:: gridRefreshAction
-Func called when a grid is refreshed, explicitly or upon being routed to client.
+Sets or gets the object to be evaluated when a grid is refreshed, explicitly or upon getting routed to client.
 
 METHOD:: encRefreshAction
-Func called when a enc is refreshed, explicitly or upon being routed to client.
+Sets or gets the object to be evaluated when a enc is refreshed, explicitly or upon getting routed to client.
 
 METHOD:: willFree
-An action object evaluated before the client is freed.
+Sets or gets the object to be evaluated before the client is freed.
 
 METHOD:: onFree
-The action object to be evaluated when the client is freed.
+Sets or gets the object to be evaluated after the client is freed.
 
 
 SUBSECTION::SerialOSC event responders

@@ -4,7 +4,7 @@ categories:: External Control
 related:: Guides/UsingSerialOSCClient, Classes/SerialOSCGrid, Classes/SerialOSCEnc
 
 DESCRIPTION::
-Represents a physical SerialOSC compatible device - such as monome grid or arc - connected to the computer. Subclasses link::Classes/SerialOSCGrid:: and link::Classes/SerialOSCEnc:: are concrete implementations of this class.
+Represents a physical SerialOSC compatible device connected to the computer. Subclasses link::Classes/SerialOSCGrid:: and link::Classes/SerialOSCEnc:: are concrete implementations of this class.
 
 
 CLASSMETHODS::
@@ -24,7 +24,7 @@ Device port
 returns:: An instance of SerialOSCDevice
 
 METHOD:: ledLSpec
-A ControlSpec describing the number of levels of intensity a ring led or vari-bright grid led may have.
+A ControlSpec describing the number of levels of intensity a ring or vari-bright grid led may have.
 
 Refer to the monome homepage for details on vari-brightness support for different device models.
 
@@ -54,12 +54,6 @@ Answers whether the instance is connected to SerialOSCClient
 returns:: A Boolean
 
 METHOD:: client
-Sets or returns the client the device is routed to
+Sets or returns the client the device is routed to, if any
 
 returns:: A SerialOSCClient
-
-
-EXAMPLES::
-
-code::
-::

@@ -1,65 +1,42 @@
 TITLE:: SerialOSCNDeltaMatcher
-summary:: (put short description here)
-categories:: Undocumented classes
-related:: Classes/SomeRelatedClass, Reference/SomeRelatedStuff, etc.
+summary:: Matches incoming SerialOSC messages to responder funcs based on encoder index and delta position change.
+categories:: External Control
+related:: Classes/SerialOSCClient
 
 DESCRIPTION::
-(put long description here)
+Matches incoming SerialOSC messages to responder funcs based on encoder index and delta position change.
 
 
 CLASSMETHODS::
 
 METHOD:: new
-(describe method here)
+Make a new instance.
 
 ARGUMENT:: n
-(describe argument here)
+The encoder index to test against the incoming message.
 
 ARGUMENT:: delta
-(describe argument here)
+The delta position change to test against the incoming message.
 
 ARGUMENT:: func
-(describe argument here)
+The link::Classes/Function:: to evaluate if a match is found.
 
-returns:: (describe returnvalue here)
+returns:: A new instance of this class
 
 
 INSTANCEMETHODS::
 
 METHOD:: value
-(describe method here)
+Check to see if a message matches, and evaluate func if it does.
 
 ARGUMENT:: testN
-(describe argument here)
+The encoder index to test
 
 ARGUMENT:: testDelta
-(describe argument here)
+The delta position change to test
 
 ARGUMENT:: time
-(describe argument here)
+Timestamp of message
 
 ARGUMENT:: srcID
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-METHOD:: init
-(describe method here)
-
-ARGUMENT:: argn
-(describe argument here)
-
-ARGUMENT:: argdelta
-(describe argument here)
-
-ARGUMENT:: argfunc
-(describe argument here)
-
-returns:: (describe returnvalue here)
-
-
-EXAMPLES::
-
-code::
-(some example code)
-::
+The device the message originates from

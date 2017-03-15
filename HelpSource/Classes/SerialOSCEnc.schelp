@@ -10,7 +10,7 @@ Represents a monome arc or other SerialOSC compliant encoder connected to the co
 CLASSMETHODS::
 
 METHOD:: new
-Creates a new instance. Should not be called directly. SerialOSCClient automatically creates and maintains a list of devices.
+Creates a new instance. This is typically not called directly. SerialOSCClient automatically creates and maintains a list of devices.
 
 ARGUMENT:: type
 Device type
@@ -24,7 +24,7 @@ Device port
 returns:: An instance of SerialOSCEnc
 
 METHOD:: all
-A list of all encs currently connected to the computer as detected by SerialOSCClient.
+A list of all encs currently attached to the computer as detected by SerialOSCClient.
 
 returns:: An array of SerialOSCEnc instances
 
@@ -61,7 +61,7 @@ Clears all rings.
 METHOD:: ringSet
 Set led x (0-63) on encoder n (0-1 or 0-3) to level l (0-15)
 
-Sends "/ring/set"
+Sends "/ring/set" to the enc device.
 
 ARGUMENT:: n
 Encoder index
@@ -75,7 +75,7 @@ Led level (0-15)
 METHOD:: ringAll
 Set all leds on encoder n (0-1 or 0-3) to level l (0-15).
 
-Sends "/ring/all"
+Sends "/ring/all" to the enc device.
 
 ARGUMENT:: n
 Encoder index
@@ -86,7 +86,7 @@ Led level
 METHOD:: ringMap
 Set all leds on encoder n (0-1 or 0-3) to 64 member array l[64].
 
-Sends "/ring/map"
+Sends "/ring/map" to the enc device.
 
 ARGUMENT:: n
 Encoder index
@@ -97,7 +97,7 @@ An Array of Integers between 0 and 15 describing levels
 METHOD:: ringRange
 Set leds on encoder n (0-1 or 0-3) between (inclusive) x1 and x2 to level l (0-15). Direction of set is always clockwise, with wrapping.
 
-Sends "/ring/range"
+Sends "/ring/range" to the enc device.
 
 ARGUMENT:: n
 Encoder index
@@ -128,11 +128,11 @@ returns:: A ControlSpec
 EXAMPLES::
 
 code::
-// Plug in an enc
+// Plug in an enc to test
 
 SerialOSCClient.init;
 
-// Ring examples invokes class methods which update leds of default enc, but equivalent instance methods do the same thing for non-default SerialOSCEnc instances
+// Ring examples invokes class methods which update leds of default enc, but equivalent instance methods do the same thing for any SerialOSCEnc instance
 
 // Set single led
 SerialOSCEnc.ringSet(0, 0, 15);
@@ -155,7 +155,7 @@ SerialOSCEnc.ringMap(0, 64.collect { SerialOSCEnc.ledLSpec.maxval.rand }); // ra
 SerialOSCEnc.ringRange(1, 15, 20, 15);
 SerialOSCEnc.ringRange(1, 40, 50, 10);
 
-// Using dependancy support it is possible to observe when new devices are attached or detached, connected or disconnected. It is also possible to get notified when a new default of either SerialOSCDevice kind is set.
+// Using dependancy support it is possible to observe when new devices are attached or detached, connected or disconnected. It is also possible to get notified when a new default SerialOSCEnc is set.
 
 (
 // TODO: test what applies
