@@ -46,7 +46,7 @@ SerialOSCClient {
 		};
 	}
 
-	*init { |completionFunc, autoconnect=true, supportHotPlugging=true, verbose=false|
+	*init { |completionFunc, autoconnect=true, autodiscover=true, verbose=false|
 		autoconnectDevices = autoconnect;
 		beVerbose = verbose;
 
@@ -54,7 +54,7 @@ SerialOSCClient {
 			SerialOSCComm.stopTrackingConnectedDevicesChanges
 		};
 
-		if (supportHotPlugging) {
+		if (autodiscover) {
 			SerialOSCComm.startTrackingConnectedDevicesChanges(
 				{ |id|
 					fork {
@@ -532,6 +532,26 @@ SerialOSCClient {
 				"Client % does not use an enc".format(client).postln;
 			};
 		};
+	}
+
+	*postRoutings {
+		all.do { |client|
+			client.postln;
+			if (client.usesGrid) {
+				if (client.grid.notNil) {
+					"\trouted to %".format(client.grid)
+				} {
+					"\tno grid routed"
+				}.postln
+			};
+			if (client.usesEnc) {
+				if (client.enc.notNil) {
+					"\trouted to %".format(client.enc)
+				} {
+					"\tno enc routed"
+				}.postln
+			};
+		}
 	}
 
 	prWarnIfGridDoNotMatchSpec {
