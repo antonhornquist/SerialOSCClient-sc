@@ -137,7 +137,7 @@ GridKeydef.release(\stopSine, { a.release; a = nil });
 
 ## Requirements
 
-This code was developed and have been tested in SuperCollider 3.8.
+This code was developed and has been tested in SuperCollider 3.8.
 
 ## Installation
 
