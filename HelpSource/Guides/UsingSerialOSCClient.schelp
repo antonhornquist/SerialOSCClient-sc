@@ -3,8 +3,6 @@ summary:: Notes on SuperCollider SerialOSC device (monome, arc) support provided
 categories:: External Control
 related:: Classes/SerialOSCClient, Guides/UsingMIDI
 
-Docs are incomplete and sometimes wrong. I'm working on it /Anton
-
 section::Introduction
 
 SerialOSCClient provides plug'n'play support for monome (link::http://monome.org::) grids, arcs and other SerialOSC compliant devices.
@@ -40,7 +38,7 @@ Listen to button events:
 
 code::
 GridKeydef(\toggle, { |x, y, state, timestamp, device| [x, y, state, timestamp, device].postln }); // a press or release of any button on any connected grid will post event state information to Post Window
-GridKeydef.press(\toggle).free; // free responder
+GridKeydef(\toggle).free; // free responder
 ::
 
 Let a specific button toggle its led:

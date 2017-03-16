@@ -4,17 +4,30 @@ SuperCollider client for SerialOSC compliant devices
 
 ## Description
 
-SerialOSCClient provides plug'n'play support for monome (link::http://monome.org::) grids, arcs and other SerialOSC compliant devices. In many regards SerialOSCClient and its related classes are to SerialOSC devices what link::Classes/MIDIClient:: and its related classes in the SuperCollider standard library are to MIDI devices.
+SerialOSCClient provides plug'n'play support for [monome](http://monome.org) grids, arcs and other SerialOSC compliant devices.
+
+At its core link::Classes/SerialOSCClient:: and its related classes are to SerialOSC devices what link::Classes/MIDIClient:: and its related classes in the SuperCollider standard library are to MIDI devices.
+
+In addition to this, it's possible to instantiate SerialOSCClient for single-grid, single-enc or one-grid-and-one-enc use cases. SerialOSCClient instances constitute self-contained clients decoupled from the device it is using. Callback functions are provided for led refresh and responding to incoming events. SerialOSCClient instance methods are used to update led state. Built-in routing capabilities are used to map devices to clients.
 
 ## Examples
 
-### Example 1
+### Basic Example
 
 ``` supercollider
-SerialOSCClient.init; // Initialize the SerialOSCClient.
+SerialOSCClient.init;
 
-// * Connected devices should get posted in the Post Window.
-// * Note that SerialOSCClient initialization is performed asynchronously.
+// Set led state:
+SerialOSCGrid.ledSet(0, 0, true); // set the top-leftmost led of default connected grid (if any) to lit
+
+// Listen to button events:
+GridKeydef(\toggle, { |x, y, state, timestamp, device| [x, y, state, timestamp, device].postln }); // a press or release of any button on any connected grid will post event state information to Post Window
+GridKeydef(\toggle).free; // free responder
+
+// Let a specific button toggle its led:
+a=false; // toggle state, initially unlit
+GridKeydef.press(\toggle, { SerialOSCGrid.ledSet(0, 0, a = a.not) }, 0, 0, 'default'); // a press on top-leftmost button on default grid will toggle its button led
+GridKeydef.press(\toggle).free; // free responder
 
 // Boot server
 s.boot;
@@ -26,44 +39,39 @@ GridKeydef.release(\stopSine, { a.release; a=nil }, 0, 0);
 // Remove GridKeydefs using .free or by pressing Cmd-.
 GridKeydef.press(\playSine).free;
 GridKeydef.release(\stopSine).free;
-
-// Now, setting leds... If everything works properly and you have a grid attached, a default SerialOSCGrid instance is defined
-SerialOSCGrid.default;
-
-// Use this instance to set leds
-a=SerialOSCGrid.default;
-a.ledSet(0, 0, true);
-a.ledSet(0, 0, false);
-
-// The !? idiom in SuperCollider (see help on !?) can be used to set leds of the default grid, but only if it is available (if SerialOSCGrid.default is not nil)
-
-SerialOSCGrid.default !? { |grid| grid.ledSet(1, 2, true) };
-
-(
-// Scramble 8 random leds in a 8x8 matrix
-SerialOSCGrid.default !? { |grid|
-	8 do: { grid.ledSet(8.rand, 8.rand, [true, false].choose) };
-};
-)
-
-// Now, on handling multiple devices
-
-// Info on what device triggered a GridKeydef is available in the function argument list.
-GridKeydef(\debug, { |x, y, state, time, device| [x, y, state, time, device].debug });
-
-// You can use a device as filter. See OSCdef help for how this works.
-GridKeydef(\debug, { |x, y, state, time, device| [x, y, state, time, device].debug }, device: SerialOSCGrid.default);
-
-// If several devices are attached you can retrieve SerialOSCGrid and SerialOSCEnc instances from SerialOSCClient.devices
-SerialOSCClient.devices;
-
-// Pick a device and set a led
-a=SerialOSCClient.devices.first;
-a.ledSet(1, 2, true); // this assumes first device in list is a grid (SerialOSCGrid)
 ```
 
 
-### Example 2
+### Client Example
+
+``` supercollider
+(
+// the toggle state example above as a client
+c = SerialOSCClient.grid("Hello World") { |client|
+	var state = false; // toggle state, initially unlit
+	var updateLed = { client.ledSet(0, 0, state) }; // function that updates led state of button 0,0
+
+	client.gridRefreshAction = updateLed; // when a new device is routed to this client led state will be updated
+
+	client.gridKeyIndexPressedAction = { |x, y|
+		if (x@y == 0@0) { // when button 0,0 is pressed,
+			state = state.not; // state is toggled
+			updateLed.value; // and led is refreshed
+		}
+	};
+};
+)
+
+// this client will automatically be routed to a grid that is connected or gets connected later
+
+c.unroute; // remove device-to-client routing
+
+c.route(SerialOSCGrid.default); // state is maintained and leds refreshed when a new device is routed to the client
+
+c.free; // or CmdPeriod frees client
+```
+
+### Grid + Arc Client Example
 
 ``` supercollider
 // Example, grid together with arc
