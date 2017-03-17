@@ -62,8 +62,8 @@ SUBSECTION::Default grid tilt activation
 
 These methods are equivalent to instance methods of the same name below except they are invoked for the default grid, if any.
 
-METHOD:: enableTilt
-METHOD:: disableTilt
+METHOD:: activateTilt
+METHOD:: deactivateTilt
 METHOD:: tiltSet
 
 
@@ -211,13 +211,13 @@ Brightness
 
 SUBSECTION::Tilt activation
 
-METHOD:: enableTilt
+METHOD:: activateTilt
 Enable tilt sensor
 
 ARGUMENT:: n
 Tilt sensor index
 
-METHOD:: disableTilt
+METHOD:: deactivateTilt
 Disable tilt sensor
 
 ARGUMENT:: n

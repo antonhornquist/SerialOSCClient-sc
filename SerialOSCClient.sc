@@ -79,8 +79,6 @@ SerialOSCClient {
 					fork {
 						devicesSemaphore.wait;
 						this.prLookupDeviceById(id) !? { |device|
-							this.disconnect(device);
-							devices.remove(device);
 							device.remove;
 							this.prNotifyChangesInDevicesList([], [device]);
 							this.prUpdateDefaultDevices([], [device]);
@@ -201,10 +199,12 @@ SerialOSCClient {
 	}
 
 	*prAutorouteDeviceToClients {
-		// TODO: route in two passes. Pass 1: devices satisfying specs. Pass 2: any device
-		SerialOSCClient.all.do { |client|
-			if (client.autoroute) { client.findAndRouteUnusedDevicesToClient };
-		};
+		var clients;
+
+		clients = SerialOSCClient.all.select(_.autoroute);
+
+		clients.do { |client| client.findAndRouteUnusedDevicesToClient(true) };
+		clients.do { |client| client.findAndRouteUnusedDevicesToClient(false) };
 	}
 
 	*explicitlyAddDevice { |device|
@@ -244,6 +244,14 @@ SerialOSCClient {
 			device.changed(\disconnected);
 
 			connectedDevices.remove(device);
+
+			all.detect { |client| device.client == client } !? { |client|
+				if (device.respondsTo(\ledSet)) {
+					client.unrouteGrid
+				} {
+					client.unrouteEnc
+				}
+			};
 
 			beVerbose.if {
 				Post << device << Char.space << "was disconnected" << Char.nl;
@@ -347,7 +355,7 @@ SerialOSCClient {
 
 		gridDependantFunc = { |thechanged, what|
 			if (what == \disconnected) {
-				this.unrouteGridFromClient;
+				this.unrouteGrid;
 			};
 			if (what == \rotation) {
 				this.prWarnIfGridDoNotMatchSpec;
@@ -356,12 +364,12 @@ SerialOSCClient {
 
 		encDependantFunc = { |thechanged, what|
 			if (what == \disconnected) {
-				this.unrouteEncFromClient;
+				this.unrouteEnc;
 			};
 		};
 
 		doWhenInitialized = {
-			if (argAutoroute) { this.findAndRouteUnusedDevicesToClient };
+			if (argAutoroute) { this.findAndRouteUnusedDevicesToClient(false) };
 		};
 
 		func.value(this);
@@ -387,11 +395,14 @@ SerialOSCClient {
 		^encSpec != \none
 	}
 
-	*prFindGrid { |gridSpec|
-		^this.prDefaultGridIfFreeAndMatching(gridSpec) ?
-			this.prFirstFreeGridMatching(gridSpec) ?
-			this.prDefaultGridIfFree ?
-			SerialOSCGrid.unrouted.first;
+	*prFindGrid { |gridSpec, strict|
+		var strictMatch = this.prDefaultGridIfFreeAndMatching(gridSpec) ? this.prFirstFreeGridMatching(gridSpec);
+
+		^if (strict) {
+			strictMatch
+		} {
+			strictMatch ? this.prDefaultGridIfFree ? SerialOSCGrid.unrouted.first;
+		}
 	}
 
 	*prDefaultGridIfFreeAndMatching { |gridSpec|
@@ -416,11 +427,14 @@ SerialOSCClient {
 		^SerialOSCGrid.unrouted.select {|grid|this.gridMatchesSpec(grid, gridSpec)}.first;
 	}
 
-	*prFindEnc { |encSpec|
-		^this.prDefaultEncIfFreeAndMatching(encSpec) ?
-			this.prFirstFreeEncMatching(encSpec) ?
-			this.prDefaultEncIfFree ?
-			SerialOSCEnc.unrouted.first;
+	*prFindEnc { |encSpec, strict|
+		var strictMatch = this.prDefaultEncIfFreeAndMatching(encSpec) ? this.prFirstFreeEncMatching(encSpec);
+
+		^if (strict) {
+			strictMatch
+		} {
+			strictMatch ? this.prDefaultEncIfFree ? SerialOSCEnc.unrouted.first;
+		}
 	}
 
 	*prDefaultEncIfFreeAndMatching { |encSpec|
@@ -445,20 +459,20 @@ SerialOSCClient {
 		^SerialOSCEnc.unrouted.select {|enc|this.encMatchesSpec(enc, encSpec)}.first;
 	}
 
-	findAndRouteUnusedDevicesToClient {
-		this.findAndRouteAnyUnusedGridToClient;
-		this.findAndRouteAnyUnusedEncToClient;
+	findAndRouteUnusedDevicesToClient { |strict|
+		this.findAndRouteAnyUnusedGridToClient(strict);
+		this.findAndRouteAnyUnusedEncToClient(strict);
 	}
 
-	findAndRouteAnyUnusedGridToClient {
+	findAndRouteAnyUnusedGridToClient { |strict|
 		if (this.usesGrid and: grid.isNil) {
-			SerialOSCClient.prFindGrid(gridSpec) !? { |foundGrid| this.prRouteGridToClient(foundGrid) }
+			SerialOSCClient.prFindGrid(gridSpec, strict) !? { |foundGrid| this.prRouteGridToClient(foundGrid) }
 		};
 	}
 
-	findAndRouteAnyUnusedEncToClient {
+	findAndRouteAnyUnusedEncToClient { |strict|
 		if (this.usesEnc and: enc.isNil) {
-			SerialOSCClient.prFindEnc(encSpec) !? { |foundEnc| this.prRouteEncToClient(foundEnc) }
+			SerialOSCClient.prFindEnc(encSpec, strict) !? { |foundEnc| this.prRouteEncToClient(foundEnc) }
 		};
 	}
 
@@ -481,6 +495,7 @@ SerialOSCClient {
 		tiltResponder.permanent = true;
 		grid.client = this;
 		onGridRouted.value(this);
+		SerialOSCClient.changed(\routed, this, grid);
 		beVerbose.if {
 			Post << grid << Char.space << "was routed to client" << this << Char.nl;
 		};
@@ -507,6 +522,7 @@ SerialOSCClient {
 		encKeyResponder.permanent = true;
 		enc.client = this;
 		onEncRouted.value(this);
+		SerialOSCClient.changed(\routed, this, enc);
 		beVerbose.if {
 			Post << enc << Char.space << "was routed to client" << this << Char.nl;
 		};
@@ -517,7 +533,7 @@ SerialOSCClient {
 	*route { |device, client|
 		if (device.respondsTo(\ledSet)) {
 			if (client.usesGrid) {
-				if (client.grid.notNil) { client.unrouteGridFromClient };
+				if (client.grid.notNil) { client.unrouteGrid };
 				client.prRouteGridToClient(device);
 			} {
 				"Client % does not use a grid".format(client).postln;
@@ -526,7 +542,7 @@ SerialOSCClient {
 
 		if (device.respondsTo(\ringSet)) {
 			if (client.usesEnc) {
-				if (client.enc.notNil) { client.unrouteEncFromClient };
+				if (client.enc.notNil) { client.unrouteEnc };
 				client.prRouteEncToClient(device);
 			} {
 				"Client % does not use an enc".format(client).postln;
@@ -596,7 +612,7 @@ SerialOSCClient {
 		encRefreshAction.value(this);
 	}
 
-	unrouteGridFromClient {
+	unrouteGrid {
 		var gridToUnroute;
 		gridToUnroute = grid;
 		grid !? {
@@ -608,9 +624,10 @@ SerialOSCClient {
 		gridResponder.free;
 		tiltResponder.free;
 		onGridUnrouted.value(this, gridToUnroute);
+		SerialOSCClient.changed(\unrouted, this, grid);
 	}
 
-	unrouteEncFromClient {
+	unrouteEnc {
 		var encToUnroute;
 		encToUnroute = enc;
 		enc !? {
@@ -622,12 +639,13 @@ SerialOSCClient {
 		encDeltaResponder.free;
 		encKeyResponder.free;
 		onEncUnrouted.value(this, encToUnroute);
+		SerialOSCClient.changed(\unrouted, this, enc);
 	}
 
 	free {
 		willFree.value(this);
-		if (this.usesGrid) { this.unrouteGridFromClient };
-		if (this.usesEnc) { this.unrouteEncFromClient };
+		if (this.usesGrid) { this.unrouteGrid };
+		if (this.usesEnc) { this.unrouteEnc };
 		onFree.value(this);
 		all.remove(this);
 	}
@@ -636,12 +654,12 @@ SerialOSCClient {
 		grid !? { |grid| grid.clearLeds };
 	}
 
-	enableTilt { |n| // TODO: rename to activate/deactivateTilt
-		grid !? { |grid| grid.enableTilt(n) };
+	activateTilt { |n|
+		grid !? { |grid| grid.activateTilt(n) };
 	}
 
-	disableTilt { |n|
-		grid !? { |grid| grid.disableTilt(n) };
+	deactivateTilt { |n|
+		grid !? { |grid| grid.deactivateTilt(n) };
 	}
 
 	ledSet { |x, y, state|
@@ -714,7 +732,7 @@ SerialOSCClient {
 }
 
 SerialOSCGrid : SerialOSCDevice {
-	classvar <default, <all;
+	classvar <default, <all; // TODO: consider making all a live select from SerialOSCClient.devices
 	var <rotation;
 
 	*initClass {
@@ -731,6 +749,10 @@ SerialOSCGrid : SerialOSCDevice {
 
 	*unrouted {
 		^all.select {|grid|grid.client.isNil}
+	}
+
+	*connected {
+		^all.select(_.isConnected)
 	}
 
 	*new { |type, id, port, rotation|
@@ -752,12 +774,12 @@ SerialOSCGrid : SerialOSCDevice {
 		default !? { |grid| grid.clearLeds };
 	}
 
-	*enableTilt { |n| // TODO: rename to activate/deactivateTilt
-		default !? { |grid| grid.enableTilt(n) };
+	*activateTilt { |n|
+		default !? { |grid| grid.activateTilt(n) };
 	}
 
-	*disableTilt { |n|
-		default !? { |grid| grid.disableTilt(n) };
+	*deactivateTilt { |n|
+		default !? { |grid| grid.deactivateTilt(n) };
 	}
 
 	*ledSet { |x, y, state|
@@ -840,9 +862,9 @@ SerialOSCGrid : SerialOSCDevice {
 		this.ledAll(0);
 	}
 
-	enableTilt { |n| this.tiltSet(n, true) } // TODO: rename to activate/deactivateTilt
+	activateTilt { |n| this.tiltSet(n, true) }
 
-	disableTilt { |n| this.tiltSet(n, false) }
+	deactivateTilt { |n| this.tiltSet(n, false) }
 
 	ledSet { |x, y, state|
 		this.prSendMsg('/grid/led/set', x.asInteger, y.asInteger, state.asInteger);
@@ -920,7 +942,7 @@ SerialOSCGrid : SerialOSCDevice {
 }
 
 SerialOSCEnc : SerialOSCDevice {
-	classvar <default, <all;
+	classvar <default, <all; // TODO: consider making all a live select from SerialOSCClient.devices
 	classvar <ledXSpec;
 
 	*initClass {
@@ -930,6 +952,10 @@ SerialOSCEnc : SerialOSCDevice {
 
 	*unrouted {
 		^all.select {|enc|enc.client.isNil}
+	}
+
+	*connected {
+		^all.select(_.isConnected)
 	}
 
 	*new { |type, id, port|
@@ -967,7 +993,7 @@ SerialOSCEnc : SerialOSCDevice {
 	}
 
 	nSpec {
-		// TODO
+		^ControlSpec(0, this.getNumEncs, step: 1);
 	}
 
 	clearRings {
@@ -1044,11 +1070,14 @@ SerialOSCDevice {
 	}
 
 	remove {
-		// TODO: disconnect device if connected (so that connectedDevices no longer contain this device)
-		// TODO: probably not, but consider deattaching device (so that it is no longer in SerialOSCClient.devices, but will eventually get back on reinitialization / next attached device)
-		client = nil;
+		this.disconnect(this);
+		SerialOSCClient.devices.remove(this);
 		this.changed(\removed);
 	}
+
+	connect { SerialOSCClient.connect(this) }
+
+	disconnect { SerialOSCClient.disconnect(this) }
 
 	isConnected {
 		^SerialOSCClient.connectedDevices.includes(this);

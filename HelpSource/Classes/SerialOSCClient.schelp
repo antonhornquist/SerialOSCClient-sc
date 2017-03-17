@@ -324,10 +324,10 @@ Frees the client: disposes all resources, frees all responders. Invokes funcs (i
 METHOD:: permanent
 If false, CmdPeriod will free the client. The default is false.
 
-METHOD:: unrouteGridFromClient
+METHOD:: unrouteGrid
 Remove grid routed to a client
 
-METHOD:: unrouteEncFromClient
+METHOD:: unrouteEnc
 Remove enc routed to a client
 
 
@@ -377,8 +377,8 @@ SUBSECTION::Grid tilt activation
 
 Activate / deactivate tilt sensors of grid currently routed client, if any. Refer to link::Classes/SerialOSCGrid:: for details.
 
-METHOD:: enableTilt
-METHOD:: disableTilt
+METHOD:: activateTilt
+METHOD:: deactivateTilt
 METHOD:: tiltSet
 
 

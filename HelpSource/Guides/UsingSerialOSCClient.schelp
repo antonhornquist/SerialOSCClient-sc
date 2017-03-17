@@ -31,7 +31,8 @@ SerialOSCClient.init;
 Set led state:
 
 code::
-SerialOSCGrid.ledSet(0, 0, true); // set the top-leftmost led of default connected grid (if any) to lit
+SerialOSCGrid.ledSet(0, 0, 1); // set the top-leftmost led of default connected grid (first one connected) to lit
+SerialOSCGrid.ledSet(0, 0, 0); // set the top-leftmost led of default connected grid (first one connected) to unlit
 ::
 
 Listen to button events:
@@ -59,14 +60,14 @@ code::
 (
 // the toggle state example above as a client
 c = SerialOSCClient.grid("Hello World") { |client|
-	var state = false; // toggle state, initially unlit
-	var updateLed = { client.ledSet(0, 0, state) }; // function that updates led state of button 0,0
+	var lit = false; // toggle state, initially unlit
+	var updateLed = { client.ledSet(0, 0, lit) }; // function that updates led state of button 0,0
 
 	client.gridRefreshAction = updateLed; // when a new device is routed to this client led state will be updated
 
-	client.gridKeyIndexPressedAction = { |x, y|
-		if (x@y == 0@0) { // when button 0,0 is pressed,
-			state = state.not; // state is toggled
+	client.gridKeyAction = { |client, x, y, state|
+        if ((x == 0) and: (y == 0) and: (state == 1)) { // when button 0,0 is pressed,
+			lit = lit.not; // led state is toggled
 			updateLed.value; // and led is refreshed
 		}
 	};
@@ -75,9 +76,16 @@ c = SerialOSCClient.grid("Hello World") { |client|
 
 // this client will automatically be routed to a grid that is connected or gets connected later
 
-c.unroute; // remove device-to-client routing
+SerialOSCClient.postRoutings;
 
-c.route(SerialOSCGrid.default); // state is maintained and leds refreshed when a new device is routed to the client
+d=c.grid; // get routed grid
+d.disconnect; // disconnect routed grid from SerialOSCClient detaching it from client
+
+SerialOSCClient.postRoutings;
+
+d.connect; // connect grid again and SerialOSCClient will autoroute it to client
+
+SerialOSCClient.postRoutings;
 
 c.free; // or CmdPeriod frees client
 ::
