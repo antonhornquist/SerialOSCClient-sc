@@ -38,8 +38,8 @@ SerialOSCGrid.ledSet(0, 0, 0); // set the top-leftmost led of default connected 
 Listen to button events:
 
 code::
-GridKeydef(\toggle, { |x, y, state, timestamp, device| [x, y, state, timestamp, device].postln }); // a press or release of any button on any connected grid will post event state information to Post Window
-GridKeydef(\toggle).free; // free responder
+GridKeydef(\test, { |x, y, state| (if (state == 1, "key down", "key up") + "at (%,%)".format(x, y)).postln }); // a press or release of any button on any connected grid will post event state information to Post Window
+GridKeydef(\test).free; // or CmdPeriod frees responder
 ::
 
 Let a specific button toggle its led:
@@ -50,11 +50,9 @@ GridKeydef.press(\toggle, { SerialOSCGrid.ledSet(0, 0, a = a.not) }, 0, 0, 'defa
 GridKeydef.press(\toggle).free; // free responder
 ::
 
-subsection::Instantiating a client
-
-By instantiating SerialOSCClient self-contained clients are created. This is recommended for single-grid, single-enc or one-grid-and-one-enc use.
-
 subsection::A Hello World Client
+
+Self-contained clients are created by instantiating SerialOSCClient. This is recommended for single-grid, single-enc or one-grid-and-one-enc use.
 
 code::
 (
@@ -74,21 +72,19 @@ c = SerialOSCClient.grid("Hello World") { |client|
 };
 )
 
-// this client will automatically be routed to a grid that is connected or gets connected later
-
-SerialOSCClient.postRoutings;
+SerialOSCClient.postRoutings; // the client will automatically be routed to a grid connected to the computer
 
 d=c.grid; // get routed grid
-d.disconnect; // disconnect routed grid from SerialOSCClient detaching it from client
+d.disconnect; // disconnecting routed grid from SerialOSCClient,
+SerialOSCClient.postRoutings; // will detach it from the client
 
-SerialOSCClient.postRoutings;
-
-d.connect; // connect grid again and SerialOSCClient will autoroute it to client
-
-SerialOSCClient.postRoutings;
+d.connect; // connecting the grid again,
+SerialOSCClient.postRoutings; // will reroute it to the client and refresh the leds according to the current state of the client
 
 c.free; // or CmdPeriod frees client
 ::
+
+See more link::#Examples::.
 
 section::Usage
 
