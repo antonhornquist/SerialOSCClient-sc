@@ -1,35 +1,18 @@
 TITLE:: SerialOSCClient
-summary:: SerialOSCClient provides access to SerialOSC devices connected to the computer
+summary:: Access to SerialOSC devices connected to the computer
 categories:: External Control
 related:: Guides/UsingSerialOSCClient, Classes/MIDIClient
 
 DESCRIPTION::
-At its core SerialOSCClient is to SerialOSC devices what link::Classes/MIDIClient:: is to MIDI devices.
+SerialOSCClient provides access to SerialOSC devices connected to a computer by communication with a SerialOSC server (by default running at host 127.0.0.1, port 12002).
 
 The link::Guides/UsingSerialOSCClient:: helpfile discusses practical considerations and techniques for using SerialOSC devices in SuperCollider.
-
-subsection::Basics
-
-Once initialized, custom *Func and *def responders are used to respond to events from SerialOSC devices:
-
-list::
-## link::Classes/GridKeyFunc:: and link::Classes/GridKeydef:: responds to grid key state changes
-## link::Classes/EncDeltaFunc:: and link::Classes/EncDeltadef:: responds to encoder position changes
-## link::Classes/EncKeyFunc:: and link::Classes/EncKeydef:: responds to encoder key state changes
-## link::Classes/TiltFunc:: and link::Classes/Tiltdef:: responds to grid tilt sensor changes
-::
-
-link::Classes/SerialOSCGrid:: and link::Classes/SerialOSCEnc:: instances maintained in the link::#*devices:: list are used for updating led state.
-
-subsection::Instantiating clients
-
-It's possible to instantiate SerialOSCClient for single-grid, single-enc or one-grid-and-one-enc use cases. SerialOSCClient instances constitute self-contained clients decoupled from the device it is using. Callback functions are provided for led refresh and responding to incoming events. SerialOSCClient instance methods are used to update led state. Built-in routing capabilities are used to map devices to clients.
 
 SUBSECTION::Device handling
 
 Each SerialOSC device maintained by SerialOSCClient is considered discovered, connected and/or routed.
 
-A device is emphasis::discovered:: when it is physically connected to the computer, identified by the serialosc server and tracked by SerialOSCClient. A list of devices discovered by SerialOSCClient is maintained in the link::#*devices:: list. SerialOSCClient by default automatically discovers devices attached to the computer and disposes devices detached detached from the computer. This may be changed by settng the autodiscover argument in link::#*init:: to false. A discovered device is not guaranteed to have its destination port directed towards the SuperCollider langPort nor message prefix set according to SerialOSCClient requirements. It may be used with another program running on the computer.
+A device is emphasis::discovered:: when it is physically connected to the computer, identified by the SerialOSC server and tracked by SerialOSCClient. A list of devices discovered by SerialOSCClient is maintained in the link::#*devices:: list. SerialOSCClient by default automatically discovers/disposes devices attached to/detached from the computer. This may be changed by settng the autodiscover argument in link::#*init:: to false. A discovered device is not guaranteed to have its destination port directed towards the SuperCollider langPort nor message prefix set according to SerialOSCClient requirements. As such, it may be used with a different program running on the computer.
 
 A emphasis::connected:: device is a discovered device that has its destination port set to the SuperCollider langPort, its message prefix set to "/monome" and is included in the link::#*connectedDevices:: list. By default, SerialOSCClient automatically connects each device it discovers. This may be changed by settng the autoconnect argument in link::#*init:: to false.
 
@@ -37,7 +20,7 @@ A device is considered emphasis::routed:: when it is routed to a SerialOSCClient
 
 SUBSECTION::OSC communication
 
-OSC routing between SuperCollider and the serialosc server is transparently handled by SerialOSCClient alleviating the need for OSCFunc, OSCdef or NetAddr objects to listen to and respond to events from SerialOSC devices or update leds of a device.
+OSC routing and communication between SuperCollider and the SerialOSC server is handled by SerialOSCClient alleviating the need for OSCFunc, OSCdef or NetAddr objects to listen to and respond to events from SerialOSC devices or update leds of a device.
 
 
 CLASSMETHODS::
@@ -414,5 +397,31 @@ METHOD:: ringRange
 EXAMPLES::
 
 code::
-(some example code)
+// Using dependancy support it is possible to get notified when devices are attached/detached, connected/disconnected, routed/unrouted, et cetera.
+
+(
+SerialOSCClient.addDependant { |thechanged, what, device|
+	switch ( what )
+	{'attached'} {
+		("device" + TODO + "was detached").postln;
+	}
+	{'detached'} {
+		("device" + TODO + "was detached").postln;
+	}
+	{'connected'} {
+		("device" + TODO + "was connected").postln;
+	}
+	{'disconnected'} {
+		("device" + TODO + "was disconnected").postln;
+	}
+	{'routed'} {
+		("device" + TODO + "was routed to client" + TODO).postln;
+	}
+	{'unrouted'} {
+		("device" + TODO + "was unrouted").postln;
+	}
+};
+)
+
+SerialOSCClient.releaseAllDependants; // stop listening to grid notifications
 ::

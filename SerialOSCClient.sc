@@ -83,6 +83,7 @@ SerialOSCClient {
 							this.prNotifyChangesInDevicesList([], [device]);
 							this.prUpdateDefaultDevices([], [device]);
 							this.changed(\detached, device);
+							device.changed(\detached);
 							this.prPostDeviceRemoved(device);
 						};
 						devicesSemaphore.signal;
@@ -189,11 +190,12 @@ SerialOSCClient {
 			connectedDevices = connectedDevices.add(device);
 
 			this.changed(\connected, device);
+			device.changed(\connected);
 
 			this.prAutorouteDeviceToClients;
 
 			beVerbose.if {
-				Post << device << Char.space << "was connected" << Char.nl;
+				Post << device << Char.space << "was connected" << Char.nl; // TODO: I mean all this Post << business, why?
 			};
 		};
 	}
@@ -495,7 +497,7 @@ SerialOSCClient {
 		tiltResponder.permanent = true;
 		grid.client = this;
 		onGridRouted.value(this);
-		SerialOSCClient.changed(\routed, this, grid);
+		this.prNotifyDeviceRouted(grid);
 		beVerbose.if {
 			Post << grid << Char.space << "was routed to client" << this << Char.nl;
 		};
@@ -522,12 +524,22 @@ SerialOSCClient {
 		encKeyResponder.permanent = true;
 		enc.client = this;
 		onEncRouted.value(this);
-		SerialOSCClient.changed(\routed, this, enc);
+		this.prNotifyDeviceRouted(enc);
 		beVerbose.if {
 			Post << enc << Char.space << "was routed to client" << this << Char.nl;
 		};
 		this.prWarnIfEncDoNotMatchSpec;
 		this.refreshEnc;
+	}
+
+	prNotifyDeviceRouted { |device|
+		SerialOSCClient.changed(\routed, this, device);
+		device.changed(\routed, this);
+	}
+
+	prNotifyDeviceUnrouted { |device|
+		SerialOSCClient.changed(\unrouted, this, device);
+		device.changed(\unrouted, this);
 	}
 
 	*route { |device, client|
@@ -584,8 +596,8 @@ SerialOSCClient {
 
 	*gridMatchesSpec { |grid, gridSpec|
 		var numCols, numRows;
-		numCols = grid.getEffectiveNumCols;
-		numRows = grid.getEffectiveNumRows;
+		numCols = grid.getNumCols;
+		numRows = grid.getNumRows;
 		^case
 			{gridSpec == \any} { true }
 			{gridSpec.respondsTo(\key) and: gridSpec.respondsTo(\value)} {
@@ -624,7 +636,7 @@ SerialOSCClient {
 		gridResponder.free;
 		tiltResponder.free;
 		onGridUnrouted.value(this, gridToUnroute);
-		SerialOSCClient.changed(\unrouted, this, grid);
+		this.prNotifyDeviceUnrouted(enc);
 	}
 
 	unrouteEnc {
@@ -639,7 +651,7 @@ SerialOSCClient {
 		encDeltaResponder.free;
 		encKeyResponder.free;
 		onEncUnrouted.value(this, encToUnroute);
-		SerialOSCClient.changed(\unrouted, this, enc);
+		this.prNotifyDeviceUnrouted(enc);
 	}
 
 	free {
@@ -732,27 +744,42 @@ SerialOSCClient {
 }
 
 SerialOSCGrid : SerialOSCDevice {
-	classvar <default, <all; // TODO: consider making all a live select from SerialOSCClient.devices
+	classvar <default;
 	var <rotation;
 
-	*initClass {
-		all = [];
+	*all {
+		^SerialOSCClient.devices.reject { |device|
+			SerialOSCClient.prIsEncType(device.type)
+		}
 	}
 
-	ledXSpec {
-		^ControlSpec(0, this.getEffectiveNumCols, step: 1);
-	}
-
-	ledYSpec {
-		^ControlSpec(0, this.getEffectiveNumRows, step: 1);
+	*default_ { |grid|
+		var prevDefault;
+		prevDefault = default;
+		if (grid.isNil) {
+			default = nil;
+		} {
+			if (SerialOSCClient.devices.includes(grid)) {
+				if (grid.respondsTo(\ledSet)) {
+					default = grid;
+				} {
+					Error("Not a grid: %".format(grid)).throw
+				}
+			} {
+				Error("% is not in SerialOSCClient devices list".format(grid)).throw
+			};
+		};
+		if (default != prevDefault) {
+			this.changed(\default, default);
+		}
 	}
 
 	*unrouted {
-		^all.select {|grid|grid.client.isNil}
+		^this.all.select {|grid|grid.client.isNil}
 	}
 
 	*connected {
-		^all.select(_.isConnected)
+		^this.all.select(_.isConnected)
 	}
 
 	*new { |type, id, port, rotation|
@@ -761,13 +788,6 @@ SerialOSCGrid : SerialOSCDevice {
 
 	initSerialOSCGrid { |argRotation|
 		rotation = argRotation;
-		all = all.add(this);
-	}
-
-	rotation_ { |degrees|
-		SerialOSCComm.changeDeviceRotation("127.0.0.1", port, degrees);
-		rotation = degrees;
-		this.changed(\rotation, degrees);
 	}
 
 	*clearLeds {
@@ -830,32 +850,28 @@ SerialOSCGrid : SerialOSCDevice {
 		default !? { |grid| grid.tiltSet(n, state) };
 	}
 
-	deviceNumColsFromType {
-		^switch (type)
-			{ 'monome 64' } { 8 }
-			{ 'monome 40h' } { 8 }
-			{ 'monome 128' } { 16 }
-			{ 'monome 256' } { 16 }
+	*getNumCols {
+		^default !? (_.getNumCols)
 	}
 
-	deviceNumRowsFromType {
-		^switch (type)
-			{ 'monome 64' } { 8 }
-			{ 'monome 40h' } { 8 }
-			{ 'monome 128' } { 8 }
-			{ 'monome 256' } { 16 }
+	*getNumRows {
+		^default !? (_.getNumRows)
 	}
 
-	getEffectiveNumCols {
-		^case 
-			{ [0, 180].includes(rotation) } { this.deviceNumColsFromType }
-			{ [90, 270].includes(rotation) } { this.deviceNumRowsFromType }
+	*rotation {
+		^default !? (_.rotation)
 	}
 
-	getEffectiveNumRows {
-		^case 
-			{ [0, 180].includes(rotation) } { this.deviceNumRowsFromType }
-			{ [90, 270].includes(rotation) } { this.deviceNumColsFromType }
+	*rotation_ { |degrees|
+		default !? (_.rotation_(degrees))
+	}
+
+	*ledXSpec {
+		^default !? { |grid| grid.ledXSpec };
+	}
+
+	*ledYSpec {
+		^default !? { |grid| grid.ledYSpec };
 	}
 
 	clearLeds {
@@ -914,106 +930,57 @@ SerialOSCGrid : SerialOSCDevice {
 		this.prSendMsg('/tilt/set', n.asInteger, state.asInteger);
 	}
 
-	*default_ { |grid|
-		var prevDefault;
-		prevDefault = default;
-		if (grid.isNil) {
-			default = nil;
-		} {
-			if (SerialOSCClient.devices.includes(grid)) {
-				if (grid.respondsTo(\ledSet)) {
-					default = grid;
-				} {
-					Error("Not a grid: %".format(grid)).throw
-				}
-			} {
-				Error("% is not in SerialOSCClient devices list".format(grid)).throw
-			};
-		};
-		if (default != prevDefault) {
-			this.changed(\default, default);
-		}
+	ledXSpec { ^ControlSpec(0, this.getNumCols, step: 1) }
+
+	ledYSpec { ^ControlSpec(0, this.getNumRows, step: 1) }
+
+	getNumCols {
+		^case 
+			{ [0, 180].includes(rotation) } { this.prDeviceNumColsFromType }
+			{ [90, 270].includes(rotation) } { this.prDeviceNumRowsFromType }
 	}
 
-	remove {
-		all.remove(this);
-		super.remove;
+	getNumRows {
+		^case 
+			{ [0, 180].includes(rotation) } { this.prDeviceNumRowsFromType }
+			{ [90, 270].includes(rotation) } { this.prDeviceNumColsFromType }
+	}
+
+	rotation_ { |degrees|
+		SerialOSCComm.changeDeviceRotation("127.0.0.1", port, degrees);
+		rotation = degrees;
+		this.changed(\rotation, degrees);
+	}
+
+	prDeviceNumColsFromType {
+		^switch (type)
+			{ 'monome 64' } { 8 }
+			{ 'monome 40h' } { 8 }
+			{ 'monome 128' } { 16 }
+			{ 'monome 256' } { 16 }
+	}
+
+	prDeviceNumRowsFromType {
+		^switch (type)
+			{ 'monome 64' } { 8 }
+			{ 'monome 40h' } { 8 }
+			{ 'monome 128' } { 8 }
+			{ 'monome 256' } { 16 }
 	}
 }
 
 SerialOSCEnc : SerialOSCDevice {
-	classvar <default, <all; // TODO: consider making all a live select from SerialOSCClient.devices
+	classvar <default;
 	classvar <ledXSpec;
 
 	*initClass {
 		ledXSpec = ControlSpec(0, 63, step: 1);
-		all = [];
 	}
 
-	*unrouted {
-		^all.select {|enc|enc.client.isNil}
-	}
-
-	*connected {
-		^all.select(_.isConnected)
-	}
-
-	*new { |type, id, port|
-		^super.new(type, id, port).initSerialOSCEnc;
-	}
-
-	getNumEncs {
-		^switch (type)
-			{ 'monome arc 2' } { 2 }
-			{ 'monome arc 4' } { 4 }
-	}
-
-	initSerialOSCEnc {
-		all = all.add(this);
-	}
-
-	*clearRings {
-		default !? { |enc| enc.clearRings };
-	}
-
-	*ringSet { |n, x, level|
-		default !? { |enc| enc.ringSet(n, x, level) };
-	}
-
-	*ringAll { |n, level|
-		default !? { |enc| enc.ringAll(n, level) };
-	}
-
-	*ringMap { |n, levels|
-		default !? { |enc| enc.ringMap(n, levels) };
-	}
-
-	*ringRange { |n, x1, x2, level|
-		default !? { |enc| enc.ringRange(n, x1, x2, level) };
-	}
-
-	nSpec {
-		^ControlSpec(0, this.getNumEncs, step: 1);
-	}
-
-	clearRings {
-		4.do { |n| this.ringAll(n, 0) };
-	}
-
-	ringSet { |n, x, level|
-		this.prSendMsg('/ring/set', n.asInteger, x.asInteger, level.asInteger);
-	}
-
-	ringAll { |n, level|
-		this.prSendMsg('/ring/all', n.asInteger, level.asInteger);
-	}
-
-	ringMap { |n, levels|
-		this.performList(\prSendMsg, ['/ring/map', n.asInteger] ++ levels);
-	}
-
-	ringRange { |n, x1, x2, level|
-		this.prSendMsg('/ring/range', n.asInteger, x1.asInteger, x2.asInteger, level.asInteger);
+	*all {
+		^SerialOSCClient.devices.select { |device|
+			SerialOSCClient.prIsEncType(device.type)
+		}
 	}
 
 	*default_ { |enc|
@@ -1037,9 +1004,77 @@ SerialOSCEnc : SerialOSCDevice {
 		}
 	}
 
-	remove {
-		all.remove(this);
-		super.remove;
+	*unrouted {
+		^this.all.select {|enc|enc.client.isNil}
+	}
+
+	*connected {
+		^this.all.select(_.isConnected)
+	}
+
+	*new { |type, id, port|
+		^super.new(type, id, port).initSerialOSCEnc;
+	}
+
+	initSerialOSCEnc {
+	}
+
+	*clearRings {
+		default !? { |enc| enc.clearRings };
+	}
+
+	*ringSet { |n, x, level|
+		default !? { |enc| enc.ringSet(n, x, level) };
+	}
+
+	*ringAll { |n, level|
+		default !? { |enc| enc.ringAll(n, level) };
+	}
+
+	*ringMap { |n, levels|
+		default !? { |enc| enc.ringMap(n, levels) };
+	}
+
+	*ringRange { |n, x1, x2, level|
+		default !? { |enc| enc.ringRange(n, x1, x2, level) };
+	}
+
+	*nSpec {
+		default !? (_.nSpec)
+	}
+
+	*getNumEncs {
+		default !? (_.getNumEncs)
+	}
+
+	clearRings {
+		4.do { |n| this.ringAll(n, 0) };
+	}
+
+	ringSet { |n, x, level|
+		this.prSendMsg('/ring/set', n.asInteger, x.asInteger, level.asInteger);
+	}
+
+	ringAll { |n, level|
+		this.prSendMsg('/ring/all', n.asInteger, level.asInteger);
+	}
+
+	ringMap { |n, levels|
+		this.performList(\prSendMsg, ['/ring/map', n.asInteger] ++ levels);
+	}
+
+	ringRange { |n, x1, x2, level|
+		this.prSendMsg('/ring/range', n.asInteger, x1.asInteger, x2.asInteger, level.asInteger);
+	}
+
+	nSpec {
+		^ControlSpec(0, this.getNumEncs, step: 1);
+	}
+
+	getNumEncs {
+		^switch (type)
+			{ 'monome arc 2' } { 2 }
+			{ 'monome arc 4' } { 4 }
 	}
 }
 

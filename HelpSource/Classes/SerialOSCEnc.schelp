@@ -52,6 +52,13 @@ METHOD:: ringAll
 METHOD:: ringMap
 METHOD:: ringRange
 
+SUBSECTION::Enc properties
+
+These methods are equivalent to instance methods of the same name below except they are invoked for the default enc, if any.
+
+METHOD:: nSpec
+METHOD:: getNumEncs
+
 
 INSTANCEMETHODS::
 
@@ -114,15 +121,15 @@ Led level (0-15)
 
 SUBSECTION::Enc properties
 
-METHOD:: getNumEncs
-Return the number of encoders for this device
-
-returns:: An Integer
-
 METHOD:: nSpec
 A ControlSpec describing the number of encoders.
 
 returns:: A ControlSpec
+
+METHOD:: getNumEncs
+Return the number of encoders for this device
+
+returns:: An Integer
 
 
 EXAMPLES::
@@ -158,12 +165,8 @@ SerialOSCEnc.ringRange(1, 40, 50, 10);
 // Using dependancy support it is possible to observe when new devices are attached or detached, connected or disconnected. It is also possible to get notified when a new default SerialOSCEnc is set.
 
 (
-// TODO: test what applies
 SerialOSCEnc.addDependant { |thechanged, what, device|
 	switch ( what )
-	{'attached'} {
-		("encoder" + device + "was attached").postln;
-	}
 	{'detached'} {
 		("encoder" + device + "was detached").postln;
 	}
@@ -172,6 +175,12 @@ SerialOSCEnc.addDependant { |thechanged, what, device|
 	}
 	{'disconnected'} {
 		("encoder" + device + "was disconnected").postln;
+	}
+	{'routed'} {
+		("encoder" + device + "was routed to client" + TODO).postln;
+	}
+	{'unrouted'} {
+		("encoder" + device + "was unrouted").postln;
 	}
 	{'default'} {
 		("encoder" + device + "was set as default").postln;

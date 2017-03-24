@@ -66,6 +66,16 @@ METHOD:: activateTilt
 METHOD:: deactivateTilt
 METHOD:: tiltSet
 
+SUBSECTION::Default grid rotation and bounds
+
+These methods are equivalent to instance methods of the same name below except they are invoked for the default grid, if any.
+
+METHOD:: ledXSpec
+METHOD:: ledYSpec
+METHOD:: getNumCols
+METHOD:: getNumRows
+METHOD:: rotation
+
 
 INSTANCEMETHODS::
 
@@ -233,24 +243,7 @@ ARGUMENT:: state
 1 = active, 0 = inactive
 
 
-SUBSECTION::Rotation and effective bounds
-
-METHOD:: rotation
-Sets or returns the rotation of the grid. Rotation is either 0, 90, 180 or 270.
-
-Setting rotation of a grid sends a "/sys/rotation" message to the grid's device port. 
-
-returns:: An Integer
-
-METHOD:: getEffectiveNumCols
-Return the current number of columns according to grid type and rotation
-
-returns:: An Integer
-
-METHOD:: getEffectiveNumRows
-Return the current number of rows according to grid type and rotation
-
-returns:: An Integer
+SUBSECTION::Grid rotation and bounds
 
 METHOD:: ledXSpec
 A ControlSpec describing the number of columns of the grid.
@@ -261,6 +254,23 @@ METHOD:: ledYSpec
 A ControlSpec describing the number of rows of the grid.
 
 returns:: A ControlSpec
+
+METHOD:: getNumCols
+Return the current number of columns according to grid type and rotation
+
+returns:: An Integer
+
+METHOD:: getNumRows
+Return the current number of rows according to grid type and rotation
+
+returns:: An Integer
+
+METHOD:: rotation
+Sets or returns the rotation of the grid. Rotation is either 0, 90, 180 or 270.
+
+Setting rotation of a grid sends a "/sys/rotation" message to the grid's device port. 
+
+returns:: An Integer
 
 
 EXAMPLES::
@@ -332,12 +342,8 @@ Tiltdef(\test).free;
 // Using dependancy support it is possible to observe when new devices are attached or detached, connected or disconnected. It is also possible to get notified when a new default SerialOSCGrid is set.
 
 (
-// TODO: test what applies
 SerialOSCGrid.addDependant { |thechanged, what, device|
 	switch ( what )
-	{'attached'} {
-		("grid" + device + "was attached").postln;
-	}
 	{'detached'} {
 		("grid" + device + "was detached").postln;
 	}
@@ -346,6 +352,15 @@ SerialOSCGrid.addDependant { |thechanged, what, device|
 	}
 	{'disconnected'} {
 		("grid" + device + "was disconnected").postln;
+	}
+	{'routed'} {
+		("grid" + device + "was routed to client" + TODO).postln;
+	}
+	{'unrouted'} {
+		("grid" + device + "was unrouted").postln;
+	}
+	{'rotation'} {
+		("grid" + device + "rotation was changed to" + TODO).postln;
 	}
 	{'default'} {
 		("grid" + device + "was set as default").postln;

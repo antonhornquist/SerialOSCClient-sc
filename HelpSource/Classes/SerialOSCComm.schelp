@@ -4,7 +4,7 @@ categories:: External Control
 related:: Classes/SerialOSCClient
 
 DESCRIPTION::
-Class for discovery of and connecting to serialosc devices, retrieving device information and setting device settings using SerialOSC protocol described in link::http://monome.org/docs/osc/::.
+Class for discovery and connection of serialosc devices, retrieving device information and setting device settings using the SerialOSC protocol described in link::http://monome.org/docs/osc/::.
 
 This class is utilized by link::Classes/SerialOSCClient:: but may also be used directly.
 
