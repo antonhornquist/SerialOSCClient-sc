@@ -118,7 +118,7 @@ SerialOSCClient {
 	}
 
 	*cmdPeriod {
-		all.reject { |client| client.permanent }.copy.do(_.free);
+		all.reject { |client| client.permanent }.copy.do(_.free);
 	}
 
 	*prGetPrefixedAddress { |address|
@@ -139,13 +139,13 @@ SerialOSCClient {
 		var addedAndConnectedGrids, connectedGridsNotRoutedToAClient;
 
 		addedAndConnectedGrids = devicesAddedToDevicesList.reject(this.prDeviceIsEncByType(_)).select(_.isConnected);
-		connectedGridsNotRoutedToAClient = connectedDevices.reject(this.prDeviceIsEncByType(_)).reject { |device| device.client.notNil };
+		connectedGridsNotRoutedToAClient = connectedDevices.reject(this.prDeviceIsEncByType(_)).reject { |device| device.client.notNil };
 
 		case
 			{ SerialOSCGrid.default.isNil and: addedAndConnectedGrids.notEmpty } {
 				SerialOSCGrid.default = addedAndConnectedGrids.first
 			}
-			{ devices.includes(SerialOSCGrid.default).not } {
+			{ devices.includes(SerialOSCGrid.default).not } {
 				SerialOSCGrid.default = case
 					{ addedAndConnectedGrids.notEmpty } { addedAndConnectedGrids.first }
 					{ connectedGridsNotRoutedToAClient.notEmpty } { connectedGridsNotRoutedToAClient.first }
@@ -156,13 +156,13 @@ SerialOSCClient {
 		var addedAndConnectedEncs, connectedEncsNotRoutedToAClient;
 
 		addedAndConnectedEncs = devicesAddedToDevicesList.select(this.prDeviceIsEncByType(_)).select(_.isConnected);
-		connectedEncsNotRoutedToAClient = connectedDevices.select(this.prDeviceIsEncByType(_)).reject { |device| device.client.notNil };
+		connectedEncsNotRoutedToAClient = connectedDevices.select(this.prDeviceIsEncByType(_)).reject { |device| device.client.notNil };
 
 		case
 			{ SerialOSCEnc.default.isNil and: addedAndConnectedEncs.notEmpty } {
 				SerialOSCEnc.default = addedAndConnectedEncs.first
 			}
-			{ devices.includes(SerialOSCEnc.default).not } {
+			{ devices.includes(SerialOSCEnc.default).not } {
 				SerialOSCEnc.default = case
 					{ addedAndConnectedEncs.notEmpty } { addedAndConnectedEncs.first }
 					{ connectedEncsNotRoutedToAClient.notEmpty } { connectedEncsNotRoutedToAClient.first }
@@ -657,7 +657,7 @@ SerialOSCClient {
 	free {
 		willFree.value(this);
 		if (this.usesGrid) { this.unrouteGrid };
-		if (this.usesEnc) { this.unrouteEnc };
+		if (this.usesEnc) { this.unrouteEnc };
 		onFree.value(this);
 		all.remove(this);
 	}
@@ -850,11 +850,11 @@ SerialOSCGrid : SerialOSCDevice {
 		default !? { |grid| grid.tiltSet(n, state) };
 	}
 
-	*getNumCols {
+	*getNumCols { // TODO: rename to numCols?
 		^default !? (_.getNumCols)
 	}
 
-	*getNumRows {
+	*getNumRows { // TODO: rename to numCols?
 		^default !? (_.getNumRows)
 	}
 
@@ -935,18 +935,18 @@ SerialOSCGrid : SerialOSCDevice {
 	ledYSpec { ^ControlSpec(0, this.getNumRows, step: 1) }
 
 	getNumCols {
-		^case 
-			{ [0, 180].includes(rotation) } { this.prDeviceNumColsFromType }
-			{ [90, 270].includes(rotation) } { this.prDeviceNumRowsFromType }
+		^case
+			{ [0, 180].includes(rotation) } { this.prDeviceNumColsFromType }
+			{ [90, 270].includes(rotation) } { this.prDeviceNumRowsFromType }
 	}
 
 	getNumRows {
-		^case 
-			{ [0, 180].includes(rotation) } { this.prDeviceNumRowsFromType }
-			{ [90, 270].includes(rotation) } { this.prDeviceNumColsFromType }
+		^case
+			{ [0, 180].includes(rotation) } { this.prDeviceNumRowsFromType }
+			{ [90, 270].includes(rotation) } { this.prDeviceNumColsFromType }
 	}
 
-	rotation_ { |degrees|
+	rotation_ { |degrees|
 		SerialOSCComm.changeDeviceRotation("127.0.0.1", port, degrees);
 		rotation = degrees;
 		this.changed(\rotation, degrees);
@@ -954,18 +954,18 @@ SerialOSCGrid : SerialOSCDevice {
 
 	prDeviceNumColsFromType {
 		^switch (type)
-			{ 'monome 64' } { 8 }
-			{ 'monome 40h' } { 8 }
-			{ 'monome 128' } { 16 }
-			{ 'monome 256' } { 16 }
+			{ 'monome 64' } { 8 }
+			{ 'monome 40h' } { 8 }
+			{ 'monome 128' } { 16 }
+			{ 'monome 256' } { 16 }
 	}
 
 	prDeviceNumRowsFromType {
 		^switch (type)
-			{ 'monome 64' } { 8 }
-			{ 'monome 40h' } { 8 }
-			{ 'monome 128' } { 8 }
-			{ 'monome 256' } { 16 }
+			{ 'monome 64' } { 8 }
+			{ 'monome 40h' } { 8 }
+			{ 'monome 128' } { 8 }
+			{ 'monome 256' } { 16 }
 	}
 }
 
@@ -1073,8 +1073,8 @@ SerialOSCEnc : SerialOSCDevice {
 
 	getNumEncs {
 		^switch (type)
-			{ 'monome arc 2' } { 2 }
-			{ 'monome arc 4' } { 4 }
+			{ 'monome arc 2' } { 2 }
+			{ 'monome arc 4' } { 4 }
 	}
 }
 

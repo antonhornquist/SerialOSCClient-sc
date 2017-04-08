@@ -9,16 +9,7 @@ SerialOSCClient provides plug'n'play support for monome (link::http://monome.org
 
 At its core link::Classes/SerialOSCClient:: and its related classes are to SerialOSC devices what link::Classes/MIDIClient:: and its related classes in the SuperCollider standard library are to MIDI devices.
 
-In addition to this, it's possible to instantiate SerialOSCClient for single-grid, single-enc or one-grid-and-one-enc use cases. SerialOSCClient instances constitute self-contained clients decoupled from the device(s) used for the client at any given time. Callback functions are provided for led refresh and responding to incoming events. SerialOSCClient instance methods are used to update led state. Built-in routing is used to map devices to clients.
-
-subsection::Basic Usage
-
-Once initialized SerialOSCClient automatically discovers devices attached to the computer and maintains a list of devices currently attached in the code::SerialOSCClient.devices:: list.
-
-Instances of class link::Classes/SerialOSCGrid:: and link::Classes/SerialOSCEnc:: in the code::SerialOSCClient.devices:: list may be used to update led state of each connected device. SerialOSCClient automatically sets a default grid and arc the first time a device of either kind is attached. Led state of each default device, if available, can be updated using class methods in SerialOSCGrid and SerialOSCEnc.
-
-By default SerialOSCClient also changes each attached device's destination port to SuperCollider's langPort, sets the device message prefix to "/monome" and includes the device in the code::SerialOSCClient.connectedDevices:: list effectively connecting the device to SuperCollider. Incoming events (key presses, encoder deltas, etc) of each connected device is routed to SerialOSC device specific responder objects (link::Classes/GridKeyFunc:: and link::Classes/GridKeydef:: for incoming grid key presses, link::Classes/EncDeltaFunc:: and link::Classes/EncDeltadef:: for encoder deltas, etc).
-
+In addition to this, it's possible to instantiate SerialOSCClient for single-grid, single-enc or one-grid-and-one-enc use cases. SerialOSCClient instances constitute self-contained clients decoupled from the devices being used for the client. Callback functions are provided for led refresh and responding to incoming events. SerialOSCClient instance methods are used to update led state. Built-in routing is used to map devices to clients.
 
 subsection::Hello World
 
@@ -98,7 +89,7 @@ code::
 SerialOSCClient.init; // will probe for attached devices, autoconnect them, and automatically update device list upon devices getting attached or detached to the computer
 ::
 
-SerialOSCClient initialization is, unlike MIDIClient, performed asynchronously. If code needs to be evaluated after initialization has completed a completionFunc may be supplied to the init method.
+Unlike MIDIClient, SerialOSCClient initialization is performed asynchronously. If code needs to be evaluated after initialization has completed a completionFunc may be supplied to the init method.
 
 code::
 // as above with a completion function
@@ -125,9 +116,11 @@ SerialOSCClient.devices; // list of all devices attached to the computer
 SerialOSCGrid and SerialOSCEnc classes also retain discovered devices of each type in their code::*all:: lists.
 
 code::
-SerialOSCGrid.all; // all grid devices
-SerialOSCEnc.all; // all encoder devices
+SerialOSCGrid.all; // all grid devices connected to the computer
+SerialOSCEnc.all; // all encoder devices connected to the computer
 ::
+
+SerialOSCClient by default automatically updates the code::SerialOSCClient.devices:: list as devices are attached to and detached from the computer. This may be changed by setting argument code::autodiscover:: of init to false. See link::#Disabling autodiscovery of devices::
 
 subsection::Default devices
 
@@ -524,6 +517,45 @@ list::
 
 section::Examples
 
+subsection::Visualize Incoming Audio
+
+code::
+(
+c = SerialOSCClient.grid('in') { |client|
+	var onReplyReceived;
+	var synth;
+	var responder;
+	var values = Array.fill(8) { 0 };
+
+	client.gridRefreshAction = {
+		var convertValueToBitmask = { |amp|
+			(amp * 8).asInteger.collect { |i| 1 << i }.sum
+		};
+
+		client.ledMap(0, 0, values.collect{ |v| convertValueToBitmask.value(v) })
+	};
+
+	client.onFree = { [synth, responder].do (_.free) };
+
+	onReplyReceived = { |receivedValue|
+		values=values.rotate;
+		values[0]=receivedValue;
+		client.refreshGrid;
+	};
+
+	Server.default.waitForBoot {
+		responder = OSCFunc({ |msg| onReplyReceived.value(msg[3]) }, '/level');
+
+		synth = {
+			SendReply.kr(Impulse.kr(50), '/level', Amplitude.kr(SoundIn.ar(0), 0.01, 10), 1905); // TODO: 1905 ??
+		}.play(Server.default);
+	};
+}
+)
+
+c.free;
+::
+
 See below code for intro:
 
 subsection::Grids Intro Code
@@ -597,6 +629,23 @@ GridKeydef.release(\stopSine, { a.release }, 0, 0);
 GridKeydef.freeAll; // Free all responders
 ::
 
+subsection::Hello Scrambled World (Varibright)
+
+code::
+(
+var scrambleLeds = {
+	SerialOSCGrid.default !? { |grid|
+		8 do: { grid.ledSet(8.rand, 8.rand, SerialOSCGrid.ledLSpec.rand) };
+	};
+};
+
+GridKeydef.press(\playSineAndScrambleLeds, { a = {SinOsc.ar}.play; scrambleLeds.(); }, 0, 0);
+GridKeydef.release(\stopSine, { a.release }, 0, 0);
+)
+
+GridKeydef.freeAll; // Free all responders
+::
+
 subsection::A monome and arc play together
 
 code::
@@ -660,6 +709,156 @@ GridKeydef.press(
 GridKeydef.release(\stopSine, { a.release; a = nil });
 )
 ::
+
+subsection::Clip Launcher
+
+code::
+(
+a = SerialOSCClient.grid('launcher') { |client|
+    var numTracks = 15;
+    var numSlotsPerTrack = 15;
+    var quant = 1;
+    var slice = 0.01; // slice must be less than quant
+    var listeners;
+
+    var patterns = Array.fill(numTracks) { Array.fill(numSlotsPerTrack) };
+    var players = Array.fill(numTracks) { Array.fill(numSlotsPerTrack) };
+    var queueRoutines = Array.fill(numTracks);
+    var queuedSlots = Array.fill(numTracks);
+    var playingSlots = Array.fill(numTracks);
+
+    var numVisibleTracks = { min(numTracks, client.grid.getNumCols-1) }; // TODO: rename getNumCols in SerialOSCClient to numCols
+
+    var playSlot = { |trackIndex, slotIndex|
+        patterns[trackIndex][slotIndex].notNil.if {
+            stopQueued.value(trackIndex);
+            queueSlot.value(trackIndex, slotIndex);
+            refreshTrackLeds.value(trackIndex);
+        } {
+            stopTrack.value(trackIndex);
+        }
+    };
+
+    var queueSlot = { |trackIndex, slotIndex|
+        var routine = Routine {
+            var pattern;
+            var player;
+            var stopListener;
+            pattern = patterns[trackIndex][slotIndex];
+            stopListener = { |who, what|
+                case
+                { [\stopped, \userStopped].includes(what) } {
+                    who.removeDependant(stopListener);
+                    playingSlots[trackIndex] = nil;
+                    refreshTrackLeds.value(trackIndex);
+                }
+            };
+
+            playingSlots[trackIndex].notNil.if {
+                var slotIndex = playingSlots[trackIndex];
+                players[trackIndex][slotIndex].stop;
+                // "at beat %: stopped (scheduled) slot % in track %".format(thisThread.beats, slotIndex, trackIndex).inform;
+            };
+
+            slice.wait;
+
+            player = pattern.play;
+            player.addDependant(stopListener);
+
+            players[trackIndex][slotIndex] = player;
+            queuedSlots[trackIndex] = nil;
+            playingSlots[trackIndex] = slotIndex;
+            refreshTrackLeds.value(trackIndex);
+            // "at beat %: started playing slot % in track %".format(thisThread.beats, slotIndex, trackIndex).inform;
+            nil;
+		};
+        queueRoutines[trackIndex] = routine;
+        routine.play(quant: [quant, (-1) * slice]);
+        queuedSlots[trackIndex] = slotIndex;
+    };
+
+    var refreshTrackLeds = { |trackIndex|
+        client.grid !? { |grid|
+            (grid.getNumRows-1).do { |slotIndex| // TODO: rename getNumRows to numRows in SerialOSCClient
+                client.ledLevelSet(
+                    trackIndex,
+                    slotIndex,
+                    if (slotIndex <= numSlotsPerTrack) {
+                        case
+                        { playingSlots[trackIndex] == slotIndex } { 15 }
+                        { queuedSlots[trackIndex].value == slotIndex } { 5 }
+                    } ? 0
+                );
+            }
+        };
+    };
+
+    var stopTrack = { |trackIndex|
+        stopQueued.value(trackIndex);
+        stopPlaying.value(trackIndex);
+    };
+
+    var stopQueued = { |trackIndex|
+        queuedSlots[trackIndex] !? { |slotIndex|
+            queueRoutines[trackIndex].stop;
+            queuedSlots[trackIndex] = nil;
+        };
+    };
+
+    var stopPlaying = { |trackIndex|
+        playingSlots[trackIndex] !? { |slotIndex|
+            var routine = Routine { // TODO: possibly need to save this routine to not interfer with new queued play action of same slot
+                players[trackIndex][slotIndex].stop;
+                // "at beat %: stopped slot % in track %".format(thisThread.beats, slotIndex, trackIndex).inform;
+                nil;
+            };
+            routine.play(quant: [quant, (-1) * slice]);
+        };
+	};
+	
+    // client.onGridRotationChanged = { |client| }; // TODO: 
+
+    client.onGridRouted = { |client| }; // TODO: check client is argument in SerialOSCClient
+
+    client.onFree = { numTracks.do { |i| stopTrack.value(i) } };
+
+    client.addUniqueMethod(\load) { |client, trackIndex, slotIndex, pattern|
+        patterns[trackIndex][slotIndex] = pattern;
+    };
+
+    client.addUniqueMethod(\quant_) { |client, argQuant| quant = argQuant };
+
+    s.waitForBoot {
+        client.gridKeyAction = { |client, x, y, state, timestamp|
+            case
+            { state.asBoolean and: (y < (client.grid.getNumRows-1)) } {
+                case
+                { x < numVisibleTracks.value } { playSlot.value(x, y) }
+                { x == (client.grid.getNumCols-1) } {
+                    numVisibleTracks.value.do { |trackIndex| playSlot.value(trackIndex, y) }
+                }
+            }
+            { state.asBoolean and: (y == (client.grid.getNumRows-1))} {
+                case
+                { x < numVisibleTracks.value } { stopTrack.value(x) }
+                { x == (client.grid.getNumCols-1) } {
+                    numVisibleTracks.value.do { |trackIndex| stopTrack.value(trackIndex) }
+                }
+            };
+        };
+
+        client.gridRefreshAction = { |client| // TODO: check client is argument in SerialOSCClient
+            numVisibleTracks.value.do { |trackIndex| refreshTrackLeds.value(trackIndex) };
+        };
+
+        client.grid !? { client.refreshGrid };
+
+        client.addUniqueMethod(\play) { |client, trackIndex, slotIndex| playSlot.value(trackIndex, slotIndex) };
+    }
+};
+)
+::
+
 
 section::Feedback
 

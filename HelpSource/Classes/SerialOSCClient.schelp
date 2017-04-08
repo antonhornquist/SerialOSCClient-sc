@@ -4,7 +4,7 @@ categories:: External Control
 related:: Guides/UsingSerialOSCClient, Classes/MIDIClient
 
 DESCRIPTION::
-SerialOSCClient provides access to SerialOSC devices connected to a computer by communication with a SerialOSC server (by default running at host 127.0.0.1, port 12002).
+SerialOSCClient provides access to monome (http://monome.org) grids, arcs and other SerialOSC compliant devices by communication with a SerialOSC server by default running at host 127.0.0.1, port 12002.
 
 The link::Guides/UsingSerialOSCClient:: helpfile discusses practical considerations and techniques for using SerialOSC devices in SuperCollider.
 
@@ -12,15 +12,15 @@ SUBSECTION::Device handling
 
 Each SerialOSC device maintained by SerialOSCClient is considered discovered, connected and/or routed.
 
-A device is emphasis::discovered:: when it is physically connected to the computer, identified by the SerialOSC server and tracked by SerialOSCClient. A list of devices discovered by SerialOSCClient is maintained in the link::#*devices:: list. SerialOSCClient by default automatically discovers/disposes devices attached to/detached from the computer. This may be changed by settng the autodiscover argument in link::#*init:: to false. A discovered device is not guaranteed to have its destination port directed towards the SuperCollider langPort nor message prefix set according to SerialOSCClient requirements. As such, it may be used with a different program running on the computer.
+A device is emphasis::discovered:: when it is physically connected to the computer, identified by the SerialOSC server and tracked by SerialOSCClient. A list of devices discovered by SerialOSCClient is maintained in the link::#*devices:: list. SerialOSCClient by default automatically discovers/disposes devices as they are attached to and detached from the computer. This behavior may be changed by settng the code::autodiscover:: argument in link::#*init:: to false. A discovered device is not guaranteed to have its destination port directed towards the SuperCollider langPort nor message prefix set according to SerialOSCClient requirements. It may be used with a different application running on the computer.
 
-A emphasis::connected:: device is a discovered device that has its destination port set to the SuperCollider langPort, its message prefix set to "/monome" and is included in the link::#*connectedDevices:: list. By default, SerialOSCClient automatically connects each device it discovers. This may be changed by settng the autoconnect argument in link::#*init:: to false.
+A emphasis::connected:: device is a discovered device that has its destination port set to the SuperCollider langPort, its message prefix set to "/monome" and is included in the link::#*connectedDevices:: list. SerialOSCClient by default automatically connects each device it discovers. This behavior may be changed by settng the code::autoconnect:: argument in link::#*init:: to false. SerialOSCClient responders only respond to events from connected devices.
 
 A device is considered emphasis::routed:: when it is routed to a SerialOSCClient instance in the link::#*all:: list. A device can only be routed to one instance at any given time.
 
 SUBSECTION::OSC communication
 
-OSC routing and communication between SuperCollider and the SerialOSC server is handled by SerialOSCClient alleviating the need for OSCFunc, OSCdef or NetAddr objects to listen to and respond to events from SerialOSC devices or update leds of a device.
+OSC routing and communication between SuperCollider and the SerialOSC server is handled by SerialOSCClient. There is no need for explicit OSCFunc, OSCdef or NetAddr objects to listen to and respond to events from SerialOSC devices or update leds of a device.
 
 
 CLASSMETHODS::
