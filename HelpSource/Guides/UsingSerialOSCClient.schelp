@@ -714,147 +714,158 @@ subsection::Clip Launcher
 
 code::
 (
-a = SerialOSCClient.grid('launcher') { |client|
-    var numTracks = 15;
-    var numSlotsPerTrack = 15;
-    var quant = 1;
-    var slice = 0.01; // slice must be less than quant
-    var listeners;
+~launcher = SerialOSCClient.grid('launcher') { |client|
+	var numTracks = 15;
+	var numSlotsPerTrack = 15;
+	var quant = 1;
+	var slice = 0.01; // slice must be less than quant
+	var listeners;
 
-    var patterns = Array.fill(numTracks) { Array.fill(numSlotsPerTrack) };
-    var players = Array.fill(numTracks) { Array.fill(numSlotsPerTrack) };
-    var queueRoutines = Array.fill(numTracks);
-    var queuedSlots = Array.fill(numTracks);
-    var playingSlots = Array.fill(numTracks);
+	var patterns = Array.fill(numTracks) { Array.fill(numSlotsPerTrack) };
+	var players = Array.fill(numTracks) { Array.fill(numSlotsPerTrack) };
+	var queueRoutines = Array.fill(numTracks);
+	var queuedSlots = Array.fill(numTracks);
+	var playingSlots = Array.fill(numTracks);
 
-    var numVisibleTracks = { min(numTracks, client.grid.getNumCols-1) }; // TODO: rename getNumCols in SerialOSCClient to numCols
+	var numVisibleTracks = { min(numTracks, client.grid.getNumCols-1) }; // TODO: rename getNumCols in SerialOSCClient to numCols
 
-    var playSlot = { |trackIndex, slotIndex|
-        patterns[trackIndex][slotIndex].notNil.if {
-            stopQueued.value(trackIndex);
-            queueSlot.value(trackIndex, slotIndex);
-            refreshTrackLeds.value(trackIndex);
-        } {
-            stopTrack.value(trackIndex);
-        }
-    };
-
-    var queueSlot = { |trackIndex, slotIndex|
-        var routine = Routine {
-            var pattern;
-            var player;
-            var stopListener;
-            pattern = patterns[trackIndex][slotIndex];
-            stopListener = { |who, what|
-                case
-                { [\stopped, \userStopped].includes(what) } {
-                    who.removeDependant(stopListener);
-                    playingSlots[trackIndex] = nil;
-                    refreshTrackLeds.value(trackIndex);
-                }
-            };
-
-            playingSlots[trackIndex].notNil.if {
-                var slotIndex = playingSlots[trackIndex];
-                players[trackIndex][slotIndex].stop;
-                // "at beat %: stopped (scheduled) slot % in track %".format(thisThread.beats, slotIndex, trackIndex).inform;
-            };
-
-            slice.wait;
-
-            player = pattern.play;
-            player.addDependant(stopListener);
-
-            players[trackIndex][slotIndex] = player;
-            queuedSlots[trackIndex] = nil;
-            playingSlots[trackIndex] = slotIndex;
-            refreshTrackLeds.value(trackIndex);
-            // "at beat %: started playing slot % in track %".format(thisThread.beats, slotIndex, trackIndex).inform;
-            nil;
-		};
-        queueRoutines[trackIndex] = routine;
-        routine.play(quant: [quant, (-1) * slice]);
-        queuedSlots[trackIndex] = slotIndex;
-    };
-
-    var refreshTrackLeds = { |trackIndex|
-        client.grid !? { |grid|
-            (grid.getNumRows-1).do { |slotIndex| // TODO: rename getNumRows to numRows in SerialOSCClient
-                client.ledLevelSet(
-                    trackIndex,
-                    slotIndex,
-                    if (slotIndex <= numSlotsPerTrack) {
-                        case
-                        { playingSlots[trackIndex] == slotIndex } { 15 }
-                        { queuedSlots[trackIndex].value == slotIndex } { 5 }
-                    } ? 0
-                );
-            }
-        };
-    };
-
-    var stopTrack = { |trackIndex|
-        stopQueued.value(trackIndex);
-        stopPlaying.value(trackIndex);
-    };
-
-    var stopQueued = { |trackIndex|
-        queuedSlots[trackIndex] !? { |slotIndex|
-            queueRoutines[trackIndex].stop;
-            queuedSlots[trackIndex] = nil;
-        };
-    };
-
-    var stopPlaying = { |trackIndex|
-        playingSlots[trackIndex] !? { |slotIndex|
-            var routine = Routine { // TODO: possibly need to save this routine to not interfer with new queued play action of same slot
-                players[trackIndex][slotIndex].stop;
-                // "at beat %: stopped slot % in track %".format(thisThread.beats, slotIndex, trackIndex).inform;
-                nil;
-            };
-            routine.play(quant: [quant, (-1) * slice]);
-        };
+	var playSlot = { |trackIndex, slotIndex|
+		patterns[trackIndex][slotIndex].notNil.if {
+			stopQueued.value(trackIndex);
+			queueSlot.value(trackIndex, slotIndex);
+			refreshTrackLeds.value(trackIndex);
+		} {
+			stopTrack.value(trackIndex);
+		}
 	};
-	
-    // client.onGridRotationChanged = { |client| }; // TODO: 
 
-    client.onGridRouted = { |client| }; // TODO: check client is argument in SerialOSCClient
+	var queueSlot = { |trackIndex, slotIndex|
+		var routine = Routine {
+			var pattern;
+			var player;
+			var stopListener;
+			pattern = patterns[trackIndex][slotIndex];
+			stopListener = { |player, what|
+			case
+			{ [\stopped, \userStopped].includes(what) } {
+				player.removeDependant(stopListener);
+				playingSlots[trackIndex] = nil;
+				refreshTrackLeds.value(trackIndex);
+			}
+			};
 
-    client.onFree = { numTracks.do { |i| stopTrack.value(i) } };
+			playingSlots[trackIndex].notNil.if {
+				var slotIndex = playingSlots[trackIndex];
+				players[trackIndex][slotIndex].stop;
+				// "at beat %: stopped (scheduled) slot % in track %".format(thisThread.beats, slotIndex, trackIndex).inform;
+			};
 
-    client.addUniqueMethod(\load) { |client, trackIndex, slotIndex, pattern|
-        patterns[trackIndex][slotIndex] = pattern;
-    };
+			slice.wait;
 
-    client.addUniqueMethod(\quant_) { |client, argQuant| quant = argQuant };
+			player = pattern.play;
+			player.addDependant(stopListener);
 
-    s.waitForBoot {
-        client.gridKeyAction = { |client, x, y, state, timestamp|
-            case
-            { state.asBoolean and: (y < (client.grid.getNumRows-1)) } {
-                case
-                { x < numVisibleTracks.value } { playSlot.value(x, y) }
-                { x == (client.grid.getNumCols-1) } {
-                    numVisibleTracks.value.do { |trackIndex| playSlot.value(trackIndex, y) }
-                }
-            }
-            { state.asBoolean and: (y == (client.grid.getNumRows-1))} {
-                case
-                { x < numVisibleTracks.value } { stopTrack.value(x) }
-                { x == (client.grid.getNumCols-1) } {
-                    numVisibleTracks.value.do { |trackIndex| stopTrack.value(trackIndex) }
-                }
-            };
-        };
+			players[trackIndex][slotIndex] = player;
+			queuedSlots[trackIndex] = nil;
+			playingSlots[trackIndex] = slotIndex;
+			refreshTrackLeds.value(trackIndex);
+			// "at beat %: started playing slot % in track %".format(thisThread.beats, slotIndex, trackIndex).inform;
+			nil; // TODO: not sure this is needed
+		};
 
-        client.gridRefreshAction = { |client| // TODO: check client is argument in SerialOSCClient
-            numVisibleTracks.value.do { |trackIndex| refreshTrackLeds.value(trackIndex) };
-        };
+		queueRoutines[trackIndex] = routine;
+		routine.play(quant: [quant, (-1) * slice]);
+		queuedSlots[trackIndex] = slotIndex;
+	};
 
-        client.grid !? { client.refreshGrid };
+	var refreshTrackLeds = { |trackIndex|
+		client.grid !? { |grid|
+			if (trackIndex < (grid.getNumCols-1)) {
+				(grid.getNumRows-1).do { |slotIndex| // TODO: rename getNumRows to numRows in SerialOSCClient
+					var level = if (slotIndex <= numSlotsPerTrack) {
+						case
+						{ playingSlots[trackIndex] == slotIndex } { 15 }
+						{ queuedSlots[trackIndex].value == slotIndex } { 6 }
+						{ patterns[trackIndex][slotIndex].notNil } { 3 }
+						} ? 0;
+					client.ledLevelSet(trackIndex, slotIndex, level);
+				};
+			};
+		};
+	};
 
-        client.addUniqueMethod(\play) { |client, trackIndex, slotIndex| playSlot.value(trackIndex, slotIndex) };
-    }
+	var stopTrack = { |trackIndex|
+		stopQueued.value(trackIndex);
+		stopPlaying.value(trackIndex);
+	};
+
+	var stopQueued = { |trackIndex|
+		queuedSlots[trackIndex] !? { |slotIndex|
+			queueRoutines[trackIndex].stop;
+			queuedSlots[trackIndex] = nil;
+		};
+	};
+
+	var stopPlaying = { |trackIndex|
+		playingSlots[trackIndex] !? { |slotIndex|
+			var routine = Routine { // TODO: possibly need to save this routine to not interfer with new queued play action of same slot
+				players[trackIndex][slotIndex].stop;
+				// "at beat %: stopped slot % in track %".format(thisThread.beats, slotIndex, trackIndex).inform;
+				nil; // TODO: not sure this is needed
+			};
+			routine.play(quant: [quant, (-1) * slice]);
+		};
+	};
+
+	// client.gridRotationChangedAction = { |client| }; // TODO: not sure if anything is needed here, assuming gridRefreshAction is triggered?
+
+	client.onGridRouted = { |client| }; // TODO: check client is argument in SerialOSCClient
+
+	client.onFree = { numTracks.do { |i| stopTrack.value(i) } };
+
+	client.addUniqueMethod(\load) { |client, trackIndex, slotIndex, pattern|
+		stopPlaying.value(trackIndex);
+		patterns[trackIndex][slotIndex] = pattern;
+		client.grid !? { |grid|
+			if (
+				(trackIndex < (grid.getNumCols-1))
+				and:
+				(slotIndex < (grid.getNumRows-1))
+			) {
+				client.ledLevelSet(trackIndex, slotIndex, 3);
+			};
+		};
+	};
+
+	client.addUniqueMethod(\quant_) { |client, argQuant| quant = argQuant };
+
+	s.waitForBoot {
+		client.gridKeyAction = { |client, x, y, state, timestamp|
+			case
+			{ state.asBoolean and: (y < (client.grid.getNumRows-1)) } {
+			case
+			{ x < numVisibleTracks.value } { playSlot.value(x, y) }
+			{ x == (client.grid.getNumCols-1) } {
+			numVisibleTracks.value.do { |trackIndex| playSlot.value(trackIndex, y) }
+			}
+			}
+			{ state.asBoolean and: (y == (client.grid.getNumRows-1))} {
+			case
+			{ x < numVisibleTracks.value } { stopTrack.value(x) }
+			{ x == (client.grid.getNumCols-1) } {
+			numVisibleTracks.value.do { |trackIndex| stopTrack.value(trackIndex) }
+			}
+			};
+		};
+
+		client.gridRefreshAction = { |client| // TODO: check client is argument in SerialOSCClient
+			numVisibleTracks.value.do { |trackIndex| refreshTrackLeds.value(trackIndex) };
+		};
+
+		client.addUniqueMethod(\play) { |client, trackIndex, slotIndex| playSlot.value(trackIndex, slotIndex) };
+
+		client.grid !? { client.refreshGrid };
+	}
 };
 )
 ::
