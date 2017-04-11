@@ -715,14 +715,17 @@ subsection::Clip Launcher
 code::
 (
 ~launcher = SerialOSCClient.grid('launcher') { |client|
+	var playingLedLevel = 15;
+	var queuedLedLevel = 6;
+	var loadedLedLevel = 3;
 	var numTracks = 15;
 	var numSlotsPerTrack = 15;
 	var quant = 1;
 	var slice = 0.01; // slice must be less than quant
 	var listeners;
 
-	var patterns = Array.fill(numTracks) { Array.fill(numSlotsPerTrack) };
-	var players = Array.fill(numTracks) { Array.fill(numSlotsPerTrack) };
+	var patterns = Array.fill2D(numTracks, numSlotsPerTrack);
+	var players = Array.fill2D(numTracks, numSlotsPerTrack);
 	var queueRoutines = Array.fill(numTracks);
 	var queuedSlots = Array.fill(numTracks);
 	var playingSlots = Array.fill(numTracks);
@@ -757,7 +760,6 @@ code::
 			playingSlots[trackIndex].notNil.if {
 				var slotIndex = playingSlots[trackIndex];
 				players[trackIndex][slotIndex].stop;
-				// "at beat %: stopped (scheduled) slot % in track %".format(thisThread.beats, slotIndex, trackIndex).inform;
 			};
 
 			slice.wait;
@@ -769,8 +771,6 @@ code::
 			queuedSlots[trackIndex] = nil;
 			playingSlots[trackIndex] = slotIndex;
 			refreshTrackLeds.value(trackIndex);
-			// "at beat %: started playing slot % in track %".format(thisThread.beats, slotIndex, trackIndex).inform;
-			nil; // TODO: not sure this is needed
 		};
 
 		queueRoutines[trackIndex] = routine;
@@ -784,9 +784,9 @@ code::
 				(grid.getNumRows-1).do { |slotIndex| // TODO: rename getNumRows to numRows in SerialOSCClient
 					var level = if (slotIndex <= numSlotsPerTrack) {
 						case
-						{ playingSlots[trackIndex] == slotIndex } { 15 }
-						{ queuedSlots[trackIndex].value == slotIndex } { 6 }
-						{ patterns[trackIndex][slotIndex].notNil } { 3 }
+						{ playingSlots[trackIndex] == slotIndex } { playingLedLevel }
+						{ queuedSlots[trackIndex].value == slotIndex } { queuedLedLevel }
+						{ patterns[trackIndex][slotIndex].notNil } { loadedLedLevel }
 						} ? 0;
 					client.ledLevelSet(trackIndex, slotIndex, level);
 				};
@@ -810,8 +810,6 @@ code::
 		playingSlots[trackIndex] !? { |slotIndex|
 			var routine = Routine { // TODO: possibly need to save this routine to not interfer with new queued play action of same slot
 				players[trackIndex][slotIndex].stop;
-				// "at beat %: stopped slot % in track %".format(thisThread.beats, slotIndex, trackIndex).inform;
-				nil; // TODO: not sure this is needed
 			};
 			routine.play(quant: [quant, (-1) * slice]);
 		};
@@ -827,12 +825,8 @@ code::
 		stopPlaying.value(trackIndex);
 		patterns[trackIndex][slotIndex] = pattern;
 		client.grid !? { |grid|
-			if (
-				(trackIndex < (grid.getNumCols-1))
-				and:
-				(slotIndex < (grid.getNumRows-1))
-			) {
-				client.ledLevelSet(trackIndex, slotIndex, 3);
+			if ( (trackIndex < (grid.getNumCols-1)) and: (slotIndex < (grid.getNumRows-1)) ) {
+				client.ledLevelSet(trackIndex, slotIndex, loadedLedLevel);
 			};
 		};
 	};
@@ -843,18 +837,18 @@ code::
 		client.gridKeyAction = { |client, x, y, state, timestamp|
 			case
 			{ state.asBoolean and: (y < (client.grid.getNumRows-1)) } {
-			case
-			{ x < numVisibleTracks.value } { playSlot.value(x, y) }
-			{ x == (client.grid.getNumCols-1) } {
-			numVisibleTracks.value.do { |trackIndex| playSlot.value(trackIndex, y) }
-			}
+				case
+				{ x < numVisibleTracks.value } { playSlot.value(x, y) }
+				{ x == (client.grid.getNumCols-1) } {
+					numVisibleTracks.value.do { |trackIndex| playSlot.value(trackIndex, y) }
+				}
 			}
 			{ state.asBoolean and: (y == (client.grid.getNumRows-1))} {
-			case
-			{ x < numVisibleTracks.value } { stopTrack.value(x) }
-			{ x == (client.grid.getNumCols-1) } {
-			numVisibleTracks.value.do { |trackIndex| stopTrack.value(trackIndex) }
-			}
+				case
+				{ x < numVisibleTracks.value } { stopTrack.value(x) }
+				{ x == (client.grid.getNumCols-1) } {
+					numVisibleTracks.value.do { |trackIndex| stopTrack.value(trackIndex) }
+				}
 			};
 		};
 
