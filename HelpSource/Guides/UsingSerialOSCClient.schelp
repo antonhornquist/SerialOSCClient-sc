@@ -96,7 +96,7 @@ code::
 (
 SerialOSCClient.init(completionFunc: {
 	if (SerialOSCGrid.default.notNil) {
-		"% is the default grid.".format(SerialOSCGrid.default).postln;
+		SerialOSCGrid.default + "is the default grid.".postln;
 	} {
 		"No default grid is available.".postln;
 	}
@@ -110,7 +110,7 @@ During initialization SerialOSCClient retrieves information on SerialOSC devices
 
 code::
 SerialOSCClient.init;
-SerialOSCClient.devices; // list of all devices attached to the computer
+SerialOSCClient.devices; // all devices attached to the computer
 ::
 
 SerialOSCGrid and SerialOSCEnc classes also retain discovered devices of each type in their code::*all:: lists.
@@ -120,7 +120,7 @@ SerialOSCGrid.all; // all grid devices connected to the computer
 SerialOSCEnc.all; // all encoder devices connected to the computer
 ::
 
-SerialOSCClient by default automatically updates the code::SerialOSCClient.devices:: list as devices are attached to and detached from the computer. This may be changed by setting argument code::autodiscover:: of init to false. See link::#Disabling autodiscovery of devices::
+SerialOSCClient by default automatically updates the code::SerialOSCClient.devices:: list as devices are attached to and detached from the computer. This may be changed by setting argument code::autodiscover:: of init to false. See link::#Disabling discovery of devices::.
 
 subsection::Default devices
 
@@ -134,7 +134,7 @@ SerialOSCEnc.default; // default encoder
 The default may be changed.
 
 code::
-SerialOSCGrid.default = SerialOSCGrid.all.choose; // if multiple grids are attached one of them is randomly selected as default
+SerialOSCGrid.default = SerialOSCGrid.all.choose; // if multiple grids are attached one of them is randomly set as default
 ::
 
 subsection::Updating led and ring state
@@ -196,7 +196,7 @@ list::
 ## link::Classes/TiltFunc:: and link::Classes/Tiltdef:: responds to grid tilt sensor changes
 ::
 
-For instance, to listen to key state changes from a connected grid link::Classes/GridKeyFunc:: may be used:
+For instance, to listen to key state changes from a connected grid a link::Classes/GridKeyFunc:: responder may be used:
 
 code::
 a=GridKeyFunc.press({ "Hello World".postln }); // pressing any button on an attached grid posts Hello World
@@ -231,10 +231,10 @@ k=GridKeyFunc.press({ |x, y, state, timestamp, device| "the default grid was pre
 l=GridKeyFunc.press({ |x, y, state, timestamp, device| "device with id 'm01231' was pressed at" + x ++ "x" ++ y }, device: \id -> 'm01231');
 ::
 
-Responders are freed individually or all-at-once or using CmdPeriod.
+Responders are freed individually, all-at-once or using CmdPeriod.
 
 code::
-a.free; // free individual responder objects
+a.free; // free individual responder object
 b.free;
 
 GridKeyFunc.freeAll; // free all GridKeyFunc responders
@@ -301,6 +301,13 @@ fork {
 )
 ::
 
+subsection::Device rotation
+
+[TODO]
+
+subsection::Enabling tilt sensors
+
+[TODO]
 
 section::Creating clients
 
@@ -401,19 +408,23 @@ code::
 	~state.changed;
 };
 )
+::
 
+code::
 (
 b = SerialOSCClient.grid('mvc') { |client|
 	var updateLed = { client.ledSet(0, 0, ~state.value) };
 	~state.addDependant = updateLed; // when state is changed led is updated
-	client.gridRefreshedAction = updateLed; // when a new grid is reouted led state is refreshed
+	client.gridRefreshedAction = updateLed; // when a new grid is routed to this client led state is refreshed
 	client.gridKeyPressedAction = { |client, x, y|
 		if (x@y == 0@0) { ~toggleValue.value } // value can be changed by grid press
 	};
 	client.onFree = { ~state.removeDependant(updateLed) } // when client is freed the dependancy to state is removed
 }
 )
+::
 
+code::
 ~toggleValue.value; // value can be changed by code evaluation
 
 (
@@ -470,7 +481,7 @@ GridKeydef.press(\grid1Toggle, { |x, y| c = c.not; a.ledSet(0, 0, c) }, device: 
 GridKeydef.press(\grid2Toggle, { |x, y| d = d.not; b.ledSet(0, 0, d) }, device: b);
 ::
 
-subsection::Disabling discovery of devices
+subsection::Disabling device discovery
 
 SerialOSCClient by default discovers attached and detached devices automatically and maintains an up-to-date list of devices in code::SerialOSCClient.devices::. Autodiscovery may be disabled by setting init's autodiscover argument to false. When autodiscovery is disabled SerialOSCClient must be reinitialized in order to refresh the list of devices after device configuration has changed. Even with autodiscovery enabled reinitialization of SerialOSCClient is possible and may be needed if there are hiccups in the communication between the SerialOSC server daemon and SerialOSCClient.
 
@@ -517,6 +528,68 @@ list::
 
 section::Examples
 
+To try out these examples, make sure the serialosc server is running on your computer and a SerialOSC compatible grid or enc device is attached to your computer.
+
+subsection::Hello Grid Leds
+
+code::
+SerialOSCClient.init;
+
+SerialOSCGrid.ledSet(0, 0, true); // set top-leftmost led on the default grid lit
+SerialOSCGrid.ledSet(0, 0, false); // set top-leftmost led on the default grid unlit
+8 do: { SerialOSCGrid.ledSet(8.rand, 8.rand, [true, false].choose) }; // set 8 random leds in a 8x8 matrix
+::
+
+subsection::Grid Button Trigger Sine Wave
+
+code::
+SerialOSCClient.init;
+
+s.boot; // Boot server
+
+// Hello World - pressing the top-leftmost button on any attached grid auditions a sinewave.
+GridKeydef.press(\playSine, { a = {SinOsc.ar}.play }, 0, 0);
+GridKeydef.release(\stopSine, { a.release }, 0, 0);
+
+// Remove GridKeydefs using .free or by pressing Cmd-.
+GridKeydef.press(\playSine).free;
+GridKeydef.release(\stopSine).free;
+::
+
+subsection::Hello Scrambled World
+
+code::
+(
+var scrambleLeds = {
+	SerialOSCGrid.default !? { |grid|
+		8 do: { grid.ledSet(8.rand, 8.rand, [true, false].choose) };
+	};
+};
+
+GridKeydef.press(\playSineAndScrambleLeds, { a = {SinOsc.ar}.play; scrambleLeds.(); }, 0, 0);
+GridKeydef.release(\stopSine, { a.release }, 0, 0);
+)
+
+GridKeydef.freeAll; // Free all responders
+::
+
+subsection::Hello Scrambled World (Varibright)
+
+code::
+(
+var scrambleLeds = {
+	SerialOSCGrid.default !? { |grid|
+		8 do: { grid.ledSet(8.rand, 8.rand, SerialOSCGrid.ledLSpec.rand) };
+	};
+};
+
+GridKeydef.press(\playSineAndScrambleLeds, { a = {SinOsc.ar}.play; scrambleLeds.(); }, 0, 0);
+GridKeydef.release(\stopSine, { a.release }, 0, 0);
+)
+
+GridKeydef.freeAll; // Free all responders
+::
+
 subsection::Visualize Incoming Audio
 
 code::
@@ -554,96 +627,6 @@ c = SerialOSCClient.grid('in') { |client|
 )
 
 c.free;
-::
-
-See below code for intro:
-
-subsection::Grids Intro Code
-code::
-// The !? idiom in SuperCollider (see help on !?) can be used to set leds of the default grid, but only if it is available (if SerialOSCGrid.default is not nil)
-
-SerialOSCGrid.default !? { |grid| grid.ledSet(1, 2, true) };
-
-
-// Now, on handling multiple devices
-
-// Info on what device triggered a GridKeydef is available in the function argument list.
-GridKeydef(\debug, { |x, y, state, time, device| [x, y, state, time, device].debug });
-
-// You can use a device as filter. See OSCdef help for how this works.
-GridKeydef(\debug, { |x, y, state, time, device| [x, y, state, time, device].debug }, device: SerialOSCGrid.default);
-
-// If several devices are attached you can retrieve SerialOSCGrid and SerialOSCEnc instances from SerialOSCClient.devices
-SerialOSCClient.devices;
-
-// Pick a device and set a led
-a=SerialOSCClient.devices.first;
-a.ledSet(1, 2, true); // this assumes first device in list is a grid (SerialOSCGrid)
-::
-
-subsection::Hello Grid Buttons
-
-code::
-// Make sure to attach a SerialOSC compatible grid device to your computer.
-
-SerialOSCClient.init; // Initialize the SerialOSCClient. Connected devices get posted to the Post Window.
-
-s.boot; // Boot server
-
-// Hello World - pressing the top-leftmost button on any attached grid auditions a sinewave.
-GridKeydef.press(\playSine, { a = {SinOsc.ar}.play }, 0, 0);
-GridKeydef.release(\stopSine, { a.release }, 0, 0);
-
-// Remove GridKeydefs using .free or by pressing Cmd-.
-GridKeydef.press(\playSine).free;
-GridKeydef.release(\stopSine).free;
-::
-
-subsection::Hello Grid Leds
-
-code::
-// Make sure to attach a SerialOSC compatible grid device to your computer.
-
-SerialOSCClient.init; // Initialize the SerialOSCClient. Connected devices get posted to the Post Window.
-
-a=SerialOSCGrid.default; // First attached grid is set as default
-a.ledSet(0, 0, true); // Make top-leftmost led on the default grid lit
-a.ledSet(0, 0, false); // Make top-leftmost led on the default grid unlit
-8 do: { a.ledSet(8.rand, 8.rand, [true, false].choose) }; // Scramble 8 random leds in a 8x8 matrix
-::
-
-subsection::Hello Scrambled World
-
-code::
-(
-var scrambleLeds = {
-	SerialOSCGrid.default !? { |grid|
-		8 do: { grid.ledSet(8.rand, 8.rand, [true, false].choose) };
-	};
-};
-
-GridKeydef.press(\playSineAndScrambleLeds, { a = {SinOsc.ar}.play; scrambleLeds.(); }, 0, 0);
-GridKeydef.release(\stopSine, { a.release }, 0, 0);
-)
-
-GridKeydef.freeAll; // Free all responders
-::
-
-subsection::Hello Scrambled World (Varibright)
-
-code::
-(
-var scrambleLeds = {
-	SerialOSCGrid.default !? { |grid|
-		8 do: { grid.ledSet(8.rand, 8.rand, SerialOSCGrid.ledLSpec.rand) };
-	};
-};
-
-GridKeydef.press(\playSineAndScrambleLeds, { a = {SinOsc.ar}.play; scrambleLeds.(); }, 0, 0);
-GridKeydef.release(\stopSine, { a.release }, 0, 0);
-)
-
-GridKeydef.freeAll; // Free all responders
 ::
 
 subsection::A monome and arc play together
@@ -707,6 +690,174 @@ GridKeydef.press(
 
 // Releasing any grid button stops the sinewave
 GridKeydef.release(\stopSine, { a.release; a = nil });
+)
+::
+
+subsection::Step Sequencer
+
+code::
+(
+~step = SerialOSCClient.grid('step') { |client|
+	var tempoSpec = ControlSpec(20, 300, step: 1, default: 115);
+	var swingAmountSpec = ControlSpec(0, 100, step: 1, default: 50);
+	var synthDefName = 'serialosc_step';
+
+	var numSamples = 8;
+	var numPatternSteps = 8;
+	var patternBeats = 2;
+
+	var buffers, trigs;
+	var player, playpos;
+	var tempo, swingAmount;
+	var currentSwingOffset;
+/*
+	var adjustTempo = { |bpmDelta| // TODO: to be refactored outside of StepApp - Enc usage
+		setTempo.value(tempo + bpmDelta);
+	};
+
+	var adjustSwingAmount = { |swingAmountDelta| // TODO: to be refactored outside of StepApp - Enc usage
+		setSwingAmount.value(swingAmount + swingAmountDelta);
+	};
+*/
+	var setTempo = { |bpm|
+		tempo = tempoSpec.constrain(bpm);
+		TempoClock.default.tempo_(tempo/60);
+	};
+
+	var setSwingAmount = { |amount|
+		var maxSwingTimingOffset;
+		maxSwingTimingOffset = (patternBeats/numPatternSteps)/2;
+		swingAmount = swingAmountSpec.constrain(amount);
+		currentSwingOffset = maxSwingTimingOffset * swingAmount / 100;
+	};
+
+	var clearPattern = {
+		numSamples.do { |samplenum|
+			numPatternSteps.do { |stepnum|
+				trigIsSet.value(samplenum, stepnum).if { toggleTrig.value(samplenum, stepnum) };
+			};
+		};
+	};
+
+	var toggleTrig = { |samplenum, stepnum|
+		var trig;
+		trig = if (trigIsSet.value(samplenum, stepnum), \rest, 1);
+		trigs[samplenum][stepnum] = trig;
+	};
+
+	var trigIsSet = { |samplenum, stepnum| trigs[samplenum][stepnum] == 1 };
+
+	var spawnPattern = { |repeats| // TODO: repeats only applicable when it is not inf
+		var sampleTriggering, timingAndSwing, playposBumping;
+
+		timingAndSwing = Pbind(*[
+			dur: Prout({
+				var noSwingDur = patternBeats/numPatternSteps;
+				(numPatternSteps/2) do: {
+					var swingOffset;
+					swingOffset = currentSwingOffset;
+					(noSwingDur+swingOffset).yield;
+					(noSwingDur-swingOffset).yield;
+				};
+				nil.yield;
+			});
+		]);
+
+		playposBumping = Pbind(*[
+			note: \rest,
+			tickFunc: Prout({
+				playpos = 0;
+				loop {
+					client.refreshGrid;
+					if (playpos < (numPatternSteps-1)) { playpos = playpos + 1; } { nil }.yield;
+				}
+			})
+		]);
+
+		sampleTriggering = buffers.collect { |buffer, i|
+			Pbind(*[
+				instrument: synthDefName,
+				bufnum: buffer, // TODO: only play buffer if it has been fully loaded, to remedy "BOOOM" issues
+				note: Pseq(trigs[i], 1)
+			])
+		};
+
+		Ppar(
+			(sampleTriggering ++ playposBumping).collect { |pattern| Pchain(pattern, timingAndSwing) },
+			repeats
+		);
+	};
+
+	var play = { |repeats=inf|
+		player.isPlaying.if {
+			"Already playing...".inform;
+		} {
+			player = if (player.isNil) {
+				"Playing...".inform;
+				spawnPattern.value(repeats).asEventStreamPlayer;
+			} {
+				"Resuming pattern".inform;
+				player;
+			};
+			player.play(TempoClock.default);
+		};
+	};
+
+	var stop = {
+		player.isPlaying.if {
+			player.stop;
+			"...Stopped".inform;
+		};
+	};
+
+	trigs = Array.fill2D(numSamples, numPatternSteps) { \rest };
+
+	SynthDef(synthDefName, { |out = 0, bufnum|
+		OffsetOut.ar( out, Pan2.ar(PlayBuf.ar(1, bufnum, BufRateScale.kr(bufnum), doneAction: 2)) );
+	}).add;
+
+	s.waitForBoot {
+		buffers = numSamples.collect { Buffer.new };
+
+		client.onFree = { buffers.do(_.free) };
+
+		client.gridRefreshAction = {
+			client.ledMap(
+				0,
+				0,
+				numSamples.collect { |samplenum|
+					numPatternSteps.do.collect { |stepnum|
+						if (trigIsSet.value(samplenum, stepnum) or: (playpos == stepnum)) { 1 << stepnum } { 0 };
+					}.sum;
+				}
+			);
+		};
+
+		client.gridKeyAction = { |client, x, y, state|
+			if (state.asBoolean) {
+				toggleTrig.value(y, x);
+				client.refreshGrid;
+			};
+		};
+
+		client.addUniqueMethod(\loadSample) { |client, samplenum, path|
+			buffers[samplenum].allocReadChannel(path, channels: [0], completionMessage: {
+				this.changed(\sampleWasLoaded, samplenum, path);
+			}); // TODO: look into making a PR for completionMessage bug
+		};
+
+		client.addUniqueMethod(\toggleTrig) { |client, samplenum, path| toggleTrig.value(samplenum, path) };
+		client.addUniqueMethod(\playSequencer) { |client, samplenum, path| play.value };
+		client.addUniqueMethod(\stopSequencer) { |client, samplenum, path| stop.value };
+		client.addUniqueMethod(\swingAmount_) { |client, amount| setSwingAmount.value(amount) };
+		client.addUniqueMethod(\tempo_) { |client, bpm| setTempo.value(bpm) };
+
+		setTempo.value(tempoSpec.default);
+		setSwingAmount.value(swingAmountSpec.default);
+
+		play.value;
+	};
+};
 )
 ::
 
