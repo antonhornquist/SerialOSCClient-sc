@@ -1,0 +1,14 @@
+title:: SerialOSCClient Clip Launcher Example
+summary:: Notes on using the SerialOSCClient Clip Launcher Example
+categories:: External Control
+related:: Guides/UsingSerialOSCClient
+
+section::How it works
+
+The Clip Launcher example app triggers playable things (typically, patterns) in a number of tracks on quantized divisions akin to how clips are triggered in the Session view of Ableton Live.
+
+subsection::What can be triggered
+
+The short answer: link::Classes/Pattern::s and link::Classes/Task::s.
+
+A more elaborate answer: Any object that responds to a method code::.play:: that starts something and in turn returns an object that responds to method code::.stop:: in order to stop that something suffices as a clip to be launched. In addition, if that something may stop itself and the object that code::.play:: returns notifies dependants by invoking code::.changed:: with the first argument set to 'stopped' or 'userStopped' the clip launcher will automatically track the clip state and update leds accordingly.

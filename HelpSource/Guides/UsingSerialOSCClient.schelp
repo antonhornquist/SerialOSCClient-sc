@@ -412,7 +412,7 @@ code::
 
 code::
 (
-b = SerialOSCClient.grid('mvc') { |client|
+b = SerialOSCClient.grid('grid mvc') { |client|
 	var updateLed = { client.ledSet(0, 0, ~state.value) };
 	~state.addDependant = updateLed; // when state is changed led is updated
 	client.gridRefreshedAction = updateLed; // when a new grid is routed to this client led state is refreshed
@@ -861,11 +861,13 @@ code::
 )
 ::
 
+See link::Guides/StepSequencerExample:: for details on how to use this step sequencer.
+
 subsection::Clip Launcher
 
 code::
 (
-~launcher = SerialOSCClient.grid('launcher') { |client|
+~launcher = SerialOSCClient.grid('clip launcher') { |client|
 	var playingLedLevel = 15;
 	var queuedLedLevel = 6;
 	var loadedLedLevel = 3;
@@ -1015,6 +1017,7 @@ code::
 )
 ::
 
+See link::Guides/ClipLauncherExample:: for details on how to use this step sequencer.
 
 section::Feedback
 
