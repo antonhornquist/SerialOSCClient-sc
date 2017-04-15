@@ -547,13 +547,17 @@ SerialOSCClient.init;
 
 s.boot; // Boot server
 
-// Hello World - pressing the top-leftmost button on any attached grid auditions a sinewave.
+(
+// pressing the top-leftmost button on any attached grid auditions a sinewave.
 GridKeydef.press(\playSine, { a = {SinOsc.ar}.play }, 0, 0);
 GridKeydef.release(\stopSine, { a.release }, 0, 0);
+)
 
+(
 // Remove GridKeydefs using .free or by pressing Cmd-.
 GridKeydef.press(\playSine).free;
 GridKeydef.release(\stopSine).free;
+)
 ::
 
 subsection::Hello Scrambled World
@@ -620,7 +624,7 @@ c = SerialOSCClient.grid('in') { |client|
 		responder = OSCFunc({ |msg| onReplyReceived.value(msg[3]) }, '/level');
 
 		synth = {
-			SendReply.kr(Impulse.kr(50), '/level', Amplitude.kr(SoundIn.ar(0), 0.01, 10), 1905); // TODO: 1905 ??
+			SendReply.kr(Impulse.kr(20), '/level', Amplitude.kr(SoundIn.ar(0), 0.01, 10), 1905); // TODO: 1905 ??
 		}.play(Server.default);
 	};
 }
@@ -747,7 +751,7 @@ code::
 
 	var trigIsSet = { |samplenum, stepnum| trigs[samplenum][stepnum] == 1 };
 
-	var spawnPattern = { |repeats| // TODO: repeats only applicable when it is not inf
+	var spawnPattern = { |repeats, excludePlayposBumping=false|
 		var sampleTriggering, timingAndSwing, playposBumping;
 
 		timingAndSwing = Pbind(*[
@@ -763,16 +767,18 @@ code::
 			});
 		]);
 
-		playposBumping = Pbind(*[
-			note: \rest,
-			tickFunc: Prout({
-				playpos = 0;
-				loop {
-					client.refreshGrid;
-					if (playpos < (numPatternSteps-1)) { playpos = playpos + 1; } { nil }.yield;
-				}
-			})
-		]);
+		excludePlayposBumping.not.if {
+			playposBumping = Pbind(*[
+				note: \rest,
+				tickFunc: Prout({
+					playpos = 0;
+					loop {
+						client.refreshGrid;
+						if (playpos < (numPatternSteps-1)) { playpos = playpos + 1; } { nil }.yield;
+					}
+				})
+			]);
+		};
 
 		sampleTriggering = buffers.collect { |buffer, i|
 			Pbind(*[
@@ -851,6 +857,7 @@ code::
 		client.addUniqueMethod(\stopSequencer) { |client, samplenum, path| stop.value };
 		client.addUniqueMethod(\swingAmount_) { |client, amount| setSwingAmount.value(amount) };
 		client.addUniqueMethod(\tempo_) { |client, bpm| setTempo.value(bpm) };
+		client.addUniqueMethod(\getPattern) { |client, repeats| spawnPattern.value(repeats, true).deepCopy };
 
 		setTempo.value(tempoSpec.default);
 		setSwingAmount.value(swingAmountSpec.default);

@@ -243,10 +243,11 @@ SerialOSCClient {
 
 		if (connectedDevices.includes(device)) {
 			this.changed(\disconnected, device);
-			device.changed(\disconnected);
+			device.changed(\disconnected); // TODO: isn't this enough to unrouteGrid and unrouteEnc from any client it is attached to?
 
 			connectedDevices.remove(device);
 
+			// TODO: why all.detect here, why not just device.client.unrouteGrid / device.client.unrouteEnc ?
 			all.detect { |client| device.client == client } !? { |client|
 				if (device.respondsTo(\ledSet)) {
 					client.unrouteGrid
@@ -543,22 +544,29 @@ SerialOSCClient {
 	}
 
 	*route { |device, client|
-		if (device.respondsTo(\ledSet)) {
-			if (client.usesGrid) {
-				if (client.grid.notNil) { client.unrouteGrid };
-				client.prRouteGridToClient(device);
-			} {
-				"Client % does not use a grid".format(client).postln;
-			};
-		};
+		if (device.respondsTo(\ledSet)) { this.prRouteGrid(device, client) };
+		if (device.respondsTo(\ringSet)) { this.prRouteEnc(device, client) };
+	}
 
-		if (device.respondsTo(\ringSet)) {
-			if (client.usesEnc) {
-				if (client.enc.notNil) { client.unrouteEnc };
-				client.prRouteEncToClient(device);
-			} {
-				"Client % does not use an enc".format(client).postln;
-			};
+	*prRouteGrid { |grid, client|
+		client.usesGrid.not.if {
+			"Client % does not use a grid".format(client).postln;
+		} {
+			if (client.grid.notNil) { client.unrouteGrid }; // TODO: test routing new grid to a client that already has a grid, should unroute the previous grid
+			// TODO: consider implementing SerialOSCGrid-unrouteClient or SerialOSCGrid-detachFromClient
+			if (grid.client.notNil) { grid.client.unrouteGrid }; // TODO: test routing grid routed to client to a new client, should unroute grid from client
+			client.prRouteGridToClient(grid);
+		};
+	}
+
+	*prRouteEnc { |enc, client|
+		client.usesEnc.not.if {
+			"Client % does not use an enc".format(client).postln;
+		} {
+			if (client.enc.notNil) { client.unrouteEnc }; // TODO: test routing new enc to a client that already has a enc, should unroute the previous enc
+			// TODO: consider implementing SerialOSCEnc-unrouteClient or SerialOSCEnc-detachFromClient
+			if (enc.client.notNil) { enc.client.unrouteEnc }; // TODO: test routing new enc to a client that already has a enc, should unroute the previous enc
+			client.prRouteEncToClient(enc);
 		};
 	}
 
