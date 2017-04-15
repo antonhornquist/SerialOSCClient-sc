@@ -4,9 +4,11 @@ SerialOSCClient {
 		<devices,
 		devicesSemaphore,
 		<initialized=false,
+		<runningLegacyMode=false,
 		<connectedDevices,
 		<prefix='/monome',
 		oscRecvFunc,
+		legacyModeOscRecvFunc,
 		autoconnectDevices,
 		recvSerialOSCFunc,
 		beVerbose
@@ -44,9 +46,21 @@ SerialOSCClient {
 				};
 			};
 		};
+		legacyModeOscRecvFunc = { |msg, time, addr, recvPort|
+			if (addr.ip == "127.0.0.1") {
+				this.prLookupDeviceByPort(addr.port) !? { |device|
+					if (connectedDevices.includes(device)) {
+						if ('/monome/press' == msg[0]) { // note: no pattern matching is performed on OSC address
+							var type = msg[0].asString[7..].asSymbol;
+							recvSerialOSCFunc.value('/grid/key', msg[1..], time, device);
+						};
+					};
+				};
+			};
+		};
 	}
 
-	*init { |completionFunc, autoconnect=true, autodiscover=true, verbose=false|
+	*init { |completionFunc, autoconnect=true, autodiscover=true, verbose=false, legacyMode=false|
 		autoconnectDevices = autoconnect;
 		beVerbose = verbose;
 
@@ -54,59 +68,81 @@ SerialOSCClient {
 			SerialOSCComm.stopTrackingConnectedDevicesChanges
 		};
 
-		if (autodiscover) {
-			SerialOSCComm.startTrackingConnectedDevicesChanges(
-				{ |id|
-					fork {
-						devicesSemaphore.wait;
-						if (this.prLookupDeviceById(id).isNil) {
-							this.prUpdateDevicesListAsync {
-								this.prLookupDeviceById(id) !? { |device|
-									this.prPostDeviceAdded(device);
-									this.changed(\attached, device);
-									this.prNotifyChangesInDevicesList([device], []);
-									if (autoconnectDevices) { this.connect(device) };
-									this.prUpdateDefaultDevices([device], []);
+		legacyMode.not.if {
+			if (autodiscover) {
+				SerialOSCComm.startTrackingConnectedDevicesChanges(
+					{ |id|
+						fork {
+							devicesSemaphore.wait;
+							if (this.prLookupDeviceById(id).isNil) {
+								this.prUpdateDevicesListAsync {
+									this.prLookupDeviceById(id) !? { |device|
+										this.prPostDeviceAdded(device);
+										this.changed(\attached, device);
+										this.prNotifyChangesInDevicesList([device], []);
+										if (autoconnectDevices) { this.connect(device) };
+										this.prUpdateDefaultDevices([device], []);
+									};
+									devicesSemaphore.signal;
 								};
+							} {
 								devicesSemaphore.signal;
 							};
-						} {
+						};
+					},
+					{ |id|
+						fork {
+							devicesSemaphore.wait;
+							this.prLookupDeviceById(id) !? { |device|
+								device.remove;
+								this.prNotifyChangesInDevicesList([], [device]);
+								this.prUpdateDefaultDevices([], [device]);
+								this.changed(\detached, device);
+								device.changed(\detached);
+								this.prPostDeviceRemoved(device);
+							};
 							devicesSemaphore.signal;
 						};
-					};
-				},
-				{ |id|
-					fork {
-						devicesSemaphore.wait;
-						this.prLookupDeviceById(id) !? { |device|
-							device.remove;
-							this.prNotifyChangesInDevicesList([], [device]);
-							this.prUpdateDefaultDevices([], [device]);
-							this.changed(\detached, device);
-							device.changed(\detached);
-							this.prPostDeviceRemoved(device);
-						};
-						devicesSemaphore.signal;
-					};
-				}
-			);
-		};
+					}
+				);
+			};
 
-		thisProcess.removeOSCRecvFunc(oscRecvFunc);
-		thisProcess.addOSCRecvFunc(oscRecvFunc);
+			thisProcess.removeOSCRecvFunc(oscRecvFunc);
+			thisProcess.removeOSCRecvFunc(legacyModeOscRecvFunc);
+			thisProcess.addOSCRecvFunc(oscRecvFunc);
+		} {
+			thisProcess.removeOSCRecvFunc(oscRecvFunc);
+			thisProcess.removeOSCRecvFunc(legacyModeOscRecvFunc);
+			thisProcess.addOSCRecvFunc(legacyModeOscRecvFunc);
+		};
 
 		initialized = true;
+		runningLegacyMode = legacyMode;
 
-		devicesSemaphore.wait;
-		this.prUpdateDevicesListAsync { |devicesAddedToDevicesList, devicesRemovedFromDevicesList|
-			this.postDevices;
-			this.prNotifyChangesInDevicesList(devicesAddedToDevicesList, devicesRemovedFromDevicesList);
-			devicesRemovedFromDevicesList do: (_.remove);
-			if (autoconnectDevices) { this.connectAll(false) };
-			this.prUpdateDefaultDevices(devicesAddedToDevicesList, devicesRemovedFromDevicesList);
-			completionFunc.();
+		legacyMode.not.if {
+			devicesSemaphore.wait;
+			this.prUpdateDevicesListAsync { |devicesAddedToDevicesList, devicesRemovedFromDevicesList|
+				this.postDevices;
+				this.prNotifyChangesInDevicesList(devicesAddedToDevicesList, devicesRemovedFromDevicesList);
+				devicesRemovedFromDevicesList do: (_.remove);
+				if (autoconnectDevices) { this.connectAll(false) };
+				this.prUpdateDefaultDevices(devicesAddedToDevicesList, devicesRemovedFromDevicesList);
+				completionFunc.();
+			};
+			devicesSemaphore.signal;
+		} {
+			var grid;
+			Post << ("Running SerialOSCClient in Legacy Mode. MonomeSerial has to be run with Host Port" + NetAddr.langPort ++", Listen Port 8080 and Address Prefix /monome.") << Char.nl;
+
+			grid = SerialOSCGrid('monome 40h', nil, 8080, 0); // TODO
+
+			devices = [grid];
+			SerialOSCGrid.default = grid;
+			connectedDevices = [grid];
+
+			this.changed(\connected, grid);
+			grid.changed(\connected);
 		};
-		devicesSemaphore.signal;
 	}
 
 	*addSerialOSCRecvFunc { |func| recvSerialOSCFunc = recvSerialOSCFunc.addFunc(func) }
@@ -810,6 +846,10 @@ SerialOSCGrid : SerialOSCDevice {
 		default !? { |grid| grid.deactivateTilt(n) };
 	}
 
+	*led { |x, y, state| // TODO ?
+		default !? { |grid| grid.led(x, y, state) };
+	}
+
 	*ledSet { |x, y, state|
 		default !? { |grid| grid.ledSet(x, y, state) };
 	}
@@ -890,8 +930,16 @@ SerialOSCGrid : SerialOSCDevice {
 
 	deactivateTilt { |n| this.tiltSet(n, false) }
 
+	led { |x, y, state| // TODO ?
+		this.prSendMsg('/led', x.asInteger, y.asInteger, state.asInteger);
+	}
+
 	ledSet { |x, y, state|
-		this.prSendMsg('/grid/led/set', x.asInteger, y.asInteger, state.asInteger);
+		SerialOSCClient.runningLegacyMode.not.if {
+			this.prSendMsg('/grid/led/set', x.asInteger, y.asInteger, state.asInteger);
+		} {
+			this.prSendMsg('/led', x.asInteger, y.asInteger, state.asInteger);
+		};
 	}
 
 	ledAll { |state|
@@ -915,7 +963,15 @@ SerialOSCGrid : SerialOSCDevice {
 	}
 
 	ledLevelSet { |x, y, l|
-		this.prSendMsg('/grid/led/level/set', x.asInteger, y.asInteger, l.asInteger);
+		SerialOSCClient.runningLegacyMode.not.if {
+			this.prSendMsg('/grid/led/level/set', x.asInteger, y.asInteger, l.asInteger);
+		} {
+			if (l == 15) {
+				this.prSendMsg('/led', x.asInteger, y.asInteger, 1);
+			} {
+				this.prSendMsg('/led', x.asInteger, y.asInteger, 0);
+			};
+		};
 	}
 
 	ledLevelAll { |l|

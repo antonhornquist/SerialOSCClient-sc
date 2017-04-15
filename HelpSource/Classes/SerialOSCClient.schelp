@@ -42,6 +42,9 @@ When autodiscover is set false a new call to code::init:: is required to refresh
 ARGUMENT:: verbose
 Print extended information to the Post Window. The default is false.
 
+ARGUMENT:: legacyMode
+TODO
+
 METHOD:: initialized
 Answers whether SerialOSCClient is initialized
 
