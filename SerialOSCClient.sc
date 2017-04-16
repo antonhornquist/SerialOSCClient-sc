@@ -579,6 +579,18 @@ SerialOSCClient {
 		device.changed(\unrouted, this);
 	}
 
+	// TODO
+	grab {
+	}
+
+	// TODO
+	grabGrid {
+	}
+
+	// TODO
+	grabEnc {
+	}
+
 	*route { |device, client|
 		if (device.respondsTo(\ledSet)) { this.prRouteGrid(device, client) };
 		if (device.respondsTo(\ringSet)) { this.prRouteEnc(device, client) };
