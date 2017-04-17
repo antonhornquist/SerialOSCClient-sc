@@ -11,7 +11,7 @@ subsection::What can be triggered
 
 The short answer: link::Classes/Pattern::s and link::Classes/Task::s.
 
-A more elaborate answer: Any object that responds to a method code::.play:: that starts something and in turn returns an object that responds to method code::.stop:: in order to stop that something suffices as a clip to be launched. In addition, if that something may stop itself and the object that code::.play:: returns notifies dependants by invoking code::.changed:: with the first argument set to 'stopped' or 'userStopped' the clip launcher will automatically track the clip state and update leds accordingly.
+A more elaborate answer: Any object that responds to a method code::.play:: that takes quant, this, and that (TODO) as arguments and that starts something and in turn returns an object that responds to method code::.stop:: in order to stop that something suffices as a clip to be launched. In addition, if that something may stop itself and the object that code::.play:: returns notifies dependants by invoking code::.changed:: with the first argument set to 'stopped' or 'userStopped' the clip launcher will automatically track the clip state and update leds accordingly.
 
 subsection::TODO
 
@@ -275,18 +275,20 @@ Looper {
 			var playbuf;
 			playbuf = PlayBuf.ar(2, bufnum);
 			//FreeSelfWhenDone.kr(playbuf);
-			Out.ar(out, playbuf);
+			OffsetOut.ar(out, playbuf);
 		}).add;
 	}
 
-	play {
-		Server.default.bind {
-			if (recordingDone) {
-				synth = Synth.new('player', [\bufnum, buffer]);
-			} {
-				synth = Synth.new('recorder', [\bufnum, buffer]);
+	play { |...args|
+		Routine {
+			Server.default.bind {
+				if (recordingDone) {
+					synth = Synth.new('player', [\bufnum, buffer]);
+				} {
+					synth = Synth.new('recorder', [\bufnum, buffer]);
+				};
 			};
-		};
+		}.play(*args);
 	}
 
 	stop {
@@ -297,5 +299,49 @@ Looper {
 		this.changed(\stopped);
 	}
 }
+
 ::
 
+code::
+(
+SerialOSCClient.init(legacyMode: true);
+s.latency=0.02;
+//s.options.device = "Behr";
+//s.options.device = "USB AUDIO  CODEC";
+s.options.device = "BB";
+s.options.hardwareBufferSize=64;
+s.reboot;
+TempoClock.tempo = 120/60
+)
+
+~launcher.quant_(4);
+
+~launcher.load(0, 0, Looper.new);
+~launcher.load(0, 1, Looper.new);
+
+~launcher.load(1, 0, Looper.new);
+~launcher.load(1, 1, Looper.new);
+
+
+(
+SynthDef('tick', { |out=0, freq, amp|
+	var sig;
+	sig = SinOsc.ar(freq) * EnvGen.ar(Env.perc(0.01, 0.2), doneAction: 2) * amp;
+	OffsetOut.ar(out, sig ! 2);
+}).add;
+)
+
+(
+~metro = Pbind(*[
+	instrument: \tick,
+	midinote: Pseq([80, 68, 68, 68], inf),
+	dur: 1
+]);
+)
+
+~metro.play;
+~launcher.load(6, 0, ~metro);
+
+~monitor={Out.ar(0, SoundIn.ar([0, 1]))}.play;
+~monitor.free;
+::
