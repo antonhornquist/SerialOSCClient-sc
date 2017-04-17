@@ -244,3 +244,58 @@ SerialOSCClient.init(legacyMode: true);
 };
 )
 ::
+
+
+code::
+// class Looper
+Looper {
+	var seconds;
+	var buffer;
+	var synth;
+	var recordingDone=false;
+	var sampleRate = 44100;
+
+	*new { |seconds=4|
+		^super.new.init(seconds);
+	}
+
+	init { |argSeconds|
+		seconds = argSeconds;
+		this.addSynthDefs;
+		Server.default.waitForBoot {
+			buffer = Buffer.alloc(Server.default, sampleRate*seconds, 2);
+		}
+	}
+
+	addSynthDefs {
+		SynthDef('recorder', { |bufnum|
+			RecordBuf.ar(SoundIn.ar([0, 1]), bufnum);
+		}).add;
+		SynthDef('player', { |out=0, bufnum|
+			var playbuf;
+			playbuf = PlayBuf.ar(2, bufnum);
+			//FreeSelfWhenDone.kr(playbuf);
+			Out.ar(out, playbuf);
+		}).add;
+	}
+
+	play {
+		Server.default.bind {
+			if (recordingDone) {
+				synth = Synth.new('player', [\bufnum, buffer]);
+			} {
+				synth = Synth.new('recorder', [\bufnum, buffer]);
+			};
+		};
+	}
+
+	stop {
+		synth.free;
+		recordingDone.not.if {
+			recordingDone = true;
+		};
+		this.changed(\stopped);
+	}
+}
+::
+
