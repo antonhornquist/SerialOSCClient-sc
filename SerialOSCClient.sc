@@ -68,10 +68,11 @@ SerialOSCClient {
 			SerialOSCComm.stopTrackingConnectedDevicesChanges
 		};
 
+		// ahorse TODO: refactor to prInitLegacyMode(initFunc, completionFunc) and prInitNonLegacyMode(initFunc, completionFunc)
 		legacyMode.not.if {
 			if (autodiscover) {
 				SerialOSCComm.startTrackingConnectedDevicesChanges(
-					{ |id|
+					{ |id| // TODO: consider refactoring to own method in this class: prDeviceAttachedCallback
 						fork {
 							devicesSemaphore.wait;
 							if (this.prLookupDeviceById(id).isNil) {
@@ -90,7 +91,7 @@ SerialOSCClient {
 							};
 						};
 					},
-					{ |id|
+					{ |id| // TODO: consider refactoring to own method in this class: prDeviceDetachedCallback
 						fork {
 							devicesSemaphore.wait;
 							this.prLookupDeviceById(id) !? { |device|
@@ -107,12 +108,16 @@ SerialOSCClient {
 				);
 			};
 
+			// ahorse TODO: refactor to prRemoveOSCRecvFuncs (start)
 			thisProcess.removeOSCRecvFunc(oscRecvFunc);
 			thisProcess.removeOSCRecvFunc(legacyModeOscRecvFunc);
+			// ahorse TODO: refactor to prRemoveOSCRecvFuncs (end)
 			thisProcess.addOSCRecvFunc(oscRecvFunc);
 		} {
+			// ahorse TODO: refactor to prRemoveOSCRecvFuncs (start)
 			thisProcess.removeOSCRecvFunc(oscRecvFunc);
 			thisProcess.removeOSCRecvFunc(legacyModeOscRecvFunc);
+			// ahorse TODO: refactor to prRemoveOSCRecvFuncs (end)
 			thisProcess.addOSCRecvFunc(legacyModeOscRecvFunc);
 		};
 
@@ -132,7 +137,6 @@ SerialOSCClient {
 			devicesSemaphore.signal;
 		} {
 			var grid;
-			Post << ("Running SerialOSCClient in Legacy Mode. MonomeSerial has to be run with Host Port" + NetAddr.langPort ++", Listen Port 8080 and Address Prefix /monome.") << Char.nl;
 
 			grid = SerialOSCGrid('monome 40h', nil, 8080, 0); // TODO
 
@@ -140,8 +144,13 @@ SerialOSCClient {
 			SerialOSCGrid.default = grid;
 			connectedDevices = [grid];
 
+			SerialOSCEnc.default = nil;
+
 			this.changed(\connected, grid);
 			grid.changed(\connected);
+
+			Post << ("Running SerialOSCClient in Legacy Mode. For an attached monome to work MonomeSerial has to be run with Host Port" + NetAddr.langPort ++", Listen Port 8080 and Address Prefix /monome.") << Char.nl;
+			completionFunc.();
 		};
 	}
 
@@ -579,19 +588,41 @@ SerialOSCClient {
 		device.changed(\unrouted, this);
 	}
 
-	// TODO
-	grab {
+	asSerialOSCClient { ^this }
+
+	// TODO: naming
+	grabDevices {
+		this.grabGrid;
+		this.grabEnc;
 	}
 
 	// TODO
 	grabGrid {
+		if (SerialOSCGrid.all.notEmpty) {
+			SerialOSCClient.route(SerialOSCGrid.all.first);
+		};
+/*
+		grids = SerialOSCClient.all.select(_.autoroute);
+
+		grids.do { |grid| client.findAndRouteUnusedGridToClient(true) };
+		grids.do { |grid| client.findAndRouteUsedGridToClient(true) };
+		grids.do { |grid| client.findAndRouteUnusedGridToClient(false) };
+		grids.do { |grid| client.findAndRouteUsedGridToClient(false) };
+*/
 	}
 
 	// TODO
 	grabEnc {
+		if (SerialOSCEnc.all.notEmpty) {
+			SerialOSCClient.route(SerialOSCEnc.all.first);
+		};
 	}
 
 	*route { |device, client|
+		this.prRoute(device, client.asSerialOSCClient);
+	}
+
+	*prRoute { |device, client|
 		if (device.respondsTo(\ledSet)) { this.prRouteGrid(device, client) };
 		if (device.respondsTo(\ringSet)) { this.prRouteEnc(device, client) };
 	}
@@ -600,6 +631,12 @@ SerialOSCClient {
 		client.usesGrid.not.if {
 			"Client % does not use a grid".format(client).postln;
 		} {
+			/*
+				fix 
+				SerialOSCClient.route(SerialOSCGrid.default, ~launcher);
+				SerialOSCClient.route(SerialOSCGrid.default, ~step);
+				bug
+			*/
 			if (client.grid.notNil) { client.unrouteGrid }; // TODO: test routing new grid to a client that already has a grid, should unroute the previous grid
 			// TODO: consider implementing SerialOSCGrid-unrouteClient or SerialOSCGrid-detachFromClient
 			if (grid.client.notNil) { grid.client.unrouteGrid }; // TODO: test routing grid routed to client to a new client, should unroute grid from client
@@ -611,6 +648,12 @@ SerialOSCClient {
 		client.usesEnc.not.if {
 			"Client % does not use an enc".format(client).postln;
 		} {
+			/*
+				fix 
+				SerialOSCClient.route(SerialOSCGrid.default, ~launcher);
+				SerialOSCClient.route(SerialOSCGrid.default, ~step);
+				bug
+			*/
 			if (client.enc.notNil) { client.unrouteEnc }; // TODO: test routing new enc to a client that already has a enc, should unroute the previous enc
 			// TODO: consider implementing SerialOSCEnc-unrouteClient or SerialOSCEnc-detachFromClient
 			if (enc.client.notNil) { enc.client.unrouteEnc }; // TODO: test routing new enc to a client that already has a enc, should unroute the previous enc

@@ -704,7 +704,7 @@ code::
 ~step = SerialOSCClient.grid('step') { |client|
 	var tempoSpec = ControlSpec(20, 300, step: 1, default: 115);
 	var swingAmountSpec = ControlSpec(0, 100, step: 1, default: 50);
-	var synthDefName = 'serialosc_step';
+	var synthDefName = 'step';
 
 	var numSamples = 8;
 	var numPatternSteps = 8;
@@ -714,6 +714,7 @@ code::
 	var player, playpos;
 	var tempo, swingAmount;
 	var currentSwingOffset;
+
 /*
 	var adjustTempo = { |bpmDelta| // TODO: to be refactored outside of StepApp - Enc usage
 		setTempo.value(tempo + bpmDelta);
@@ -723,6 +724,7 @@ code::
 		setSwingAmount.value(swingAmount + swingAmountDelta);
 	};
 */
+
 	var setTempo = { |bpm|
 		tempo = tempoSpec.constrain(bpm);
 		TempoClock.default.tempo_(tempo/60);
@@ -767,7 +769,7 @@ code::
 			});
 		]);
 
-		excludePlayposBumping.not.if {
+		excludePlayposBumping.not.if { // TODO: possibly remove, make this a ~step.changed(\playpos) or pattern.changed(\playpos) notification, or inject the tickFunc (onTick?) from spawnPattern argument to make this more clear
 			playposBumping = Pbind(*[
 				note: \rest,
 				tickFunc: Prout({
