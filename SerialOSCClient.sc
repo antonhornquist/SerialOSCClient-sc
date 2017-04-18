@@ -1,27 +1,25 @@
 SerialOSCClient {
-	classvar
-		<all,
-		<devices,
-		devicesSemaphore,
-		<initialized=false,
-		<runningLegacyMode=false,
-		<connectedDevices,
-		<prefix='/monome',
-		oscRecvFunc,
-		legacyModeOscRecvFunc,
-		autoconnectDevices,
-		recvSerialOSCFunc,
-		beVerbose
-	;
+	classvar prefix='/monome';
+	classvar devicesSemaphore;
+	classvar autoconnectDevices;
+	classvar beVerbose;
+	classvar recvSerialOSCFunc, oscRecvFunc, legacyModeOscRecvFunc;
 
-	var <name;
-	var <gridSpec, <encSpec;
-	var <grid, <enc;
-	var <autoroute;
+	classvar <devices, <connectedDevices;
+	classvar <all;
+	classvar <initialized=false;
+	classvar <runningLegacyMode=false;
+
 	var gridResponder, tiltResponder, gridDependantFunc;
 	var encDeltaResponder, encKeyResponder, encDependantFunc;
-	var <>willFree;
+
+	var <name;
+	var <autoroute;
 	var <>permanent;
+	var <gridSpec, <encSpec;
+	var <grid, <enc;
+
+	var <>willFree;
 	var <>onFree;
 
 	var <>onGridRouted, <>onGridUnrouted, <>gridRefreshAction;
@@ -35,7 +33,7 @@ SerialOSCClient {
 		devicesSemaphore = Semaphore.new;
 		CmdPeriod.add(this);
 		oscRecvFunc = { |msg, time, addr, recvPort|
-			if (addr.ip == "127.0.0.1") {
+			if (addr.ip == "127.0.0.1") { // TODO: why only allow localhost?
 				this.prLookupDeviceByPort(addr.port) !? { |device|
 					if (connectedDevices.includes(device)) {
 						if (#['/monome/grid/key', '/monome/tilt', '/monome/enc/delta', '/monome/enc/key'].includes(msg[0])) { // note: no pattern matching is performed on OSC address
@@ -47,7 +45,7 @@ SerialOSCClient {
 			};
 		};
 		legacyModeOscRecvFunc = { |msg, time, addr, recvPort|
-			if (addr.ip == "127.0.0.1") {
+			if (addr.ip == "127.0.0.1") { // TODO: why only allow localhost?
 				this.prLookupDeviceByPort(addr.port) !? { |device|
 					if (connectedDevices.includes(device)) {
 						if ('/monome/press' == msg[0]) { // note: no pattern matching is performed on OSC address
@@ -64,94 +62,71 @@ SerialOSCClient {
 		autoconnectDevices = autoconnect;
 		beVerbose = verbose;
 
+		this.prRemoveRegisteredOSCRecvFuncsIfAny;
+
 		if (SerialOSCComm.isTrackingConnectedDevicesChanges) {
 			SerialOSCComm.stopTrackingConnectedDevicesChanges
 		};
 
-		// ahorse TODO: refactor to prInitLegacyMode(initFunc, completionFunc) and prInitNonLegacyMode(initFunc, completionFunc)
-		legacyMode.not.if {
-			if (autodiscover) {
-				SerialOSCComm.startTrackingConnectedDevicesChanges(
-					{ |id| // TODO: consider refactoring to own method in this class: prDeviceAttachedCallback
-						fork {
-							devicesSemaphore.wait;
-							if (this.prLookupDeviceById(id).isNil) {
-								this.prUpdateDevicesListAsync {
-									this.prLookupDeviceById(id) !? { |device|
-										this.prPostDeviceAdded(device);
-										this.changed(\attached, device);
-										this.prNotifyChangesInDevicesList([device], []);
-										if (autoconnectDevices) { this.connect(device) };
-										this.prUpdateDefaultDevices([device], []);
-									};
-									devicesSemaphore.signal;
-								};
-							} {
-								devicesSemaphore.signal;
-							};
-						};
-					},
-					{ |id| // TODO: consider refactoring to own method in this class: prDeviceDetachedCallback
-						fork {
-							devicesSemaphore.wait;
-							this.prLookupDeviceById(id) !? { |device|
-								device.remove;
-								this.prNotifyChangesInDevicesList([], [device]);
-								this.prUpdateDefaultDevices([], [device]);
-								this.changed(\detached, device);
-								device.changed(\detached);
-								this.prPostDeviceRemoved(device);
-							};
-							devicesSemaphore.signal;
-						};
-					}
-				);
-			};
-
-			// ahorse TODO: refactor to prRemoveOSCRecvFuncs (start)
-			thisProcess.removeOSCRecvFunc(oscRecvFunc);
-			thisProcess.removeOSCRecvFunc(legacyModeOscRecvFunc);
-			// ahorse TODO: refactor to prRemoveOSCRecvFuncs (end)
-			thisProcess.addOSCRecvFunc(oscRecvFunc);
+		if (legacyMode) {
+			this.prLegacyModeInit(completionFunc);
 		} {
-			// ahorse TODO: refactor to prRemoveOSCRecvFuncs (start)
-			thisProcess.removeOSCRecvFunc(oscRecvFunc);
-			thisProcess.removeOSCRecvFunc(legacyModeOscRecvFunc);
-			// ahorse TODO: refactor to prRemoveOSCRecvFuncs (end)
-			thisProcess.addOSCRecvFunc(legacyModeOscRecvFunc);
+			this.prInit(completionFunc, autodiscover);
 		};
+	}
+
+	*prInit { |completionFunc, autodiscover|
+		if (autodiscover) {
+			SerialOSCComm.startTrackingConnectedDevicesChanges(
+				this.prSerialOSCDeviceAddedHandler,
+				this.prSerialOSCDeviceRemovedHandler
+			);
+		};
+
+		thisProcess.addOSCRecvFunc(oscRecvFunc);
 
 		initialized = true;
-		runningLegacyMode = legacyMode;
+		runningLegacyMode = false;
 
-		legacyMode.not.if {
-			devicesSemaphore.wait;
-			this.prUpdateDevicesListAsync { |devicesAddedToDevicesList, devicesRemovedFromDevicesList|
-				this.postDevices;
-				this.prNotifyChangesInDevicesList(devicesAddedToDevicesList, devicesRemovedFromDevicesList);
-				devicesRemovedFromDevicesList do: (_.remove);
-				if (autoconnectDevices) { this.connectAll(false) };
-				this.prUpdateDefaultDevices(devicesAddedToDevicesList, devicesRemovedFromDevicesList);
-				completionFunc.();
-			};
-			devicesSemaphore.signal;
-		} {
-			var grid;
-
-			grid = SerialOSCGrid('monome 40h', nil, 8080, 0); // TODO
-
-			devices = [grid];
-			SerialOSCGrid.default = grid;
-			connectedDevices = [grid];
-
-			SerialOSCEnc.default = nil;
-
-			this.changed(\connected, grid);
-			grid.changed(\connected);
-
-			Post << ("Running SerialOSCClient in Legacy Mode. For an attached monome to work MonomeSerial has to be run with Host Port" + NetAddr.langPort ++", Listen Port 8080 and Address Prefix /monome.") << Char.nl;
+		devicesSemaphore.wait;
+		this.prUpdateDevicesListAsync { |devicesAddedToDevicesList, devicesRemovedFromDevicesList|
+			this.postDevices;
+			this.prNotifyChangesInDevicesList(devicesAddedToDevicesList, devicesRemovedFromDevicesList);
+			devicesRemovedFromDevicesList do: (_.remove);
+			if (autoconnectDevices) { this.connectAll(false) };
+			this.prUpdateDefaultDevices(devicesAddedToDevicesList, devicesRemovedFromDevicesList);
 			completionFunc.();
 		};
+		devicesSemaphore.signal;
+	}
+
+	*prLegacyModeInit { |completionFunc|
+		var grid;
+
+		thisProcess.addOSCRecvFunc(legacyModeOscRecvFunc);
+
+		initialized = true;
+		runningLegacyMode = true;
+
+		SerialOSCEnc.default = nil;
+
+		grid = SerialOSCGrid('monome 40h', nil, 8080, 0); // TODO: this is hard coded to 'monome 40h', should probably be either 'legacy grid device' or 'MonomeSerial'
+
+		devices = [grid];
+		connectedDevices = []; // TODO: consider evaluating disconnectAll instead. result should be empty connectedDevices list
+		SerialOSCGrid.default = grid; // TODO: consider evaluating prUpdateDefaultDevices instead
+		// this.prUpdateDefaultDevices([grid], []); TODO: check why prUpdateDefaultDevices do not work in Legacy Mode
+
+		if (autoconnectDevices) { this.connect(grid) };
+
+		Post << ("Running SerialOSCClient in Legacy Mode. For an attached grid to work MonomeSerial has to be run and configured with Host Port" + NetAddr.langPort ++", Listen Port 8080 and Address Prefix /monome.") << Char.nl;
+
+		completionFunc.();
+	}
+
+	*prRemoveRegisteredOSCRecvFuncsIfAny {
+		thisProcess.removeOSCRecvFunc(oscRecvFunc);
+		thisProcess.removeOSCRecvFunc(legacyModeOscRecvFunc);
 	}
 
 	*addSerialOSCRecvFunc { |func| recvSerialOSCFunc = recvSerialOSCFunc.addFunc(func) }
@@ -183,6 +158,7 @@ SerialOSCClient {
 	*prUpdateDefaultGrid { |devicesAddedToDevicesList, devicesRemovedFromDevicesList|
 		var addedAndConnectedGrids, connectedGridsNotRoutedToAClient;
 
+		// TODO: do first pass with this.prDeviceIsEncByType, then the two other branches
 		addedAndConnectedGrids = devicesAddedToDevicesList.reject(this.prDeviceIsEncByType(_)).select(_.isConnected);
 		connectedGridsNotRoutedToAClient = connectedDevices.reject(this.prDeviceIsEncByType(_)).reject { |device| device.client.notNil };
 
@@ -200,6 +176,7 @@ SerialOSCClient {
 	*prUpdateDefaultEnc { |devicesAddedToDevicesList, devicesRemovedFromDevicesList|
 		var addedAndConnectedEncs, connectedEncsNotRoutedToAClient;
 
+		// TODO: do first pass with this.prDeviceIsEncByType, then the two other branches
 		addedAndConnectedEncs = devicesAddedToDevicesList.select(this.prDeviceIsEncByType(_)).select(_.isConnected);
 		connectedEncsNotRoutedToAClient = connectedDevices.select(this.prDeviceIsEncByType(_)).reject { |device| device.client.notNil };
 
@@ -222,15 +199,17 @@ SerialOSCClient {
 		this.prEnsureInitialized;
 
 		if (connectedDevices.includes(device).not) {
-			SerialOSCComm.changeDeviceMessagePrefix(
-				device.port,
-				SerialOSCClient.prefix
-			);
-
-			SerialOSCComm.changeDeviceDestinationPort(
-				device.port,
-				NetAddr.langPort
-			);
+			runningLegacyMode.not.if {
+				SerialOSCComm.changeDeviceMessagePrefix(
+					device.port,
+					prefix
+				);
+	
+				SerialOSCComm.changeDeviceDestinationPort(
+					device.port,
+					NetAddr.langPort
+				);
+			};
 
 			connectedDevices = connectedDevices.add(device);
 
@@ -240,7 +219,7 @@ SerialOSCClient {
 			this.prAutorouteDeviceToClients;
 
 			beVerbose.if {
-				Post << device << Char.space << "was connected" << Char.nl; // TODO: I mean all this Post << business, why?
+				Post << device << Char.space << "was connected" << Char.nl; // TODO: why not use postln instead of Post? here and throughout
 			};
 		};
 	}
@@ -590,13 +569,13 @@ SerialOSCClient {
 
 	asSerialOSCClient { ^this }
 
-	// TODO: naming
+	// TODO: naming?
 	grabDevices {
 		this.grabGrid;
 		this.grabEnc;
 	}
 
-	// TODO
+	// TODO: refine logic
 	grabGrid {
 		if (SerialOSCGrid.all.notEmpty) {
 			SerialOSCClient.route(SerialOSCGrid.all.first);
@@ -611,7 +590,7 @@ SerialOSCClient {
 */
 	}
 
-	// TODO
+	// TODO: refine logic
 	grabEnc {
 		if (SerialOSCEnc.all.notEmpty) {
 			SerialOSCClient.route(SerialOSCEnc.all.first);
@@ -631,15 +610,8 @@ SerialOSCClient {
 		client.usesGrid.not.if {
 			"Client % does not use a grid".format(client).postln;
 		} {
-			/*
-				fix 
-				SerialOSCClient.route(SerialOSCGrid.default, ~launcher);
-				SerialOSCClient.route(SerialOSCGrid.default, ~step);
-				bug
-			*/
-			if (client.grid.notNil) { client.unrouteGrid }; // TODO: test routing new grid to a client that already has a grid, should unroute the previous grid
-			// TODO: consider implementing SerialOSCGrid-unrouteClient or SerialOSCGrid-detachFromClient
-			if (grid.client.notNil) { grid.client.unrouteGrid }; // TODO: test routing grid routed to client to a new client, should unroute grid from client
+			if (client.grid.notNil) { client.unrouteGrid };
+			if (grid.client.notNil) { grid.client.unrouteGrid }; // TODO: consider implementing SerialOSCGrid-unrouteClient or SerialOSCGrid-detachFromClient
 			client.prRouteGridToClient(grid);
 		};
 	}
@@ -648,15 +620,8 @@ SerialOSCClient {
 		client.usesEnc.not.if {
 			"Client % does not use an enc".format(client).postln;
 		} {
-			/*
-				fix 
-				SerialOSCClient.route(SerialOSCGrid.default, ~launcher);
-				SerialOSCClient.route(SerialOSCGrid.default, ~step);
-				bug
-			*/
-			if (client.enc.notNil) { client.unrouteEnc }; // TODO: test routing new enc to a client that already has a enc, should unroute the previous enc
-			// TODO: consider implementing SerialOSCEnc-unrouteClient or SerialOSCEnc-detachFromClient
-			if (enc.client.notNil) { enc.client.unrouteEnc }; // TODO: test routing new enc to a client that already has a enc, should unroute the previous enc
+			if (client.enc.notNil) { client.unrouteEnc };
+			if (enc.client.notNil) { enc.client.unrouteEnc }; // TODO: consider implementing SerialOSCEnc-unrouteClient or SerialOSCEnc-detachFromClient
 			client.prRouteEncToClient(enc);
 		};
 	}
@@ -840,6 +805,42 @@ SerialOSCClient {
 	ringRange { |n, x1, x2, level|
 		enc !? { |enc| enc.ringRange(n, x1, x2, level) };
 	}
+
+	*prSerialOSCDeviceAddedHandler { |id|
+		fork {
+			devicesSemaphore.wait;
+			if (this.prLookupDeviceById(id).isNil) {
+				this.prUpdateDevicesListAsync {
+					this.prLookupDeviceById(id) !? { |device|
+						this.prPostDeviceAdded(device);
+						this.changed(\attached, device);
+						this.prNotifyChangesInDevicesList([device], []);
+						if (autoconnectDevices) { this.connect(device) };
+						this.prUpdateDefaultDevices([device], []);
+					};
+					devicesSemaphore.signal;
+				};
+			} {
+				devicesSemaphore.signal;
+			};
+		};
+	}
+
+	*prSerialOSCDeviceRemovedHandler { |id|
+		fork {
+			devicesSemaphore.wait;
+			this.prLookupDeviceById(id) !? { |device|
+				device.remove;
+				this.prNotifyChangesInDevicesList([], [device]);
+				this.prUpdateDefaultDevices([], [device]);
+				this.changed(\detached, device);
+				device.changed(\detached);
+				this.prPostDeviceRemoved(device);
+			};
+			devicesSemaphore.signal;
+		};
+	}
+
 }
 
 SerialOSCGrid : SerialOSCDevice {
@@ -899,10 +900,6 @@ SerialOSCGrid : SerialOSCDevice {
 
 	*deactivateTilt { |n|
 		default !? { |grid| grid.deactivateTilt(n) };
-	}
-
-	*led { |x, y, state| // TODO ?
-		default !? { |grid| grid.led(x, y, state) };
 	}
 
 	*ledSet { |x, y, state|
@@ -985,10 +982,6 @@ SerialOSCGrid : SerialOSCDevice {
 
 	deactivateTilt { |n| this.tiltSet(n, false) }
 
-	led { |x, y, state| // TODO ?
-		this.prSendMsg('/led', x.asInteger, y.asInteger, state.asInteger);
-	}
-
 	ledSet { |x, y, state|
 		SerialOSCClient.runningLegacyMode.not.if {
 			this.prSendMsg('/grid/led/set', x.asInteger, y.asInteger, state.asInteger);
@@ -998,19 +991,45 @@ SerialOSCGrid : SerialOSCDevice {
 	}
 
 	ledAll { |state|
+		/*
+		TODO: check if this is needed, strangely clearLeds appear to work!? perhaps only in step and not launcher, which uses ledMap?
+		SerialOSCClient.runningLegacyMode.not.if {
+		*/
 		this.prSendMsg('/grid/led/all', state.asInteger);
+		/*
+		TODO
+		} {
+			16.do { |x|
+				16.do { |y|
+					this.ledSet(x, y, state);
+				}
+			}
+		};
+		*/
 	}
 
 	ledMap { |xOffset, yOffset, bitmasks|
-		this.performList(\prSendMsg, ['/grid/led/map', xOffset.asInteger, yOffset.asInteger] ++ bitmasks);
+		SerialOSCClient.runningLegacyMode.not.if {
+			this.performList(\prSendMsg, ['/grid/led/map', xOffset.asInteger, yOffset.asInteger] ++ bitmasks);
+		} {
+			NotYetImplementedError("Method not yet supported in Legacy Mode", thisMethod).throw;
+		};
 	}
 
 	ledRow { |xOffset, y, bitmasks|
-		this.performList(\prSendMsg, ['/grid/led/row', xOffset.asInteger, y.asInteger] ++ bitmasks);
+		SerialOSCClient.runningLegacyMode.not.if {
+			this.performList(\prSendMsg, ['/grid/led/row', xOffset.asInteger, y.asInteger] ++ bitmasks);
+		} {
+			NotYetImplementedError("Method not yet supported in Legacy Mode", thisMethod).throw;
+		};
 	}
 
 	ledCol { |x, yOffset, bitmasks|
-		this.performList(\prSendMsg, ['/grid/led/col', x.asInteger, yOffset.asInteger] ++ bitmasks);
+		SerialOSCClient.runningLegacyMode.not.if {
+			this.performList(\prSendMsg, ['/grid/led/col', x.asInteger, yOffset.asInteger] ++ bitmasks);
+		} {
+			NotYetImplementedError("Method not yet supported in Legacy Mode", thisMethod).throw;
+		};
 	}
 
 	ledIntensity { |i|
@@ -1021,28 +1040,48 @@ SerialOSCGrid : SerialOSCDevice {
 		SerialOSCClient.runningLegacyMode.not.if {
 			this.prSendMsg('/grid/led/level/set', x.asInteger, y.asInteger, l.asInteger);
 		} {
+			this.ledSet(x.asInteger, y.asInteger, if (l == 15, 1, 0));
+/*
+	TODO: test whether above works
 			if (l == 15) {
 				this.prSendMsg('/led', x.asInteger, y.asInteger, 1);
 			} {
 				this.prSendMsg('/led', x.asInteger, y.asInteger, 0);
 			};
+*/
 		};
 	}
 
 	ledLevelAll { |l|
-		this.prSendMsg('/grid/led/level/all', l.asInteger);
+		SerialOSCClient.runningLegacyMode.not.if {
+			this.prSendMsg('/grid/led/level/all', l.asInteger);
+		} {
+			NotYetImplementedError("Method not yet supported in Legacy Mode", thisMethod).throw;
+		};
 	}
 
 	ledLevelMap { |xOffset, yOffset, levels|
-		this.performList(\prSendMsg, ['/grid/led/level/map', xOffset.asInteger, yOffset.asInteger] ++ levels);
+		SerialOSCClient.runningLegacyMode.not.if {
+			this.performList(\prSendMsg, ['/grid/led/level/map', xOffset.asInteger, yOffset.asInteger] ++ levels);
+		} {
+			NotYetImplementedError("Method not yet supported in Legacy Mode", thisMethod).throw;
+		};
 	}
 
 	ledLevelRow { |xOffset, y, levels|
-		this.performList(\prSendMsg, ['/grid/led/level/row', xOffset.asInteger, y.asInteger] ++ levels);
+		SerialOSCClient.runningLegacyMode.not.if {
+			this.performList(\prSendMsg, ['/grid/led/level/row', xOffset.asInteger, y.asInteger] ++ levels);
+		} {
+			NotYetImplementedError("Method not yet supported in Legacy Mode", thisMethod).throw;
+		};
 	}
 
 	ledLevelCol { |x, yOffset, levels|
-		this.performList(\prSendMsg, ['/grid/led/level/col', x.asInteger, yOffset.asInteger] ++ levels);
+		SerialOSCClient.runningLegacyMode.not.if {
+			this.performList(\prSendMsg, ['/grid/led/level/col', x.asInteger, yOffset.asInteger] ++ levels);
+		} {
+			NotYetImplementedError("Method not yet supported in Legacy Mode", thisMethod).throw;
+		};
 	}
 
 	tiltSet { |n, state|
