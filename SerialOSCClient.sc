@@ -137,7 +137,7 @@ SerialOSCClient {
 		devicesRemovedFromDevicesList = devices;
 		// TODO 1: this is hard coded to 'monome 40h'
 		// TODO 2: this should be LegacySerialOSCGrid
-		grid = SerialOSCGrid('monome 40h', nil, legacyModeListenPort, 0);
+		grid = LegacySerialOSCGrid('monome 40h', nil, legacyModeListenPort, 0);
 		devices = [grid];
 
 		this.prPostDevicesListUpdateCleanup(devices, devicesRemovedFromDevicesList);
@@ -891,6 +891,56 @@ SerialOSCClient {
 
 }
 
+LegacySerialOSCGrid : SerialOSCGrid {
+	ledSet { |x, y, state|
+		this.prSendMsg('/led', x.asInteger, y.asInteger, state.asInteger);
+	}
+
+	ledAll { |state|
+		16.do { |x|
+			16.do { |y|
+				this.ledSet(x, y, state);
+			}
+		};
+	}
+
+	ledMap { |xOffset, yOffset, bitmasks|
+		NotYetImplementedError("Method not yet supported in Legacy Mode", thisMethod).throw;
+	}
+
+	ledRow { |xOffset, y, bitmasks|
+		NotYetImplementedError("Method not yet supported in Legacy Mode", thisMethod).throw;
+	}
+
+	ledCol { |x, yOffset, bitmasks|
+		NotYetImplementedError("Method not yet supported in Legacy Mode", thisMethod).throw;
+	}
+
+	ledIntensity { |i|
+		NotYetImplementedError("Method not yet supported in Legacy Mode", thisMethod).throw;
+	}
+
+	ledLevelSet { |x, y, l|
+		this.ledSet(x.asInteger, y.asInteger, if (l == 15, 1, 0));
+	}
+
+	ledLevelAll { |l|
+		NotYetImplementedError("Method not yet supported in Legacy Mode", thisMethod).throw;
+	}
+
+	ledLevelMap { |xOffset, yOffset, levels|
+		NotYetImplementedError("Method not yet supported in Legacy Mode", thisMethod).throw;
+	}
+
+	ledLevelRow { |xOffset, y, levels|
+		NotYetImplementedError("Method not yet supported in Legacy Mode", thisMethod).throw;
+	}
+
+	ledLevelCol { |x, yOffset, levels|
+		NotYetImplementedError("Method not yet supported in Legacy Mode", thisMethod).throw;
+	}
+}
+
 // TODO: instead of if clauses subclass SerialOSCGrid with a LegacySerialOSCGrid
 SerialOSCGrid : SerialOSCDevice {
 	classvar <default;
@@ -1032,53 +1082,23 @@ SerialOSCGrid : SerialOSCDevice {
 	deactivateTilt { |n| this.tiltSet(n, false) }
 
 	ledSet { |x, y, state|
-		SerialOSCClient.runningLegacyMode.not.if {
-			this.prSendMsg('/grid/led/set', x.asInteger, y.asInteger, state.asInteger);
-		} {
-			this.prSendMsg('/led', x.asInteger, y.asInteger, state.asInteger);
-		};
+		this.prSendMsg('/grid/led/set', x.asInteger, y.asInteger, state.asInteger);
 	}
 
 	ledAll { |state|
-		/*
-		TODO: check if this is needed, strangely clearLeds appear to work!? perhaps only in step and not launcher, which uses ledMap?
-		SerialOSCClient.runningLegacyMode.not.if {
-		*/
 		this.prSendMsg('/grid/led/all', state.asInteger);
-		/*
-		TODO
-		} {
-			16.do { |x|
-				16.do { |y|
-					this.ledSet(x, y, state);
-				}
-			}
-		};
-		*/
 	}
 
 	ledMap { |xOffset, yOffset, bitmasks|
-		SerialOSCClient.runningLegacyMode.not.if {
-			this.performList(\prSendMsg, ['/grid/led/map', xOffset.asInteger, yOffset.asInteger] ++ bitmasks);
-		} {
-			NotYetImplementedError("Method not yet supported in Legacy Mode", thisMethod).throw;
-		};
+		this.performList(\prSendMsg, ['/grid/led/map', xOffset.asInteger, yOffset.asInteger] ++ bitmasks);
 	}
 
 	ledRow { |xOffset, y, bitmasks|
-		SerialOSCClient.runningLegacyMode.not.if {
-			this.performList(\prSendMsg, ['/grid/led/row', xOffset.asInteger, y.asInteger] ++ bitmasks);
-		} {
-			NotYetImplementedError("Method not yet supported in Legacy Mode", thisMethod).throw;
-		};
+		this.performList(\prSendMsg, ['/grid/led/row', xOffset.asInteger, y.asInteger] ++ bitmasks);
 	}
 
 	ledCol { |x, yOffset, bitmasks|
-		SerialOSCClient.runningLegacyMode.not.if {
-			this.performList(\prSendMsg, ['/grid/led/col', x.asInteger, yOffset.asInteger] ++ bitmasks);
-		} {
-			NotYetImplementedError("Method not yet supported in Legacy Mode", thisMethod).throw;
-		};
+		this.performList(\prSendMsg, ['/grid/led/col', x.asInteger, yOffset.asInteger] ++ bitmasks);
 	}
 
 	ledIntensity { |i|
@@ -1086,51 +1106,23 @@ SerialOSCGrid : SerialOSCDevice {
 	}
 
 	ledLevelSet { |x, y, l|
-		SerialOSCClient.runningLegacyMode.not.if {
-			this.prSendMsg('/grid/led/level/set', x.asInteger, y.asInteger, l.asInteger);
-		} {
-			this.ledSet(x.asInteger, y.asInteger, if (l == 15, 1, 0));
-/*
-	TODO: test whether above works
-			if (l == 15) {
-				this.prSendMsg('/led', x.asInteger, y.asInteger, 1);
-			} {
-				this.prSendMsg('/led', x.asInteger, y.asInteger, 0);
-			};
-*/
-		};
+		this.prSendMsg('/grid/led/level/set', x.asInteger, y.asInteger, l.asInteger);
 	}
 
 	ledLevelAll { |l|
-		SerialOSCClient.runningLegacyMode.not.if {
-			this.prSendMsg('/grid/led/level/all', l.asInteger);
-		} {
-			NotYetImplementedError("Method not yet supported in Legacy Mode", thisMethod).throw;
-		};
+		this.prSendMsg('/grid/led/level/all', l.asInteger);
 	}
 
 	ledLevelMap { |xOffset, yOffset, levels|
-		SerialOSCClient.runningLegacyMode.not.if {
-			this.performList(\prSendMsg, ['/grid/led/level/map', xOffset.asInteger, yOffset.asInteger] ++ levels);
-		} {
-			NotYetImplementedError("Method not yet supported in Legacy Mode", thisMethod).throw;
-		};
+		this.performList(\prSendMsg, ['/grid/led/level/map', xOffset.asInteger, yOffset.asInteger] ++ levels);
 	}
 
 	ledLevelRow { |xOffset, y, levels|
-		SerialOSCClient.runningLegacyMode.not.if {
-			this.performList(\prSendMsg, ['/grid/led/level/row', xOffset.asInteger, y.asInteger] ++ levels);
-		} {
-			NotYetImplementedError("Method not yet supported in Legacy Mode", thisMethod).throw;
-		};
+		this.performList(\prSendMsg, ['/grid/led/level/row', xOffset.asInteger, y.asInteger] ++ levels);
 	}
 
 	ledLevelCol { |x, yOffset, levels|
-		SerialOSCClient.runningLegacyMode.not.if {
-			this.performList(\prSendMsg, ['/grid/led/level/col', x.asInteger, yOffset.asInteger] ++ levels);
-		} {
-			NotYetImplementedError("Method not yet supported in Legacy Mode", thisMethod).throw;
-		};
+		this.performList(\prSendMsg, ['/grid/led/level/col', x.asInteger, yOffset.asInteger] ++ levels);
 	}
 
 	tiltSet { |n, state|
