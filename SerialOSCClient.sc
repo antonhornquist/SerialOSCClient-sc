@@ -1,5 +1,6 @@
 SerialOSCClient {
 	classvar prefix='/monome';
+	classvar legacyModeListenPort=8080;
 	classvar devicesSemaphore;
 	classvar autoconnectDevices;
 	classvar beVerbose;
@@ -58,6 +59,34 @@ SerialOSCClient {
 		};
 	}
 
+	*legacy40h { |autoconnect=true, verbose=false|
+		this.init(nil, autoconnect, false, verbose, true);
+	}
+
+	*legacy64 { |autoconnect=true, verbose=false|
+		this.init(nil, autoconnect, false, verbose, true);
+	}
+
+	*legacy128 { |autoconnect=true, verbose=false|
+		this.init(nil, autoconnect, false, verbose, true);
+	}
+
+	*legacyHorizontal128 { |autoconnect=true, verbose=false|
+		this.init(nil, autoconnect, false, verbose, true);
+	}
+
+	*legacyVertical128 { |autoconnect=true, verbose=false|
+		this.init(nil, autoconnect, false, verbose, true);
+	}
+
+	*legacy256 { |autoconnect=true, verbose=false|
+		this.init(nil, autoconnect, false, verbose, true);
+	}
+
+	*legacyMode { |autoconnect=true, verbose=false|
+		this.init(nil, autoconnect, false, verbose, true);
+	}
+
 	*init { |completionFunc, autoconnect=true, autodiscover=true, verbose=false, legacyMode=false|
 		autoconnectDevices = autoconnect;
 		beVerbose = verbose;
@@ -90,11 +119,7 @@ SerialOSCClient {
 
 		devicesSemaphore.wait;
 		this.prUpdateDevicesListAsync { |devicesAddedToDevicesList, devicesRemovedFromDevicesList|
-			this.postDevices;
-			this.prNotifyChangesInDevicesList(devicesAddedToDevicesList, devicesRemovedFromDevicesList);
-			devicesRemovedFromDevicesList do: (_.remove);
-			if (autoconnectDevices) { this.connectAll(false) };
-			this.prUpdateDefaultDevices(devicesAddedToDevicesList, devicesRemovedFromDevicesList);
+			this.prPostDevicesListUpdateCleanup(devicesAddedToDevicesList, devicesRemovedFromDevicesList);
 			completionFunc.();
 		};
 		devicesSemaphore.signal;
@@ -102,26 +127,49 @@ SerialOSCClient {
 
 	*prLegacyModeInit { |completionFunc|
 		var grid;
+		var devicesRemovedFromDevicesList;
 
 		thisProcess.addOSCRecvFunc(legacyModeOscRecvFunc);
 
 		initialized = true;
 		runningLegacyMode = true;
 
-		SerialOSCEnc.default = nil;
-
-		grid = SerialOSCGrid('monome 40h', nil, 8080, 0); // TODO: this is hard coded to 'monome 40h', should probably be either 'legacy grid device' or 'MonomeSerial'
-
+		devicesRemovedFromDevicesList = devices;
+		// TODO 1: this is hard coded to 'monome 40h'
+		// TODO 2: this should be LegacySerialOSCGrid
+		grid = SerialOSCGrid('monome 40h', nil, legacyModeListenPort, 0);
 		devices = [grid];
-		connectedDevices = []; // TODO: consider evaluating disconnectAll instead. result should be empty connectedDevices list
-		SerialOSCGrid.default = grid; // TODO: consider evaluating prUpdateDefaultDevices instead
-		// this.prUpdateDefaultDevices([grid], []); TODO: check why prUpdateDefaultDevices do not work in Legacy Mode
 
-		if (autoconnectDevices) { this.connect(grid) };
+		this.prPostDevicesListUpdateCleanup(devices, devicesRemovedFromDevicesList);
 
-		Post << ("Running SerialOSCClient in Legacy Mode. For an attached grid to work MonomeSerial has to be run and configured with Host Port" + NetAddr.langPort ++", Listen Port 8080 and Address Prefix /monome.") << Char.nl;
+		Post << "Running SerialOSCClient in Legacy Mode. For an attached grid to work MonomeSerial has to run and be configured with Host Port %, Listen Port % and Address Prefix /monome.".format(NetAddr.langPort, legacyModeListenPort) << Char.nl;
 
 		completionFunc.();
+	}
+
+	// TODO: naming
+	*prPostDevicesListUpdateCleanup { |devicesAddedToDevicesList, devicesRemovedFromDevicesList|
+		this.postDevices;
+		this.prNotifyChangesInDevicesList(devicesAddedToDevicesList, devicesRemovedFromDevicesList);
+		devicesRemovedFromDevicesList do: (_.remove);
+		if (autoconnectDevices) { this.connectAll(false) };
+		this.prUpdateDefaultDevices(devicesAddedToDevicesList, devicesRemovedFromDevicesList);
+	}
+
+	*setLegacyModeGrid { |type|
+		if (runningLegacyMode) {
+			// TODO: if SerialOSCGrid.default.type != type
+			var grid;
+			var removedDevices;
+
+			this.disconnectAll;
+			removedDevices = devices;
+			grid = SerialOSCGrid(type.asSymbol, nil, legacyModeListenPort, 0);
+			devices = [grid];
+			SerialOSCGrid.default = grid; // TODO: consider evaluating prUpdateDefaultDevices instead
+			// this.prUpdateDefaultDevices([], removedDevices); TODO: check why prUpdateDefaultDevices do not work in Legacy Mode
+			if (autoconnectDevices) { this.connect(grid) };
+		};
 	}
 
 	*prRemoveRegisteredOSCRecvFuncsIfAny {
@@ -843,6 +891,7 @@ SerialOSCClient {
 
 }
 
+// TODO: instead of if clauses subclass SerialOSCGrid with a LegacySerialOSCGrid
 SerialOSCGrid : SerialOSCDevice {
 	classvar <default;
 	var <rotation;
