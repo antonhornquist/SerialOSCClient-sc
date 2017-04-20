@@ -1,6 +1,6 @@
 SerialOSCClient {
 	classvar prefix='/monome';
-	classvar legacyModeListenPort=8080;
+	classvar defaultLegacyModeListenPort=8080;
 	classvar devicesSemaphore;
 	classvar autoconnectDevices;
 	classvar beVerbose;
@@ -135,14 +135,13 @@ SerialOSCClient {
 		runningLegacyMode = true;
 
 		devicesRemovedFromDevicesList = devices;
-		// TODO 1: this is hard coded to 'monome 40h'
-		// TODO 2: this should be LegacySerialOSCGrid
-		grid = LegacySerialOSCGrid('monome 40h', nil, legacyModeListenPort, 0);
+		// TODO: right now this is hard coded to 'monome 40h'
+		grid = LegacySerialOSCGrid('monome 40h', nil, defaultLegacyModeListenPort, 0);
 		devices = [grid];
 
 		this.prPostDevicesListUpdateCleanup(devices, devicesRemovedFromDevicesList);
 
-		Post << "Running SerialOSCClient in Legacy Mode. For an attached grid to work MonomeSerial has to run and be configured with Host Port %, Listen Port % and Address Prefix /monome.".format(NetAddr.langPort, legacyModeListenPort) << Char.nl;
+		Post << "Running SerialOSCClient in Legacy Mode. For an attached grid to work MonomeSerial has to run and be configured with Host Port %, Address Prefix /monome and Listen Port according to the LegacySerialOSCGrid in use.".format(NetAddr.langPort) << Char.nl;
 
 		completionFunc.();
 	}
@@ -156,15 +155,14 @@ SerialOSCClient {
 		this.prUpdateDefaultDevices(devicesAddedToDevicesList, devicesRemovedFromDevicesList);
 	}
 
-	*setLegacyModeGrid { |type|
+	*setLegacyModeGrid { |type, listenPort|
 		if (runningLegacyMode) {
-			// TODO: if SerialOSCGrid.default.type != type
 			var grid;
 			var removedDevices;
 
 			this.disconnectAll;
 			removedDevices = devices;
-			grid = SerialOSCGrid(type.asSymbol, nil, legacyModeListenPort, 0);
+			grid = SerialOSCGrid(type.asSymbol, nil, listenPort ? defaultLegacyModeListenPort, 0);
 			devices = [grid];
 			SerialOSCGrid.default = grid; // TODO: consider evaluating prUpdateDefaultDevices instead
 			// this.prUpdateDefaultDevices([], removedDevices); TODO: check why prUpdateDefaultDevices do not work in Legacy Mode
@@ -623,22 +621,12 @@ SerialOSCClient {
 		this.grabEnc;
 	}
 
-	// TODO: refine logic
 	grabGrid {
 		if (SerialOSCGrid.all.notEmpty) {
 			SerialOSCClient.route(SerialOSCGrid.all.first);
 		};
-/*
-		grids = SerialOSCClient.all.select(_.autoroute);
-
-		grids.do { |grid| client.findAndRouteUnusedGridToClient(true) };
-		grids.do { |grid| client.findAndRouteUsedGridToClient(true) };
-		grids.do { |grid| client.findAndRouteUnusedGridToClient(false) };
-		grids.do { |grid| client.findAndRouteUsedGridToClient(false) };
-*/
 	}
 
-	// TODO: refine logic
 	grabEnc {
 		if (SerialOSCEnc.all.notEmpty) {
 			SerialOSCClient.route(SerialOSCEnc.all.first);
@@ -941,7 +929,6 @@ LegacySerialOSCGrid : SerialOSCGrid {
 	}
 }
 
-// TODO: instead of if clauses subclass SerialOSCGrid with a LegacySerialOSCGrid
 SerialOSCGrid : SerialOSCDevice {
 	classvar <default;
 	var <rotation;
