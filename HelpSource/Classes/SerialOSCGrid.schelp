@@ -72,8 +72,8 @@ These methods are equivalent to instance methods of the same name below except t
 
 METHOD:: ledXSpec
 METHOD:: ledYSpec
-METHOD:: getNumCols
-METHOD:: getNumRows
+METHOD:: numCols
+METHOD:: numRows
 METHOD:: rotation
 
 
@@ -255,12 +255,12 @@ A ControlSpec describing the number of rows of the grid.
 
 returns:: A ControlSpec
 
-METHOD:: getNumCols
+METHOD:: numCols
 Return the current number of columns according to grid type and rotation
 
 returns:: An Integer
 
-METHOD:: getNumRows
+METHOD:: numRows
 Return the current number of rows according to grid type and rotation
 
 returns:: An Integer

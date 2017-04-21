@@ -57,7 +57,7 @@ SUBSECTION::Enc properties
 These methods are equivalent to instance methods of the same name below except they are invoked for the default enc, if any.
 
 METHOD:: nSpec
-METHOD:: getNumEncs
+METHOD:: numEncs
 
 
 INSTANCEMETHODS::
@@ -126,7 +126,7 @@ A ControlSpec describing the number of encoders.
 
 returns:: A ControlSpec
 
-METHOD:: getNumEncs
+METHOD:: numEncs
 Return the number of encoders for this device
 
 returns:: An Integer

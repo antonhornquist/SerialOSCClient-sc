@@ -33,6 +33,7 @@ SerialOSCClient {
 		connectedDevices = [];
 		devicesSemaphore = Semaphore.new;
 		CmdPeriod.add(this);
+		// TODO: consider refactor to class method
 		oscRecvFunc = { |msg, time, addr, recvPort|
 			if (addr.ip == "127.0.0.1") { // TODO: why only allow localhost?
 				this.prLookupDeviceByPort(addr.port) !? { |device|
@@ -45,6 +46,7 @@ SerialOSCClient {
 				};
 			};
 		};
+		// TODO: consider refactor to class method
 		legacyModeOscRecvFunc = { |msg, time, addr, recvPort|
 			if (addr.ip == "127.0.0.1") { // TODO: why only allow localhost?
 				this.prLookupDeviceByPort(addr.port) !? { |device|
@@ -59,52 +61,9 @@ SerialOSCClient {
 		};
 	}
 
-	*legacy40h { |autoconnect=true, verbose=false|
-		this.init(nil, autoconnect, false, verbose, true);
-	}
+	*init { |completionFunc, autoconnect=true, autodiscover=true, verbose=false|
+		this.prInit(autoconnect, verbose);
 
-	*legacy64 { |autoconnect=true, verbose=false|
-		this.init(nil, autoconnect, false, verbose, true);
-	}
-
-	*legacy128 { |autoconnect=true, verbose=false|
-		this.init(nil, autoconnect, false, verbose, true);
-	}
-
-	*legacyHorizontal128 { |autoconnect=true, verbose=false|
-		this.init(nil, autoconnect, false, verbose, true);
-	}
-
-	*legacyVertical128 { |autoconnect=true, verbose=false|
-		this.init(nil, autoconnect, false, verbose, true);
-	}
-
-	*legacy256 { |autoconnect=true, verbose=false|
-		this.init(nil, autoconnect, false, verbose, true);
-	}
-
-	*legacyMode { |autoconnect=true, verbose=false|
-		this.init(nil, autoconnect, false, verbose, true);
-	}
-
-	*init { |completionFunc, autoconnect=true, autodiscover=true, verbose=false, legacyMode=false|
-		autoconnectDevices = autoconnect;
-		beVerbose = verbose;
-
-		this.prRemoveRegisteredOSCRecvFuncsIfAny;
-
-		if (SerialOSCComm.isTrackingConnectedDevicesChanges) {
-			SerialOSCComm.stopTrackingConnectedDevicesChanges
-		};
-
-		if (legacyMode) {
-			this.prLegacyModeInit(completionFunc);
-		} {
-			this.prInit(completionFunc, autodiscover);
-		};
-	}
-
-	*prInit { |completionFunc, autodiscover|
 		if (autodiscover) {
 			SerialOSCComm.startTrackingConnectedDevicesChanges(
 				this.prSerialOSCDeviceAddedHandler,
@@ -119,35 +78,60 @@ SerialOSCClient {
 
 		devicesSemaphore.wait;
 		this.prUpdateDevicesListAsync { |devicesAddedToDevicesList, devicesRemovedFromDevicesList|
-			this.prPostDevicesListUpdateCleanup(devicesAddedToDevicesList, devicesRemovedFromDevicesList);
-			completionFunc.();
+			this.prAfterDevicesListUpdate(devicesAddedToDevicesList, devicesRemovedFromDevicesList);
+			completionFunc.value;
 		};
 		devicesSemaphore.signal;
 	}
 
-	*prLegacyModeInit { |completionFunc|
-		var grid;
+	*legacy40h { |autoconnect=true, verbose=false|
+		this.legacyMode(autoconnect, verbose, LegacySerialOSCGrid('monome 40h', nil, defaultLegacyModeListenPort, 0));
+	}
+
+	*legacy64 { |autoconnect=true, verbose=false|
+		this.legacyMode(autoconnect, verbose, LegacySerialOSCGrid('monome 64', nil, defaultLegacyModeListenPort, 0));
+	}
+
+	*legacy128 { |autoconnect=true, verbose=false|
+		this.legacyMode(autoconnect, verbose, LegacySerialOSCGrid('monome 128', nil, defaultLegacyModeListenPort, 0));
+	}
+
+	*legacy256 { |autoconnect=true, verbose=false|
+		this.legacyMode(autoconnect, verbose, LegacySerialOSCGrid('monome 256', nil, defaultLegacyModeListenPort, 0));
+	}
+
+	*legacyMode { |autoconnect=true, verbose=false, legacyGrid|
 		var devicesRemovedFromDevicesList;
 
+		this.prInit(autoconnect, verbose);
+	
 		thisProcess.addOSCRecvFunc(legacyModeOscRecvFunc);
 
 		initialized = true;
 		runningLegacyMode = true;
 
 		devicesRemovedFromDevicesList = devices;
-		// TODO: right now this is hard coded to 'monome 40h'
-		grid = LegacySerialOSCGrid('monome 40h', nil, defaultLegacyModeListenPort, 0);
-		devices = [grid];
+		devices = [legacyGrid];
 
-		this.prPostDevicesListUpdateCleanup(devices, devicesRemovedFromDevicesList);
+		this.prAfterDevicesListUpdate(devices, devicesRemovedFromDevicesList);
 
-		Post << "Running SerialOSCClient in Legacy Mode. For an attached grid to work MonomeSerial has to run and be configured with Host Port %, Address Prefix /monome and Listen Port according to the LegacySerialOSCGrid in use.".format(NetAddr.langPort) << Char.nl;
-
-		completionFunc.();
+		"SerialOSCClient is running in legacy mode. For an attached grid to work MonomeSerial has to run and be configured with Host Port %, Address Prefix /monome and Listen Port %.".format(NetAddr.langPort, legacyGrid.port).postln;
 	}
 
-	// TODO: naming
-	*prPostDevicesListUpdateCleanup { |devicesAddedToDevicesList, devicesRemovedFromDevicesList|
+	*prInit { |argAutoconnect, argVerbose, initFunc|
+		autoconnectDevices = argAutoconnect;
+		beVerbose = argVerbose;
+
+		this.prRemoveRegisteredOSCRecvFuncsIfAny;
+
+		if (SerialOSCComm.isTrackingConnectedDevicesChanges) {
+			SerialOSCComm.stopTrackingConnectedDevicesChanges
+		};
+
+		initFunc.value;
+	}
+
+	*prAfterDevicesListUpdate { |devicesAddedToDevicesList, devicesRemovedFromDevicesList|
 		this.postDevices;
 		this.prNotifyChangesInDevicesList(devicesAddedToDevicesList, devicesRemovedFromDevicesList);
 		devicesRemovedFromDevicesList do: (_.remove);
@@ -204,9 +188,8 @@ SerialOSCClient {
 	*prUpdateDefaultGrid { |devicesAddedToDevicesList, devicesRemovedFromDevicesList|
 		var addedAndConnectedGrids, connectedGridsNotRoutedToAClient;
 
-		// TODO: do first pass with this.prDeviceIsEncByType, then the two other branches
 		addedAndConnectedGrids = devicesAddedToDevicesList.reject(this.prDeviceIsEncByType(_)).select(_.isConnected);
-		connectedGridsNotRoutedToAClient = connectedDevices.reject(this.prDeviceIsEncByType(_)).reject { |device| device.client.notNil };
+		connectedGridsNotRoutedToAClient = SerialOSCGrid.connected.reject { |grid| grid.client.notNil };
 
 		case
 			{ SerialOSCGrid.default.isNil and: addedAndConnectedGrids.notEmpty } {
@@ -222,9 +205,8 @@ SerialOSCClient {
 	*prUpdateDefaultEnc { |devicesAddedToDevicesList, devicesRemovedFromDevicesList|
 		var addedAndConnectedEncs, connectedEncsNotRoutedToAClient;
 
-		// TODO: do first pass with this.prDeviceIsEncByType, then the two other branches
 		addedAndConnectedEncs = devicesAddedToDevicesList.select(this.prDeviceIsEncByType(_)).select(_.isConnected);
-		connectedEncsNotRoutedToAClient = connectedDevices.select(this.prDeviceIsEncByType(_)).reject { |device| device.client.notNil };
+		connectedEncsNotRoutedToAClient = SerialOSCEnc.connected.reject { |enc| enc.client.notNil };
 
 		case
 			{ SerialOSCEnc.default.isNil and: addedAndConnectedEncs.notEmpty } {
@@ -264,9 +246,7 @@ SerialOSCClient {
 
 			this.prAutorouteDeviceToClients;
 
-			beVerbose.if {
-				Post << device << Char.space << "was connected" << Char.nl; // TODO: why not use postln instead of Post? here and throughout
-			};
+			beVerbose.if { "% was connected".format(device).postln };
 		};
 	}
 
@@ -279,7 +259,7 @@ SerialOSCClient {
 		clients.do { |client| client.findAndRouteUnusedDevicesToClient(false) };
 	}
 
-	*explicitlyAddDevice { |device|
+	*explicitlyAddDevice { |device| // TODO: remove
 		devices = devices.add(device);
 	}
 
@@ -326,29 +306,27 @@ SerialOSCClient {
 				}
 			};
 
-			beVerbose.if {
-				Post << device << Char.space << "was disconnected" << Char.nl;
-			};
+			beVerbose.if { "% was disconnected".format(device).postln };
 		};
 	}
 
 	*postDevices {
 		if (devices.notEmpty) {
-			Post << "SerialOSC Devices:" << Char.nl;
-			devices.do({ |x| Post << Char.tab << x << Char.nl });
+			"SerialOSC Devices:".postln;
+			devices.do { |device| (Char.tab ++ device).postln };
 		} {
-			Post << "No SerialOSC Devices are attached" << Char.nl;
+			"No SerialOSC Devices are attached".postln;
 		};
 	}
 
 	*prPostDeviceAdded { |device|
-		Post << "A SerialOSC Device was attached to the computer:" << Char.nl;
-		Post << Char.tab << device << Char.nl;
+		"A SerialOSC Device was attached to the computer:".postln;
+		(Char.tab ++ device).postln;
 	}
 
 	*prPostDeviceRemoved { |device|
-		Post << "A SerialOSC Device was detached from the computer:" << Char.nl;
-		Post << Char.tab << device << Char.nl
+		"A SerialOSC Device was detached from the computer:".postln;
+		(Char.tab ++ device).postln;
 	}
 
 	*prDeviceIsEncByType { |device|
@@ -569,9 +547,7 @@ SerialOSCClient {
 		grid.client = this;
 		onGridRouted.value(this);
 		this.prNotifyDeviceRouted(grid);
-		beVerbose.if {
-			Post << grid << Char.space << "was routed to client" << this << Char.nl;
-		};
+		beVerbose.if { "% was routed to client %".format(grid, this).postln };
 		this.prWarnIfGridDoNotMatchSpec;
 		this.refreshGrid;
 	}
@@ -596,9 +572,7 @@ SerialOSCClient {
 		enc.client = this;
 		onEncRouted.value(this);
 		this.prNotifyDeviceRouted(enc);
-		beVerbose.if {
-			Post << enc << Char.space << "was routed to client" << this << Char.nl;
-		};
+		beVerbose.if { "% was routed to client %".format(enc, this).postln };
 		this.prWarnIfEncDoNotMatchSpec;
 		this.refreshEnc;
 	}
@@ -696,8 +670,8 @@ SerialOSCClient {
 
 	*gridMatchesSpec { |grid, gridSpec|
 		var numCols, numRows;
-		numCols = grid.getNumCols;
-		numRows = grid.getNumRows;
+		numCols = grid.numCols;
+		numRows = grid.numRows;
 		^case
 			{gridSpec == \any} { true }
 			{gridSpec.respondsTo(\key) and: gridSpec.respondsTo(\value)} {
@@ -711,7 +685,7 @@ SerialOSCClient {
 	}
 
 	*encMatchesSpec { |enc, encSpec|
-		^(encSpec == \any) or: (encSpec == enc.getNumEncs)
+		^(encSpec == \any) or: (encSpec == enc.numEncs)
 	}
 
 	refreshGrid {
@@ -1036,12 +1010,12 @@ SerialOSCGrid : SerialOSCDevice {
 		default !? { |grid| grid.tiltSet(n, state) };
 	}
 
-	*getNumCols { // TODO: rename to numCols?
-		^default !? (_.getNumCols)
+	*numCols { // TODO: rename to numCols?
+		^default !? (_.numCols)
 	}
 
-	*getNumRows { // TODO: rename to numCols?
-		^default !? (_.getNumRows)
+	*numRows { // TODO: rename to numCols?
+		^default !? (_.numRows)
 	}
 
 	*rotation {
@@ -1116,17 +1090,17 @@ SerialOSCGrid : SerialOSCDevice {
 		this.prSendMsg('/tilt/set', n.asInteger, state.asInteger);
 	}
 
-	ledXSpec { ^ControlSpec(0, this.getNumCols, step: 1) }
+	ledXSpec { ^ControlSpec(0, this.numCols, step: 1) }
 
-	ledYSpec { ^ControlSpec(0, this.getNumRows, step: 1) }
+	ledYSpec { ^ControlSpec(0, this.numRows, step: 1) }
 
-	getNumCols {
+	numCols {
 		^case
 			{ [0, 180].includes(rotation) } { this.prDeviceNumColsFromType }
 			{ [90, 270].includes(rotation) } { this.prDeviceNumRowsFromType }
 	}
 
-	getNumRows {
+	numRows {
 		^case
 			{ [0, 180].includes(rotation) } { this.prDeviceNumRowsFromType }
 			{ [90, 270].includes(rotation) } { this.prDeviceNumColsFromType }
@@ -1229,8 +1203,8 @@ SerialOSCEnc : SerialOSCDevice {
 		default !? (_.nSpec)
 	}
 
-	*getNumEncs {
-		default !? (_.getNumEncs)
+	*numEncs {
+		default !? (_.numEncs)
 	}
 
 	clearRings {
@@ -1254,10 +1228,10 @@ SerialOSCEnc : SerialOSCDevice {
 	}
 
 	nSpec {
-		^ControlSpec(0, this.getNumEncs, step: 1);
+		^ControlSpec(0, this.numEncs, step: 1);
 	}
 
-	getNumEncs {
+	numEncs {
 		^switch (type)
 			{ 'monome arc 2' } { 2 }
 			{ 'monome arc 4' } { 4 }
@@ -1577,9 +1551,7 @@ SerialOSCComm {
 	}
 
 	*prTraceOutput { |str|
-		trace.if {
-			("SerialOSCComm trace:" + str).postln;
-		};
+		trace.if { ("SerialOSCComm trace:" + str).postln };
 	}
 }
 
