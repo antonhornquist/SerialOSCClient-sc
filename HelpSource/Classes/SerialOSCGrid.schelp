@@ -339,34 +339,45 @@ SerialOSCGrid.activateTilt(0);
 SerialOSCGrid.deactivateTilt(0);
 Tiltdef(\test).free;
 
-// Using dependancy support it is possible to observe when new devices are attached or detached, connected or disconnected. It is also possible to get notified when a new default SerialOSCGrid is set.
+// TODO: move to separate Reference/DependancySupport
+
+// Using dependancy support it is possible to observe when new devices are detached, connected or disconnected. It is also possible to get notified when a new default SerialOSCGrid is set.
 
 (
 SerialOSCGrid.addDependant { |thechanged, what, device, details|
 	switch ( what )
-	{'detached'} {
-		(device + "was detached").postln;
-	}
-	{'connected'} {
-		(device + "was connected").postln;
-	}
-	{'disconnected'} {
-		(device + "was disconnected").postln;
-	}
-	{'routed'} {
-		(device + "was routed to client" + details).postln;
-	}
-	{'unrouted'} {
-		(device + "was unrouted").postln;
-	}
-	{'rotation'} {
-		(device + "rotation was changed to" + details).postln;
-	}
 	{'default'} {
-		(device + "was set as default").postln;
+		"New SerialOSCGrid default: %".format(device).postln;
 	};
 };
 )
 
-SerialOSCGrid.releaseAllDependants; // stop listening to grid notifications
+(
+// assumes a default grid is available
+SerialOSCGrid.default.addDependant { |thechanged, what, details|
+	switch ( what )
+	{'detached'} {
+		"% was detached".format(thechanged).postln;
+	}
+	{'connected'} {
+		"% was connected".format(thechanged).postln;
+	}
+	{'disconnected'} {
+		"% was disconnected".format(thechanged).postln;
+	}
+	{'routed'} {
+		"% was routed to %".format(thechanged, details).postln;
+	}
+	{'unrouted'} {
+		"% was unrouted from %".format(thechanged, details).postln;
+	}
+	{'rotation'} {
+		"% rotation was changed to %".format(thechanged, details).postln;
+	}
+};
+)
+
+// stop listening to notifications
+SerialOSCGrid.releaseAllDependants;
+SerialOSCGrid.default.releaseAllDependants;
 ::

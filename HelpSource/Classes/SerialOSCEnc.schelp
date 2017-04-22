@@ -162,31 +162,42 @@ SerialOSCEnc.ringMap(0, 64.collect { SerialOSCEnc.ledLSpec.maxval.rand }); // ra
 SerialOSCEnc.ringRange(1, 15, 20, 15);
 SerialOSCEnc.ringRange(1, 40, 50, 10);
 
-// Using dependancy support it is possible to observe when new devices are attached or detached, connected or disconnected. It is also possible to get notified when a new default SerialOSCEnc is set.
+// TODO: move to separate Reference/DependancySupport
+
+// Using dependancy support it is possible to observe when new devices are detached, connected or disconnected. It is also possible to get notified when a new default SerialOSCEnc is set.
 
 (
 SerialOSCEnc.addDependant { |thechanged, what, device, details|
 	switch ( what )
-	{'detached'} {
-		(device + "was detached").postln;
-	}
-	{'connected'} {
-		(device + "was connected").postln;
-	}
-	{'disconnected'} {
-		(device + "was disconnected").postln;
-	}
-	{'routed'} {
-		(device + "was routed to client" + details).postln;
-	}
-	{'unrouted'} {
-		(device + "was unrouted").postln;
-	}
 	{'default'} {
-		(device + "was set as default").postln;
+		"New SerialOSCEnc default: %".format(device).postln;
 	};
 };
 )
 
-SerialOSCEnc.releaseAllDependants; // stop listening to encoder notifications
+(
+// assumes a default enc is available
+SerialOSCEnc.default.addDependant { |thechanged, what, details|
+	switch ( what )
+	{'detached'} {
+		"% was detached".format(thechanged).postln;
+	}
+	{'connected'} {
+		"% was connected".format(thechanged).postln;
+	}
+	{'disconnected'} {
+		"% was disconnected".format(thechanged).postln;
+	}
+	{'routed'} {
+		"% was routed to %".format(thechanged, details).postln;
+	}
+	{'unrouted'} {
+		"% was unrouted from %".format(thechanged, details).postln;
+	}
+};
+)
+
+// stop listening to encoder notifications
+SerialOSCEnc.releaseAllDependants;
+SerialOSCEnc.default.releaseAllDependants;
 ::

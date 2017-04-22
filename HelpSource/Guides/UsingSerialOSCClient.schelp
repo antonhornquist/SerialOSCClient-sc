@@ -251,13 +251,13 @@ a.type;
 a.port;
 a.numCols;
 a.numRows;
-a.getNumCols; // cols taking rotation into account
-a.getNumRows; // rows taking rotation into account
+a.numCols; // cols taking rotation into account
+a.numRows; // rows taking rotation into account
 a.rotation;
 
 a.rotation = 90;
-a.getNumCols;
-a.getNumRows;
+a.numCols;
+a.numRows;
 
 b=SerialOSCEnc.default; // assumes an enc is attached and set as default
 b.id;
@@ -892,7 +892,7 @@ code::
 	var queuedSlots = Array.fill(numTracks);
 	var playingSlots = Array.fill(numTracks);
 
-	var numVisibleTracks = { min(numTracks, client.grid.getNumCols-1) }; // TODO: rename getNumCols in SerialOSCClient to numCols
+	var numVisibleTracks = { min(numTracks, client.grid.numCols-1) };
 
 	var playSlot = { |trackIndex, slotIndex|
 		patterns[trackIndex][slotIndex].notNil.if {
@@ -942,8 +942,8 @@ code::
 
 	var refreshTrackLeds = { |trackIndex|
 		client.grid !? { |grid|
-			if (trackIndex < (grid.getNumCols-1)) {
-				(grid.getNumRows-1).do { |slotIndex| // TODO: rename getNumRows to numRows in SerialOSCClient
+			if (trackIndex < (grid.numCols-1)) {
+				(grid.numRows-1).do { |slotIndex|
 					var level = if (slotIndex <= numSlotsPerTrack) {
 						case
 						{ playingSlots[trackIndex] == slotIndex } { playingLedLevel }
@@ -987,7 +987,7 @@ code::
 		stopPlaying.value(trackIndex);
 		patterns[trackIndex][slotIndex] = pattern;
 		client.grid !? { |grid|
-			if ( (trackIndex < (grid.getNumCols-1)) and: (slotIndex < (grid.getNumRows-1)) ) {
+			if ( (trackIndex < (grid.numCols-1)) and: (slotIndex < (grid.numRows-1)) ) {
 				client.ledLevelSet(trackIndex, slotIndex, loadedLedLevel);
 			};
 		};
@@ -998,17 +998,17 @@ code::
 	s.waitForBoot {
 		client.gridKeyAction = { |client, x, y, state, timestamp|
 			case
-			{ state.asBoolean and: (y < (client.grid.getNumRows-1)) } {
+			{ state.asBoolean and: (y < (client.grid.numRows-1)) } {
 				case
 				{ x < numVisibleTracks.value } { playSlot.value(x, y) }
-				{ x == (client.grid.getNumCols-1) } {
+				{ x == (client.grid.numCols-1) } {
 					numVisibleTracks.value.do { |trackIndex| playSlot.value(trackIndex, y) }
 				}
 			}
-			{ state.asBoolean and: (y == (client.grid.getNumRows-1))} {
+			{ state.asBoolean and: (y == (client.grid.numRows-1))} {
 				case
 				{ x < numVisibleTracks.value } { stopTrack.value(x) }
-				{ x == (client.grid.getNumCols-1) } {
+				{ x == (client.grid.numCols-1) } {
 					numVisibleTracks.value.do { |trackIndex| stopTrack.value(trackIndex) }
 				}
 			};

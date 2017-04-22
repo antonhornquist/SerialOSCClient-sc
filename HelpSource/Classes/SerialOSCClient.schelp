@@ -404,28 +404,30 @@ METHOD:: ringRange
 EXAMPLES::
 
 code::
+// TODO: move to separate Reference/DependancySupport
+
 // Using dependancy support it is possible to get notified when devices are attached/detached, connected/disconnected, routed/unrouted, et cetera.
 
 (
-SerialOSCClient.addDependant { |thechanged, what, device|
+SerialOSCClient.addDependant { |thechanged, what, device, details|
 	switch ( what )
 	{'attached'} {
-		(device + "was detached").postln;
+		"% was attached".format(device).postln;
 	}
 	{'detached'} {
-		(device + "was detached").postln;
+		"% was detached".format(device).postln;
 	}
 	{'connected'} {
-		(device + "was connected").postln;
+		"% was connected".format(device).postln;
 	}
 	{'disconnected'} {
-		(device + "was disconnected").postln;
+		"% was disconnected".format(device).postln;
 	}
 	{'routed'} {
-		(device + "was routed to client" + client).postln;
+		"% was routed to %".format(device, details).postln;
 	}
 	{'unrouted'} {
-		(device + "was unrouted").postln;
+		"% was unrouted from %".format(device, details).postln;
 	}
 };
 )
