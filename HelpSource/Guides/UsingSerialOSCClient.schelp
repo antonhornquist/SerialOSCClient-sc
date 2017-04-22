@@ -876,7 +876,7 @@ subsection::Clip Launcher
 
 code::
 (
-~launcher = SerialOSCClient.grid('clip launcher') { |client|
+~clip = SerialOSCClient.grid('clip') { |client|
 	var playingLedLevel = 15;
 	var queuedLedLevel = 6;
 	var loadedLedLevel = 3;
@@ -1026,7 +1026,7 @@ code::
 )
 ::
 
-See link::Guides/ClipLauncherExample:: for details on how to use this step sequencer.
+See link::Guides/ClipExample:: for details on how to use this step sequencer.
 
 section::Feedback
 

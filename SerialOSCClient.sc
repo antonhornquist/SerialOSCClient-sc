@@ -2,16 +2,16 @@ SerialOSCClient {
 	classvar prefix='/monome';
 	classvar defaultLegacyModeListenPort=8080;
 	classvar devicesSemaphore;
-	classvar autoconnectDevices;
-	classvar beVerbose;
-	classvar recvSerialOSCFunc, oscRecvFunc, legacyModeOscRecvFunc;
+	classvar autoconnect;
+	classvar verbose;
+	classvar recvSerialOSCFunc;
 
 	classvar <devices, <connectedDevices;
 	classvar <all;
 	classvar <initialized=false;
 	classvar <runningLegacyMode=false;
 
-	var gridResponder, tiltResponder, gridDependantFunc;
+	var gridKeyResponder, tiltResponder, gridDependantFunc;
 	var encDeltaResponder, encKeyResponder, encDependantFunc;
 
 	var <name;
@@ -33,28 +33,28 @@ SerialOSCClient {
 		connectedDevices = [];
 		devicesSemaphore = Semaphore.new;
 		CmdPeriod.add(this);
-		// TODO: consider refactor to class method
-		oscRecvFunc = { |msg, time, addr, recvPort|
-			if (addr.ip == "127.0.0.1") { // TODO: why only allow localhost?
-				this.prLookupDeviceByPort(addr.port) !? { |device|
-					if (connectedDevices.includes(device)) {
-						if (#['/monome/grid/key', '/monome/tilt', '/monome/enc/delta', '/monome/enc/key'].includes(msg[0])) { // note: no pattern matching is performed on OSC address
-							var type = msg[0].asString[7..].asSymbol;
-							recvSerialOSCFunc.value(type, msg[1..], time, device);
-						};
+	}
+
+	*prOscRecvFunc { |msg, time, addr, recvPort|
+		if (addr.ip == "127.0.0.1") {
+			this.prLookupDeviceByPort(addr.port) !? { |device|
+				if (connectedDevices.includes(device)) {
+					if (#['/monome/grid/key', '/monome/tilt', '/monome/enc/delta', '/monome/enc/key'].includes(msg[0])) { // note: no pattern matching is performed on OSC address
+						var type = msg[0].asString[7..].asSymbol;
+						recvSerialOSCFunc.value(type, msg[1..], time, device);
 					};
 				};
 			};
 		};
-		// TODO: consider refactor to class method
-		legacyModeOscRecvFunc = { |msg, time, addr, recvPort|
-			if (addr.ip == "127.0.0.1") { // TODO: why only allow localhost?
-				this.prLookupDeviceByPort(addr.port) !? { |device|
-					if (connectedDevices.includes(device)) {
-						if ('/monome/press' == msg[0]) { // note: no pattern matching is performed on OSC address
-							var type = msg[0].asString[7..].asSymbol;
-							recvSerialOSCFunc.value('/grid/key', msg[1..], time, device);
-						};
+	}
+
+	*prLegacyModeOscRecvFunc { |msg, time, addr, recvPort|
+		if (addr.ip == "127.0.0.1") {
+			this.prLookupDeviceByPort(addr.port) !? { |device|
+				if (connectedDevices.includes(device)) {
+					if ('/monome/press' == msg[0]) { // note: no pattern matching is performed on OSC address
+						var type = msg[0].asString[7..].asSymbol;
+						recvSerialOSCFunc.value('/grid/key', msg[1..], time, device);
 					};
 				};
 			};
@@ -71,7 +71,7 @@ SerialOSCClient {
 			);
 		};
 
-		thisProcess.addOSCRecvFunc(oscRecvFunc);
+		thisProcess.addOSCRecvFunc(this.prOscRecvFunc);
 
 		initialized = true;
 		runningLegacyMode = false;
@@ -85,27 +85,27 @@ SerialOSCClient {
 	}
 
 	*legacy40h { |autoconnect=true, verbose=false|
-		this.legacyMode(autoconnect, verbose, LegacySerialOSCGrid('monome 40h', nil, defaultLegacyModeListenPort, 0));
+		this.prLegacyMode(autoconnect, verbose, LegacySerialOSCGrid('monome 40h', nil, defaultLegacyModeListenPort, 0));
 	}
 
 	*legacy64 { |autoconnect=true, verbose=false|
-		this.legacyMode(autoconnect, verbose, LegacySerialOSCGrid('monome 64', nil, defaultLegacyModeListenPort, 0));
+		this.prLegacyMode(autoconnect, verbose, LegacySerialOSCGrid('monome 64', nil, defaultLegacyModeListenPort, 0));
 	}
 
 	*legacy128 { |autoconnect=true, verbose=false|
-		this.legacyMode(autoconnect, verbose, LegacySerialOSCGrid('monome 128', nil, defaultLegacyModeListenPort, 0));
+		this.prLegacyMode(autoconnect, verbose, LegacySerialOSCGrid('monome 128', nil, defaultLegacyModeListenPort, 0));
 	}
 
 	*legacy256 { |autoconnect=true, verbose=false|
-		this.legacyMode(autoconnect, verbose, LegacySerialOSCGrid('monome 256', nil, defaultLegacyModeListenPort, 0));
+		this.prLegacyMode(autoconnect, verbose, LegacySerialOSCGrid('monome 256', nil, defaultLegacyModeListenPort, 0));
 	}
 
-	*legacyMode { |autoconnect=true, verbose=false, legacyGrid|
+	*prLegacyMode { |autoconnect=true, verbose=false, legacyGrid|
 		var devicesRemovedFromDevicesList;
 
 		this.prInit(autoconnect, verbose);
 	
-		thisProcess.addOSCRecvFunc(legacyModeOscRecvFunc);
+		thisProcess.addOSCRecvFunc(this.prLegacyModeOscRecvFunc);
 
 		initialized = true;
 		runningLegacyMode = true;
@@ -119,8 +119,8 @@ SerialOSCClient {
 	}
 
 	*prInit { |argAutoconnect, argVerbose, initFunc|
-		autoconnectDevices = argAutoconnect;
-		beVerbose = argVerbose;
+		autoconnect = argAutoconnect;
+		verbose = argVerbose;
 
 		this.prRemoveRegisteredOSCRecvFuncsIfAny;
 
@@ -135,28 +135,13 @@ SerialOSCClient {
 		this.postDevices;
 		this.prNotifyChangesInDevicesList(devicesAddedToDevicesList, devicesRemovedFromDevicesList);
 		devicesRemovedFromDevicesList do: (_.remove);
-		if (autoconnectDevices) { this.connectAll(false) };
+		if (autoconnect) { devicesAddedToDevicesList do: _.connect };
 		this.prUpdateDefaultDevices(devicesAddedToDevicesList, devicesRemovedFromDevicesList);
 	}
 
-	*setLegacyModeGrid { |type, listenPort|
-		if (runningLegacyMode) {
-			var grid;
-			var removedDevices;
-
-			this.disconnectAll;
-			removedDevices = devices;
-			grid = SerialOSCGrid(type.asSymbol, nil, listenPort ? defaultLegacyModeListenPort, 0);
-			devices = [grid];
-			SerialOSCGrid.default = grid; // TODO: consider evaluating prUpdateDefaultDevices instead
-			// this.prUpdateDefaultDevices([], removedDevices); TODO: check why prUpdateDefaultDevices do not work in Legacy Mode
-			if (autoconnectDevices) { this.connect(grid) };
-		};
-	}
-
 	*prRemoveRegisteredOSCRecvFuncsIfAny {
-		thisProcess.removeOSCRecvFunc(oscRecvFunc);
-		thisProcess.removeOSCRecvFunc(legacyModeOscRecvFunc);
+		thisProcess.removeOSCRecvFunc(this.prOscRecvFunc);
+		thisProcess.removeOSCRecvFunc(this.prLegacyModeOscRecvFunc);
 	}
 
 	*addSerialOSCRecvFunc { |func| recvSerialOSCFunc = recvSerialOSCFunc.addFunc(func) }
@@ -246,7 +231,7 @@ SerialOSCClient {
 
 			this.prAutorouteDeviceToClients;
 
-			beVerbose.if { "% was connected".format(device).postln };
+			verbose.if { "% was connected".format(device).postln };
 		};
 	}
 
@@ -257,10 +242,6 @@ SerialOSCClient {
 
 		clients.do { |client| client.findAndRouteUnusedDevicesToClient(true) };
 		clients.do { |client| client.findAndRouteUnusedDevicesToClient(false) };
-	}
-
-	*explicitlyAddDevice { |device| // TODO: remove
-		devices = devices.add(device);
 	}
 
 	*doGridKeyAction { |x, y, state, device|
@@ -306,7 +287,7 @@ SerialOSCClient {
 				}
 			};
 
-			beVerbose.if { "% was disconnected".format(device).postln };
+			verbose.if { "% was disconnected".format(device).postln };
 		};
 	}
 
@@ -530,13 +511,13 @@ SerialOSCClient {
 	prRouteGridToClient { |argGrid|
 		grid = argGrid;
 		grid.addDependant(gridDependantFunc);
-		gridResponder = GridKeyFunc.new(
+		gridKeyResponder = GridKeyFunc.new(
 			{ |x, y, state, time, device|
 				gridKeyAction.value(this, x, y, state);
 			},
 			device: \client -> this
 		);
-		gridResponder.permanent = true;
+		gridKeyResponder.permanent = true;
 		tiltResponder = TiltFunc.new(
 			{ |n, x, y, z, time, device|
 				tiltAction.value(this, n, x, y, z);
@@ -547,7 +528,7 @@ SerialOSCClient {
 		grid.client = this;
 		onGridRouted.value(this);
 		this.prNotifyDeviceRouted(grid);
-		beVerbose.if { "% was routed to client %".format(grid, this).postln };
+		verbose.if { "% was routed to client %".format(grid, this).postln };
 		this.prWarnIfGridDoNotMatchSpec;
 		this.refreshGrid;
 	}
@@ -572,7 +553,7 @@ SerialOSCClient {
 		enc.client = this;
 		onEncRouted.value(this);
 		this.prNotifyDeviceRouted(enc);
-		beVerbose.if { "% was routed to client %".format(enc, this).postln };
+		verbose.if { "% was routed to client %".format(enc, this).postln };
 		this.prWarnIfEncDoNotMatchSpec;
 		this.refreshEnc;
 	}
@@ -589,20 +570,19 @@ SerialOSCClient {
 
 	asSerialOSCClient { ^this }
 
-	// TODO: naming?
 	grabDevices {
 		this.grabGrid;
 		this.grabEnc;
 	}
 
 	grabGrid {
-		if (SerialOSCGrid.all.notEmpty) {
+		if (this.usesGrid and: SerialOSCGrid.all.notEmpty) {
 			SerialOSCClient.route(SerialOSCGrid.all.first);
 		};
 	}
 
 	grabEnc {
-		if (SerialOSCEnc.all.notEmpty) {
+		if (this.usesEnc and: SerialOSCEnc.all.notEmpty) {
 			SerialOSCClient.route(SerialOSCEnc.all.first);
 		};
 	}
@@ -620,8 +600,8 @@ SerialOSCClient {
 		client.usesGrid.not.if {
 			"Client % does not use a grid".format(client).postln;
 		} {
-			if (client.grid.notNil) { client.unrouteGrid };
-			if (grid.client.notNil) { grid.client.unrouteGrid }; // TODO: consider implementing SerialOSCGrid-unrouteClient or SerialOSCGrid-detachFromClient
+			client.grid.notNil.if { client.unrouteGrid };
+			grid.client.notNil.if { grid.unroute };
 			client.prRouteGridToClient(grid);
 		};
 	}
@@ -630,8 +610,8 @@ SerialOSCClient {
 		client.usesEnc.not.if {
 			"Client % does not use an enc".format(client).postln;
 		} {
-			if (client.enc.notNil) { client.unrouteEnc };
-			if (enc.client.notNil) { enc.client.unrouteEnc }; // TODO: consider implementing SerialOSCEnc-unrouteClient or SerialOSCEnc-detachFromClient
+			client.enc.notNil.if { client.unrouteEnc };
+			enc.client.notNil.if { enc.unroute };
 			client.prRouteEncToClient(enc);
 		};
 	}
@@ -707,7 +687,7 @@ SerialOSCClient {
 			grid.clearLeds;
 			grid = nil;
 		};
-		gridResponder.free;
+		gridKeyResponder.free;
 		tiltResponder.free;
 		onGridUnrouted.value(this, gridToUnroute);
 		this.prNotifyDeviceUnrouted(enc);
@@ -825,7 +805,7 @@ SerialOSCClient {
 						this.prPostDeviceAdded(device);
 						this.changed(\attached, device);
 						this.prNotifyChangesInDevicesList([device], []);
-						if (autoconnectDevices) { this.connect(device) };
+						if (autoconnect) { this.connect(device) };
 						this.prUpdateDefaultDevices([device], []);
 					};
 					devicesSemaphore.signal;
@@ -1010,11 +990,11 @@ SerialOSCGrid : SerialOSCDevice {
 		default !? { |grid| grid.tiltSet(n, state) };
 	}
 
-	*numCols { // TODO: rename to numCols?
+	*numCols {
 		^default !? (_.numCols)
 	}
 
-	*numRows { // TODO: rename to numCols?
+	*numRows {
 		^default !? (_.numRows)
 	}
 
@@ -1127,6 +1107,8 @@ SerialOSCGrid : SerialOSCDevice {
 			{ 'monome 128' } { 8 }
 			{ 'monome 256' } { 16 }
 	}
+
+	unroute { client.notNil.if { this.unrouteGrid } }
 }
 
 SerialOSCEnc : SerialOSCDevice {
@@ -1236,6 +1218,8 @@ SerialOSCEnc : SerialOSCDevice {
 			{ 'monome arc 2' } { 2 }
 			{ 'monome arc 4' } { 4 }
 	}
+
+	unroute { client.notNil.if { this.unrouteEnc } }
 }
 
 SerialOSCDevice {

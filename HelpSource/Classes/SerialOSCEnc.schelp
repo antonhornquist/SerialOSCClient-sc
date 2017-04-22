@@ -165,25 +165,25 @@ SerialOSCEnc.ringRange(1, 40, 50, 10);
 // Using dependancy support it is possible to observe when new devices are attached or detached, connected or disconnected. It is also possible to get notified when a new default SerialOSCEnc is set.
 
 (
-SerialOSCEnc.addDependant { |thechanged, what, device|
+SerialOSCEnc.addDependant { |thechanged, what, device, details|
 	switch ( what )
 	{'detached'} {
-		("encoder" + device + "was detached").postln;
+		(device + "was detached").postln;
 	}
 	{'connected'} {
-		("encoder" + device + "was connected").postln;
+		(device + "was connected").postln;
 	}
 	{'disconnected'} {
-		("encoder" + device + "was disconnected").postln;
+		(device + "was disconnected").postln;
 	}
 	{'routed'} {
-		("encoder" + device + "was routed to client" + TODO).postln;
+		(device + "was routed to client" + details).postln;
 	}
 	{'unrouted'} {
-		("encoder" + device + "was unrouted").postln;
+		(device + "was unrouted").postln;
 	}
 	{'default'} {
-		("encoder" + device + "was set as default").postln;
+		(device + "was set as default").postln;
 	};
 };
 )

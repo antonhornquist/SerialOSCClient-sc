@@ -42,8 +42,12 @@ When autodiscover is set false a new call to code::init:: is required to refresh
 ARGUMENT:: verbose
 Print extended information to the Post Window. The default is false.
 
-ARGUMENT:: legacyMode
-TODO
+ARGUMENT:: legacy40h
+ARGUMENT:: legacy64
+ARGUMENT:: legacy128
+ARGUMENT:: legacy256
+
+Initialize SerialOSCClient in legacy mode for a single grid with MonomeSerial.
 
 METHOD:: initialized
 Answers whether SerialOSCClient is initialized
@@ -406,22 +410,22 @@ code::
 SerialOSCClient.addDependant { |thechanged, what, device|
 	switch ( what )
 	{'attached'} {
-		("device" + TODO + "was detached").postln;
+		(device + "was detached").postln;
 	}
 	{'detached'} {
-		("device" + TODO + "was detached").postln;
+		(device + "was detached").postln;
 	}
 	{'connected'} {
-		("device" + TODO + "was connected").postln;
+		(device + "was connected").postln;
 	}
 	{'disconnected'} {
-		("device" + TODO + "was disconnected").postln;
+		(device + "was disconnected").postln;
 	}
 	{'routed'} {
-		("device" + TODO + "was routed to client" + TODO).postln;
+		(device + "was routed to client" + client).postln;
 	}
 	{'unrouted'} {
-		("device" + TODO + "was unrouted").postln;
+		(device + "was unrouted").postln;
 	}
 };
 )

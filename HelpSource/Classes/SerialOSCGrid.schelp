@@ -342,28 +342,28 @@ Tiltdef(\test).free;
 // Using dependancy support it is possible to observe when new devices are attached or detached, connected or disconnected. It is also possible to get notified when a new default SerialOSCGrid is set.
 
 (
-SerialOSCGrid.addDependant { |thechanged, what, device|
+SerialOSCGrid.addDependant { |thechanged, what, device, details|
 	switch ( what )
 	{'detached'} {
-		("grid" + device + "was detached").postln;
+		(device + "was detached").postln;
 	}
 	{'connected'} {
-		("grid" + device + "was connected").postln;
+		(device + "was connected").postln;
 	}
 	{'disconnected'} {
-		("grid" + device + "was disconnected").postln;
+		(device + "was disconnected").postln;
 	}
 	{'routed'} {
-		("grid" + device + "was routed to client" + TODO).postln;
+		(device + "was routed to client" + details).postln;
 	}
 	{'unrouted'} {
-		("grid" + device + "was unrouted").postln;
+		(device + "was unrouted").postln;
 	}
 	{'rotation'} {
-		("grid" + device + "rotation was changed to" + TODO).postln;
+		(device + "rotation was changed to" + details).postln;
 	}
 	{'default'} {
-		("grid" + device + "was set as default").postln;
+		(device + "was set as default").postln;
 	};
 };
 )
