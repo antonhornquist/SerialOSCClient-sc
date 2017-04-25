@@ -58,7 +58,7 @@ code::
 
 			slice.wait;
 
-			player = pattern.play;
+			player = pattern.play(protoEvents[trackIndex][slotIndex]);
 			player.addDependant(stopListener);
 
 			players[trackIndex][slotIndex] = player;
@@ -123,6 +123,11 @@ code::
 				client.ledLevelSet(trackIndex, slotIndex, loadedLedLevel);
 			};
 		};
+	};
+
+	client.addUniqueMethod(\loadProtoEvent) { |client, trackIndex, slotIndex, event|
+		stopPlaying.value(trackIndex);
+		protoEvent[trackIndex][slotIndex] = event;
 	};
 
 	client.addUniqueMethod(\quant_) { |client, argQuant| quant = argQuant };
@@ -212,12 +217,12 @@ s.waitForBoot {
 };
 )
 
-~launcher.load(0, 0, ~spawnLooper.value);
-~launcher.load(0, 1, ~spawnLooper.value);
-~launcher.load(0, 2, ~spawnLooper.value);
-~launcher.load(0, 3, ~spawnLooper.value);
+~clip.load(0, 0, ~spawnLooper.value);
+~clip.load(0, 1, ~spawnLooper.value);
+~clip.load(0, 2, ~spawnLooper.value);
+~clip.load(0, 3, ~spawnLooper.value);
 
-~launcher.load(1, 0, ~spawnLooper.value);
+~clip.load(1, 0, ~spawnLooper.value);
 
 
 Routine
@@ -231,7 +236,7 @@ Routine
 code::
 SerialOSCClient.init(legacyMode: true);
 (
-~launcher = SerialOSCClient.grid('clip launcher') { |client|
+~clip = SerialOSCClient.grid('clip') { |client|
     var playingLedLevel = 15;
     var queuedLedLevel = 6;
     var loadedLedLevel = 3;
@@ -469,13 +474,13 @@ s.reboot;
 TempoClock.tempo = 120/60
 )
 
-~launcher.quant_(4);
+~clip.quant_(4);
 
-~launcher.load(0, 0, Looper.new);
-~launcher.load(0, 1, Looper.new);
+~clip.load(0, 0, Looper.new);
+~clip.load(0, 1, Looper.new);
 
-~launcher.load(1, 0, Looper.new);
-~launcher.load(1, 1, Looper.new);
+~clip.load(1, 0, Looper.new);
+~clip.load(1, 1, Looper.new);
 
 
 (
@@ -495,7 +500,7 @@ SynthDef('tick', { |out=0, freq, amp|
 )
 
 ~metro.play;
-~launcher.load(6, 0, ~metro);
+~clip.load(6, 0, ~metro);
 
 ~monitor={Out.ar(0, SoundIn.ar([0, 1]))}.play;
 ~monitor.free;
