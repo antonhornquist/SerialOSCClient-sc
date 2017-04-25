@@ -127,7 +127,7 @@ code::
 
 	client.addUniqueMethod(\loadProtoEvent) { |client, trackIndex, slotIndex, event|
 		stopPlaying.value(trackIndex);
-		protoEvent[trackIndex][slotIndex] = event;
+		protoEvents[trackIndex][slotIndex] = event;
 	};
 
 	client.addUniqueMethod(\quant_) { |client, argQuant| quant = argQuant };
