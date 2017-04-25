@@ -8,23 +8,29 @@ section::SerialOSCClient Clip Launcher Example
 code::
 (
 ~clip = SerialOSCClient.grid('clip') { |client|
-	var playingLedLevel = 15;
-	var queuedLedLevel = 6;
-	var loadedLedLevel = 3;
+	var playingLedLevel = 15, queuedLedLevel = 8, loadedLedLevel = 4;
 	var numTracks = 15;
 	var numSlotsPerTrack = 15;
-	var quant = 1;
+	var quant;
 	var slice = 0.01; // slice must be less than quant
 	var listeners;
 
 	var patterns = Array.fill2D(numTracks, numSlotsPerTrack);
-	var protoEvents = Array.fill2D(numTracks, numSlotsPerTrack); // TODO: include in .play() invocation
+	var protoEvents = Array.fill2D(numTracks, numSlotsPerTrack);
 	var players = Array.fill2D(numTracks, numSlotsPerTrack);
 	var queueRoutines = Array.fill(numTracks);
 	var queuedSlots = Array.fill(numTracks);
 	var playingSlots = Array.fill(numTracks);
 
 	var numVisibleTracks = { min(numTracks, client.grid.numCols-1) };
+
+	var setQuant = { |beats|
+		if (beats.notNil) {
+			quant = [beats, (-1) * slice];
+		} {
+			quant = slice;
+		};
+	};
 
 	var playSlot = { |trackIndex, slotIndex|
 		patterns[trackIndex][slotIndex].notNil.if {
@@ -58,7 +64,7 @@ code::
 
 			slice.wait;
 
-			player = pattern.play(protoEvents[trackIndex][slotIndex]);
+			player = pattern.play(protoEvent: protoEvents[trackIndex][slotIndex]);
 			player.addDependant(stopListener);
 
 			players[trackIndex][slotIndex] = player;
@@ -68,7 +74,7 @@ code::
 		};
 
 		queueRoutines[trackIndex] = routine;
-		routine.play(quant: [quant, (-1) * slice]);
+		routine.play(quant: quant);
 		queuedSlots[trackIndex] = slotIndex;
 	};
 
@@ -105,7 +111,7 @@ code::
 			var routine = Routine { // TODO: possibly need to save this routine to not interfer with new queued play action of same slot
 				players[trackIndex][slotIndex].stop;
 			};
-			routine.play(quant: [quant, (-1) * slice]);
+			routine.play(quant: quant);
 		};
 	};
 
@@ -130,9 +136,11 @@ code::
 		protoEvents[trackIndex][slotIndex] = event;
 	};
 
-	client.addUniqueMethod(\quant_) { |client, argQuant| quant = argQuant };
+	client.addUniqueMethod(\quant_) { |client, beats| setQuant.value(beats) };
 
-	s.waitForBoot {
+	setQuant.value(1);
+
+	// TODO s.waitForBoot { // not really needed
 		client.gridKeyAction = { |client, x, y, state, timestamp|
 			case
 			{ state.asBoolean and: (y < (client.grid.numRows-1)) } {
@@ -158,20 +166,106 @@ code::
 		client.addUniqueMethod(\play) { |client, trackIndex, slotIndex| playSlot.value(trackIndex, slotIndex) };
 
 		client.grid !? { client.refreshGrid };
-	}
+	// TODO }
 };
 )
 ::
 
-section::How it works
+section::Using Clip
+
+subsection::How it works
 
 The Clip Launcher example app triggers playable things (typically, patterns) in a number of tracks on quantized divisions akin to how clips are triggered in the Session view of Ableton Live.
+
+subsection::Loading a Clip
+
+code::
+(
+~clip.load(
+	0, // first track
+	0, // first clip
+	Pbind(*[
+		degree: Pseq([0, 5, 2, 12], inf),
+		octave: Pseq([Pn(5, 4), Pn(4, 4)], inf),
+		dur: 0.2
+	])
+);
+)
+::
+
+subsection::Changing quantization
+
+code::
+~clip.quant; // current quant
+
+~clip.quant = 4; // change quant
+~clip.quant = 2;
+~clip.quant = nil; // minimal quant
+::
+
+subsection::Creating Clip variations with proto Events
+
+code::
+(
+SynthDef('tick', { |out=0, freq, amp|
+    var sig;
+    sig = SinOsc.ar(freq) * EnvGen.ar(Env.perc(0.01, 0.2), doneAction: 2) * amp;
+    OffsetOut.ar(out, sig ! 2);
+}).add;
+)
+
+(
+~metro = Pbind(*[
+    instrument: \tick,
+    octave: Pseq([6, 5, 5, 5], inf)
+]);
+)
+
+7.do { |i| ~clip.load(6, i, ~metro) };
+~clip.loadProtoEvent(6, 1, (mtranspose: 2));
+~clip.loadProtoEvent(6, 2, (mtranspose: -12));
+~clip.loadProtoEvent(6, 3, (mtranspose: -12, dur: 0.125));
+~clip.loadProtoEvent(6, 4, (mtranspose: 12, dur: 0.125));
+::
+
+subsection::Hacking Clip
+
+code::
+// GUI loops using a Task ?
+// Play sound ?
+// Loop sound ?
+// Recording looper ?
+::
 
 subsection::What can be triggered
 
 The short answer: link::Classes/Pattern::s and link::Classes/Task::s.
 
+But anything that responds to the same methods and adheres to the same principles of Patterns will work.
+
 A more elaborate answer: Any object that responds to a method code::.play:: that takes quant, this, and that (TODO) as arguments and that starts something and in turn returns an object that responds to method code::.stop:: in order to stop that something suffices as a clip to be launched. In addition, if that something may stop itself and the object that code::.play:: returns notifies dependants by invoking code::.changed:: with the first argument set to 'stopped' or 'userStopped' the clip launcher will automatically track the clip state and update leds accordingly.
+
+section::Considerations
+
+Server latency affects response time.
+
+code::
+s.latency; // check current server latency
+s.latency = 0.05; // set a low server latency
+::
+
+... as will soundcard latency:
+
+code::
+s.options.hardwareBufferSize; // sound card latency
+
+(
+// reboot with really low sound card latency (if possible)
+s.options.hardwareBufferSize = 64;
+s.reboot
+)
+::
+
 
 subsection::TODO
 
@@ -314,7 +408,7 @@ SerialOSCClient.init(legacyMode: true);
         };
 
         queueRoutines[trackIndex] = routine;
-        routine.play(quant: [quant, (-1) * slice]);
+        routine.play(quant: quant);
         queuedSlots[trackIndex] = slotIndex;
     };
 
@@ -352,7 +446,7 @@ SerialOSCClient.init(legacyMode: true);
                 // players[trackIndex][slotIndex].stop;
 				stopit.value(players[trackIndex][slotIndex]);
             };
-            routine.play(quant: [quant, (-1) * slice]);
+            routine.play(quant: quant);
         };
     };
 
