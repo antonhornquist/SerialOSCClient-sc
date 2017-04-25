@@ -1,7 +1,7 @@
 SerialOSCClient {
 	classvar prefix='/monome';
 	classvar defaultLegacyModeListenPort=8080;
-	classvar devicesSemaphore;
+	classvar devicesSemaphore; // TODO: verify semaphores are working using long timeout
 	classvar autoconnect;
 	classvar <>verbose;
 	classvar recvSerialOSCFunc, oscRecvFunc, legacyModeOscRecvFunc;
@@ -12,7 +12,7 @@ SerialOSCClient {
 	classvar <initialized=false;
 	classvar <runningLegacyMode=false;
 
-	var gridKeyResponder, tiltResponder/* TODO: remove , gridDependantFunc*/;
+	var gridKeyResponder, tiltResponder;
 	var encDeltaResponder, encKeyResponder;
 
 	var <name;
@@ -65,23 +65,10 @@ SerialOSCClient {
 			fork {
 				devicesSemaphore.wait;
 				if (this.prLookupDeviceById(id).isNil) {
-					// TODO: this might be reused both by deviceAddedHandler and deviceRemovedHandler
 					this.prUpdateDevicesListAsync {
 						this.prLookupDeviceById(id) !? { |device|
-							// TODO: why not just
-							// this.prSyncAfterDeviceListChanges(devicesAddedToDevicesList, devicesRemovedFromDevicesList);
-							// to cover for four lines below?
-							// is it the order?? may be handled
 							this.prSyncAfterDeviceListChanges([device], []);
-
-							this.prPostDeviceAdded(device); // TODO: consider including a plural variant in prAfterDeviceListUpdate
-/*
-	TODO: remove
-							this.changed(\attached, device);
-							this.notifyChangesToDevicesList([device], []);
-							if (autoconnect) { this.connect(device) };
-							this.prUpdateDefaultDevices([device], []);
-*/
+							this.prPostDeviceAdded(device); // TODO: Notifier?
 						};
 						devicesSemaphore.signal;
 					};
@@ -95,20 +82,8 @@ SerialOSCClient {
 			fork {
 				devicesSemaphore.wait;
 				this.prLookupDeviceById(id) !? { |device|
-					// TODO: why not just
-					// this.prSyncAfterDeviceListChanges(devicesAddedToDevicesList, devicesRemovedFromDevicesList);
-					// to cover for four lines below?
-					// is it the order?? may be handled in separate prAfterDevicesListUpdatedDeviceRemoved
-/*
-					device.remove;
-					this.notifyChangesToDevicesList([], [device]);
-					this.prUpdateDefaultDevices([], [device]);
-					this.changed(\detached, device);
-					device.changed(\detached);
-*/
 					this.prSyncAfterDeviceListChanges([], [device]);
-
-					this.prPostDeviceRemoved(device); // TODO: consider including a plural variant in prAfterDeviceListUpdate
+					this.prPostDeviceRemoved(device); // TODO: Notifier?
 				};
 				devicesSemaphore.signal;
 			};
@@ -187,7 +162,9 @@ SerialOSCClient {
 
 	*prSyncAfterDeviceListChanges { |devicesAddedToDevicesList, devicesRemovedFromDevicesList|
 		devicesRemovedFromDevicesList do: _.remove;
-		SerialOSCClientNotifier.notifyChangesToDevicesList(devicesAddedToDevicesList, devicesRemovedFromDevicesList);
+		devicesAddedToDevicesList do: { |device|
+			SerialOSCClientNotifier.notifyDeviceAttached(device);
+		};
 		if (autoconnect) { devicesAddedToDevicesList do: _.connect };
 		this.prUpdateDefaultDevices(devicesAddedToDevicesList, devicesRemovedFromDevicesList);
 	}
@@ -274,12 +251,9 @@ SerialOSCClient {
 
 			connectedDevices = connectedDevices.add(device);
 
-			this.changed(\connected, device);
-			device.changed(\connected);
+			SerialOSCClientNotifier.notifyDeviceConnected(device);
 
 			this.prAutorouteDeviceToClients;
-
-			SerialOSCClientNotifier.postDeviceConnected(device);
 		};
 	}
 
@@ -323,12 +297,9 @@ SerialOSCClient {
 		if (connectedDevices.includes(device)) {
 			device.unroute;
 
-			this.changed(\disconnected, device);
-			device.changed(\disconnected); // TODO: isn't this enough to unrouteGrid and unrouteEnc from any client it is attached to?
-
 			connectedDevices.remove(device);
 
-			SerialOSCClientNotifier.postDeviceDisconnected(device);
+			SerialOSCClientNotifier.notifyDeviceDisconnected(device);
 		};
 	}
 
@@ -425,14 +396,6 @@ SerialOSCClient {
 		autoroute = argAutoroute;
 
 		permanent = false;
-
-/*
-		gridDependantFunc = { |thechanged, what|
-			if (what == \rotation) {
-				this.warnIfGridDoNotMatchSpec; // TODO: consider moving this to SerialOSCGrid.rotation_
-			}
-		};
-*/
 
 		doWhenInitialized = {
 			if (argAutoroute) { this.findAndRouteUnusedDevicesToClient(false) };
@@ -544,9 +507,6 @@ SerialOSCClient {
 
 	prRouteGridToClient { |argGrid|
 		grid = argGrid;
-/*
-		grid.addDependant(gridDependantFunc); // TODO: do not use dependancy support for this, it's error prone due to releaseAllDependants
-*/
 		gridKeyResponder = GridKeyFunc.new(
 			{ |x, y, state, time, device|
 				gridKeyAction.value(this, x, y, state);
@@ -563,8 +523,7 @@ SerialOSCClient {
 		tiltResponder.permanent = true;
 		grid.client = this;
 		onGridRouted.value(this);
-		this.prNotifyDeviceRouted(grid);
-		verbose.if { "% was routed to client %".format(grid, this).postln };
+		SerialOSCClientNotifier.notifyDeviceRouted(grid, this);
 		this.warnIfGridDoNotMatchSpec;
 		this.refreshGrid;
 	}
@@ -587,20 +546,9 @@ SerialOSCClient {
 		encKeyResponder.permanent = true;
 		enc.client = this;
 		onEncRouted.value(this);
-		this.prNotifyDeviceRouted(enc);
-		verbose.if { "% was routed to client %".format(enc, this).postln };
+		SerialOSCClientNotifier.notifyDeviceRouted(enc, this);
 		this.warnIfEncDoNotMatchSpec;
 		this.refreshEnc;
-	}
-
-	prNotifyDeviceRouted { |device|
-		SerialOSCClient.changed(\routed, device, this);
-		device.changed(\routed, this);
-	}
-
-	prNotifyDeviceUnrouted { |device|
-		SerialOSCClient.changed(\unrouted, device, this);
-		device.changed(\unrouted, this);
 	}
 
 	asSerialOSCClient { ^this }
@@ -704,31 +652,30 @@ SerialOSCClient {
 	}
 
 	refreshGrid {
-		// TODO: grid !? {
-		this.clearLeds;
-		gridRefreshAction.value(this);
-		// }
+		grid !? {
+			this.clearLeds;
+			gridRefreshAction.value(this);
+		}
 	}
 
 	refreshEnc {
-		// TODO: enc !? {
-		this.clearRings;
-		encRefreshAction.value(this);
-		// }
+		enc !? {
+			this.clearRings;
+			encRefreshAction.value(this);
+		}
 	}
 
 	unrouteGrid {
 		grid !? {
 			var gridToUnroute;
 			gridToUnroute = grid;
-			// grid.removeDependant(gridDependantFunc); TODO: remove
 			grid.client = nil;
 			grid.clearLeds;
 			grid = nil;
 			gridKeyResponder.free;
 			tiltResponder.free;
 			onGridUnrouted.value(this, gridToUnroute);
-			this.prNotifyDeviceUnrouted(gridToUnroute);
+			SerialOSCClientNotifier.notifyDeviceUnrouted(gridToUnroute, this);
 		};
 	}
 
@@ -742,7 +689,7 @@ SerialOSCClient {
 			encDeltaResponder.free;
 			encKeyResponder.free;
 			onEncUnrouted.value(this, encToUnroute);
-			this.prNotifyDeviceUnrouted(encToUnroute);
+			SerialOSCClientNotifier.notifyDeviceUnrouted(encToUnroute, this);
 		};
 	}
 
@@ -836,15 +783,38 @@ SerialOSCClient {
 }
 
 SerialOSCClientNotifier {
-	*notifyChangesToDevicesList { |devicesAddedToDevicesList, devicesRemovedFromDevicesList|
-		devicesRemovedFromDevicesList do: { |device|
-			this.changed(\detached, device); // TODO: make sure this is not notified twice
-			this.postDeviceDetached(device);
-		};
-		devicesAddedToDevicesList do: { |device|
-			this.changed(\attached, device);
-			this.postDeviceAttached(device);
-		};
+	*notifyDeviceAttached { |device|
+		this.changed(\attached, device);
+		this.postDeviceAttached(device);
+	}
+
+	*notifyDeviceDetached { |device|
+		this.changed(\detached, device);
+		this.postDeviceDetached(device);
+	}
+
+	*notifyDeviceConnected { |device|
+		this.changed(\connected, device);
+		device.changed(\connected);
+		this.postDeviceConnected(device);
+	}
+
+	*notifyDeviceDisconnected { |device|
+		this.changed(\disconnected, device);
+		device.changed(\disconnected);
+		this.postDeviceDisconnected(device);
+	}
+
+	*notifyDeviceRouted { |device, client|
+		SerialOSCClient.changed(\routed, device, client);
+		device.changed(\routed, client);
+		this.postDeviceRouted(device, client);
+	}
+
+	*notifyDeviceUnrouted { |device, client|
+		SerialOSCClient.changed(\unrouted, device, client);
+		device.changed(\unrouted, client);
+		this.postDeviceUnrouted(device, client);
 	}
 
 	*postDeviceAttached { |device|
@@ -861,6 +831,14 @@ SerialOSCClientNotifier {
 
 	*postDeviceDisconnected { |device|
 		this.verbosePost("% was disconnected".format(device));
+	}
+
+	*postDeviceRouted { |device, client|
+		this.verbosePost("% was routed to client %".format(device, client));
+	}
+
+	*postDeviceUnrouted { |device, client|
+		this.verbosePost("% was unrouted from client %".format(device, client));
 	}
 
 	*verbosePost { |message|
@@ -1125,12 +1103,12 @@ SerialOSCGrid : SerialOSCDevice {
 		SerialOSCComm.changeDeviceRotation(port, degrees);
 		rotation = degrees;
 		this.changed(\rotation, degrees);
-		client !? _.warnIfGridDoNotMatchSpec // TODO: verify this warning message is sent out by changing monome 8x8 to 8x16 and rotating while connected to a client
+		client !? _.warnIfGridDoNotMatchSpec
 	}
 
 	prDeviceNumColsFromType {
 		^switch (type)
-			{ 'monome 64' } { 8 }
+			{ 'monome 64' } { 16 }
 			{ 'monome 40h' } { 8 }
 			{ 'monome 128' } { 16 }
 			{ 'monome 256' } { 16 }
@@ -1270,6 +1248,14 @@ SerialOSCDevice {
 		^super.newCopyArgs(type, id, port)
 	}
 
+	*connect {
+		this.default !? { |device| device.connect };
+	}
+
+	*disconnect {
+		this.default !? { |device| device.disconnect };
+	}
+
 	client_ { |argClient|
 		client = argClient;
 	}
@@ -1286,8 +1272,7 @@ SerialOSCDevice {
 	remove {
 		this.disconnect(this);
 		SerialOSCClient.devices.remove(this);
-		this.changed(\detached); // TODO: make sure this is not notified twice
-		SerialOSCClientNotifier.postDeviceDetached(this);
+		SerialOSCClientNotifier.notifyDeviceDetached(this);
 	}
 
 	connect { SerialOSCClient.connect(this) }

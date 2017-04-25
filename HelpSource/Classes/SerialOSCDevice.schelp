@@ -30,8 +30,26 @@ Refer to the monome homepage for details on vari-brightness support for differen
 
 returns:: A ControlSpec
 
+SUBSECTION::Connecting / disconnecting default device
+
+These methods are equivalent to instance methods of the same name below except they are invoked for the default device, if any.
+
+METHOD:: connect
+METHOD:: disconnect
+
 
 INSTANCEMETHODS::
+
+SUBSECTION::Connecting / disconnecting device
+
+METHOD:: connect
+Connect device to SerialOSCClient and SCLang.
+
+METHOD:: disconnect
+Disconnect device from SerialOSCClient and SCLang.
+
+
+SUBSECTION::Device properties
 
 METHOD:: port
 The device port
@@ -49,7 +67,7 @@ The device id
 returns:: A Symbol
 
 METHOD:: isConnected
-Answers whether the instance is connected to SerialOSCClient
+Answers whether the instance iSuperColliders connected to SerialOSCClient
 
 returns:: A Boolean
 
