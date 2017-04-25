@@ -1,0 +1,10 @@
+title:: Dependancy support for SerialOSCClient
+summary:: Notes on dependency support in SerialOSCClient
+categories:: External Control
+related:: Guides/UsingSerialOSCClient
+
+section::How it works
+
+The Clip Launcher example app triggers playable things (typically, patterns) in a number of tracks on quantized divisions akin to how clips are triggered in the Session view of Ableton Live.
+
+subsection::What can be triggered

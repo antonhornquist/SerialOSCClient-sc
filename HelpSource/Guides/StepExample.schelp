@@ -1,0 +1,182 @@
+title:: SerialOSCClient Step Sequencer Example
+summary:: Notes on using the SerialOSCClient Step Sequencer Example
+categories:: External Control
+related:: Guides/UsingSerialOSCClient
+
+section::SerialOSCClient Step Sequencer Example
+
+code::
+(
+~step = SerialOSCClient.grid('step') { |client|
+	var tempoSpec = ControlSpec(20, 300, step: 1, default: 115);
+	var swingAmountSpec = ControlSpec(0, 100, step: 1, default: 50);
+	var synthDefName = 'step';
+
+	var numSamples = 8;
+	var numPatternSteps = 8;
+	var patternBeats = 2;
+
+	var buffers, trigs;
+	var player, playpos;
+	var tempo, swingAmount;
+	var currentSwingOffset;
+
+/*
+	var adjustTempo = { |bpmDelta| // TODO: to be refactored outside of StepApp - Enc usage
+		setTempo.value(tempo + bpmDelta);
+	};
+
+	var adjustSwingAmount = { |swingAmountDelta| // TODO: to be refactored outside of StepApp - Enc usage
+		setSwingAmount.value(swingAmount + swingAmountDelta);
+	};
+*/
+
+	var setTempo = { |bpm|
+		tempo = tempoSpec.constrain(bpm);
+		TempoClock.default.tempo_(tempo/60);
+	};
+
+	var setSwingAmount = { |amount|
+		var maxSwingTimingOffset;
+		maxSwingTimingOffset = (patternBeats/numPatternSteps)/2;
+		swingAmount = swingAmountSpec.constrain(amount);
+		currentSwingOffset = maxSwingTimingOffset * swingAmount / 100;
+	};
+
+	var clearPattern = {
+		numSamples.do { |samplenum|
+			numPatternSteps.do { |stepnum|
+				trigIsSet.value(samplenum, stepnum).if { toggleTrig.value(samplenum, stepnum) };
+			};
+		};
+	};
+
+	var toggleTrig = { |samplenum, stepnum|
+		var trig;
+		trig = if (trigIsSet.value(samplenum, stepnum), \rest, 1);
+		trigs[samplenum][stepnum] = trig;
+	};
+
+	var trigIsSet = { |samplenum, stepnum| trigs[samplenum][stepnum] == 1 };
+
+	var spawnPattern = { |repeats, excludePlayposBumping=false|
+		var sampleTriggering, timingAndSwing, playposBumping;
+
+		timingAndSwing = Pbind(*[
+			dur: Prout({
+				var noSwingDur = patternBeats/numPatternSteps;
+				(numPatternSteps/2) do: {
+					var swingOffset;
+					swingOffset = currentSwingOffset;
+					(noSwingDur+swingOffset).yield;
+					(noSwingDur-swingOffset).yield;
+				};
+				nil.yield;
+			});
+		]);
+
+		excludePlayposBumping.not.if { // TODO: possibly remove, make this a ~step.changed(\playpos) or pattern.changed(\playpos) notification, or inject the tickFunc (onTick?) from spawnPattern argument to make this more clear
+			playposBumping = Pbind(*[
+				note: \rest,
+				tickFunc: Prout({
+					playpos = 0;
+					loop {
+						client.refreshGrid;
+						if (playpos < (numPatternSteps-1)) { playpos = playpos + 1; } { nil }.yield;
+					}
+				})
+			]);
+		};
+
+		sampleTriggering = buffers.collect { |buffer, i|
+			Pbind(*[
+				instrument: synthDefName,
+				bufnum: buffer, // TODO: only play buffer if it has been fully loaded, to remedy "BOOOM" issues
+				note: Pseq(trigs[i], 1)
+			])
+		};
+
+		Ppar(
+			(sampleTriggering ++ playposBumping).collect { |pattern| Pchain(pattern, timingAndSwing) },
+			repeats
+		);
+	};
+
+	var play = { |repeats=inf|
+		player.isPlaying.if {
+			"Already playing...".inform;
+		} {
+			player = if (player.isNil) {
+				"Playing...".inform;
+				spawnPattern.value(repeats).asEventStreamPlayer;
+			} {
+				"Resuming pattern".inform;
+				player;
+			};
+			player.play(TempoClock.default);
+		};
+	};
+
+	var stop = {
+		player.isPlaying.if {
+			player.stop;
+			"...Stopped".inform;
+		};
+	};
+
+	trigs = Array.fill2D(numSamples, numPatternSteps) { \rest };
+
+	SynthDef(synthDefName, { |out = 0, bufnum|
+		OffsetOut.ar( out, Pan2.ar(PlayBuf.ar(1, bufnum, BufRateScale.kr(bufnum), doneAction: 2)) );
+	}).add;
+
+	s.waitForBoot {
+		buffers = numSamples.collect { Buffer.new };
+
+		client.onFree = { buffers.do(_.free) };
+
+		client.gridRefreshAction = {
+			client.ledMap(
+				0,
+				0,
+				numSamples.collect { |samplenum|
+					numPatternSteps.do.collect { |stepnum|
+						if (trigIsSet.value(samplenum, stepnum) or: (playpos == stepnum)) { 1 << stepnum } { 0 };
+					}.sum;
+				}
+			);
+		};
+
+		client.gridKeyAction = { |client, x, y, state|
+			if (state.asBoolean) {
+				toggleTrig.value(y, x);
+				client.refreshGrid;
+			};
+		};
+
+		client.addUniqueMethod(\loadSample) { |client, samplenum, path|
+			buffers[samplenum].allocReadChannel(path, channels: [0], completionMessage: {
+				this.changed(\sampleWasLoaded, samplenum, path);
+			}); // TODO: look into making a PR for completionMessage bug
+		};
+
+		client.addUniqueMethod(\toggleTrig) { |client, samplenum, path| toggleTrig.value(samplenum, path) };
+		client.addUniqueMethod(\playSequencer) { |client, samplenum, path| play.value };
+		client.addUniqueMethod(\stopSequencer) { |client, samplenum, path| stop.value };
+		client.addUniqueMethod(\swingAmount_) { |client, amount| setSwingAmount.value(amount) };
+		client.addUniqueMethod(\tempo_) { |client, bpm| setTempo.value(bpm) };
+		client.addUniqueMethod(\getPattern) { |client, repeats| spawnPattern.value(repeats, true).deepCopy };
+
+		setTempo.value(tempoSpec.default);
+		setSwingAmount.value(swingAmountSpec.default);
+
+		play.value;
+	};
+};
+)
+::
+
+section::How it works
+
+subsection::Hello World
+
