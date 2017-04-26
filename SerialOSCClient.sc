@@ -1003,6 +1003,11 @@ SerialOSCGrid : SerialOSCDevice {
 		default !? { |grid| grid.tiltSet(n, state) };
 	}
 
+	// TODO: include in docs
+	*numButtons {
+		^default !? (_.numButtons)
+	}
+
 	*numCols {
 		^default !? (_.numCols)
 	}
@@ -1086,6 +1091,9 @@ SerialOSCGrid : SerialOSCDevice {
 	ledXSpec { ^ControlSpec(0, this.numCols, step: 1) }
 
 	ledYSpec { ^ControlSpec(0, this.numRows, step: 1) }
+
+	// TODO: include in docs
+	numButtons { ^this.numCols*this.NumRows }
 
 	numCols {
 		^case

@@ -64,7 +64,7 @@ code::
 
 			slice.wait;
 
-			player = pattern.play(protoEvent: protoEvents[trackIndex][slotIndex]);
+			player = pattern.play(protoEvent: protoEvents[trackIndex][slotIndex]); // TODO: remove protoEvent since this addition makes Clip less generic
 			player.addDependant(stopListener);
 
 			players[trackIndex][slotIndex] = player;
