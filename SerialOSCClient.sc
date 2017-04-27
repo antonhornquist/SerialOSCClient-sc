@@ -68,7 +68,7 @@ SerialOSCClient {
 					this.prUpdateDevicesListAsync {
 						this.prLookupDeviceById(id) !? { |device|
 							this.prSyncAfterDeviceListChanges([device], []);
-							this.prPostDeviceAdded(device); // TODO: Notifier?
+							SerialOSCClientNotifier.postDeviceAdded(device);
 						};
 						devicesSemaphore.signal;
 					};
@@ -83,7 +83,7 @@ SerialOSCClient {
 				devicesSemaphore.wait;
 				this.prLookupDeviceById(id) !? { |device|
 					this.prSyncAfterDeviceListChanges([], [device]);
-					this.prPostDeviceRemoved(device); // TODO: Notifier?
+					SerialOSCClientNotifier.postDeviceRemoved(device);
 				};
 				devicesSemaphore.signal;
 			};
@@ -310,16 +310,6 @@ SerialOSCClient {
 		} {
 			"No SerialOSC Devices are attached".postln;
 		};
-	}
-
-	*prPostDeviceAdded { |device|
-		"A SerialOSC Device was attached to the computer:".postln;
-		(Char.tab ++ device).postln;
-	}
-
-	*prPostDeviceRemoved { |device|
-		"A SerialOSC Device was detached from the computer:".postln;
-		(Char.tab ++ device).postln;
 	}
 
 	*prDeviceIsEncByType { |device|
@@ -782,6 +772,7 @@ SerialOSCClient {
 	}
 }
 
+// TODO: the name
 SerialOSCClientNotifier {
 	*notifyDeviceAttached { |device|
 		this.changed(\attached, device);
@@ -815,6 +806,16 @@ SerialOSCClientNotifier {
 		SerialOSCClient.changed(\unrouted, device, client);
 		device.changed(\unrouted, client);
 		this.postDeviceUnrouted(device, client);
+	}
+
+	*postDeviceAdded { |device|
+		"A SerialOSC Device was attached to the computer:".postln;
+		(Char.tab ++ device).postln;
+	}
+
+	*postDeviceRemoved { |device|
+		"A SerialOSC Device was detached from the computer:".postln;
+		(Char.tab ++ device).postln;
 	}
 
 	*postDeviceAttached { |device|
@@ -1003,34 +1004,13 @@ SerialOSCGrid : SerialOSCDevice {
 		default !? { |grid| grid.tiltSet(n, state) };
 	}
 
-	// TODO: include in docs
-	*numButtons {
-		^default !? (_.numButtons)
-	}
-
-	*numCols {
-		^default !? (_.numCols)
-	}
-
-	*numRows {
-		^default !? (_.numRows)
-	}
-
-	*rotation {
-		^default !? (_.rotation)
-	}
-
-	*rotation_ { |degrees|
-		default !? (_.rotation_(degrees))
-	}
-
-	*ledXSpec {
-		^default !? { |grid| grid.ledXSpec };
-	}
-
-	*ledYSpec {
-		^default !? { |grid| grid.ledYSpec };
-	}
+	*numButtons { ^default !? _.numButtons }
+	*numCols { ^default !? _.numCols }
+	*numRows { ^default !? _.numRows }
+	*rotation { ^default !? _.rotation }
+	*rotation_ { |degrees| default !? (_.rotation_(degrees)) }
+	*ledXSpec { ^default !? { |grid| grid.ledXSpec } }
+	*ledYSpec { ^default !? { |grid| grid.ledYSpec } }
 
 	clearLeds {
 		this.ledAll(0);
@@ -1092,8 +1072,7 @@ SerialOSCGrid : SerialOSCDevice {
 
 	ledYSpec { ^ControlSpec(0, this.numRows, step: 1) }
 
-	// TODO: include in docs
-	numButtons { ^this.numCols*this.NumRows }
+	numButtons { ^this.numCols*this.numRows }
 
 	numCols {
 		^case

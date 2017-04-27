@@ -3,8 +3,53 @@ summary:: Notes on dependency support in SerialOSCClient
 categories:: External Control
 related:: Guides/UsingSerialOSCClient
 
-section::How it works
+section::SerialOSCClient Dependancy Support
 
-The Clip Launcher example app triggers playable things (typically, patterns) in a number of tracks on quantized divisions akin to how clips are triggered in the Session view of Ableton Live.
+Using link::Classes/Object#Dependancy:: support it is possible to observe when new devices are detached, connected or disconnected. It is also possible to get notified when a new default SerialOSCGrid is set.
 
-subsection::What can be triggered
+subsection::General Events
+
+subsection::Grid Specific Events
+
+(
+SerialOSCGrid.addDependant { |thechanged, what, device, details|
+	switch ( what )
+	{'default'} {
+		"New SerialOSCGrid default: %".format(device).postln;
+	};
+};
+)
+
+(
+// assumes a default grid is available
+SerialOSCGrid.default.addDependant { |thechanged, what, details|
+	switch ( what )
+	{'detached'} {
+		"% was detached".format(thechanged).postln;
+	}
+	{'connected'} {
+		"% was connected".format(thechanged).postln;
+	}
+	{'disconnected'} {
+		"% was disconnected".format(thechanged).postln;
+	}
+	{'routed'} {
+		"% was routed to %".format(thechanged, details).postln;
+	}
+	{'unrouted'} {
+		"% was unrouted from %".format(thechanged, details).postln;
+	}
+	{'rotation'} {
+		"% rotation was changed to %".format(thechanged, details).postln;
+	}
+};
+)
+
+// stop listening to notifications
+SerialOSCGrid.releaseAllDependants;
+SerialOSCGrid.default.releaseAllDependants;
+::
+
+
+subsection::Enc Specific Events
+
