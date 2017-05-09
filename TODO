@@ -1,0 +1,15 @@
+- Change how ruby class variables are generated in rsclass-rb when :render_as_rb_class_constant is false. They should be generated as in Grrr::Grrr.
+- Change ALL_RUBY_CONSTANTS to class variables to comply with SuperCollider class variables and not cause ruby warnings when changed.
+- Remove Caps Lock modifier functionality completely since it is inconsistent. Investigate whether Caps Lock is not working on all platforms: not working on Grrr-sc SC3.6 Win7 (Qt) caps not detected, grrr-rb JRuby Win7 caps detected but not working due to a physically held key retriggers key press and released all the time
+- Move modifiers in prConfigureKeyboardActions to keymaps
+- Consider removing all occurences of info in GRController and Grrr::Controller and any subclasses of these classes and moving the info to documentation instead
+- Fix readme classes section
+- GRMultiXView bugs, these do not work as expected:
+	flash
+	flashView
+	flashPoint
+	flashPoints
+- Review all TODOs in Grrr-sc and grrr-rb
+- Implement tap (== press then instant release)
+- Document everything!
+- Implement step_sequencer_view
