@@ -9,9 +9,9 @@ SerialOSCClient provides plug'n'play support for monome (link::http://monome.org
 
 At its core link::Classes/SerialOSCClient:: and its related classes are to SerialOSC devices what link::Classes/MIDIClient:: and its related classes in the SuperCollider standard library are to MIDI devices.
 
-In addition to this, it's possible to instantiate SerialOSCClient for single-grid, single-enc or one-grid-and-one-enc use cases. SerialOSCClient instances constitute self-contained clients decoupled from the devices being used for the client. Callback functions are provided for led refresh and responding to incoming events. SerialOSCClient instance methods are used to update led state. Built-in routing is used to map devices to clients.
+In addition, it's possible to instantiate SerialOSCClient for single-grid, single-enc or one-grid-and-one-enc use cases. SerialOSCClient instances constitute self-contained clients decoupled from the devices controlling it at any given time. SerialOSCClient callback functions and instance methods are provided to update of led state and for responding to incoming events. Built-in routing capabilities map devices to clients.
 
-subsection::Hello World
+subsection::Basic Example
 
 Initialize SerialOSCClient.
 
@@ -43,9 +43,9 @@ GridKeydef.press(\toggle, { SerialOSCGrid.ledSet(0, 0, a = a.not) }, 0, 0, 'defa
 GridKeydef.press(\toggle).free; // free responder
 ::
 
-subsection::A Hello World Client
+subsection::Client Example
 
-Self-contained clients are created by instantiating SerialOSCClient. This is recommended for single-grid, single-enc or one-grid-and-one-enc use.
+Self-contained clients can be created by instantiating SerialOSCClient. This is recommended for single-grid, single-enc or one-grid-and-one-enc use.
 
 code::
 (
@@ -77,7 +77,7 @@ SerialOSCClient.postRoutings; // will reroute it to the client and refresh the l
 c.free; // or CmdPeriod frees client
 ::
 
-See more link::#Examples::.
+More link::#Examples:: below.
 
 section::Usage
 
@@ -120,7 +120,7 @@ SerialOSCGrid.all; // all grid devices connected to the computer
 SerialOSCEnc.all; // all encoder devices connected to the computer
 ::
 
-SerialOSCClient by default automatically updates the code::SerialOSCClient.devices:: list as devices are attached to and detached from the computer. This may be changed by setting argument code::autodiscover:: of init to false. See link::#Disabling discovery of devices::.
+SerialOSCClient by default automatically updates the code::SerialOSCClient.devices:: list as devices are attached to and detached from the computer. This may be changed by setting argument code::autodiscover:: of init to false. See link::#Disabling device discovery::.
 
 subsection::Default devices
 
@@ -168,7 +168,7 @@ SerialOSCEnc.ringSet(0, 0, 15); // an encoder attached and set as default will r
 
 subsection::Connecting devices
 
-SerialOSCClient can update led state of any discovered device but can only respond to events from devices that are connected to SerialOSCClient. Devices are by default autoconnected as they are discovered.
+SerialOSCClient can update led state of any discovered device but can only respond to events from devices that are connected to SerialOSCClient. Devices are by default automatically connected as they are discovered.
 
 code::
 SerialOSCClient.connectedDevices; // list of all devices attached to the computer and connected to SerialOSCClient
@@ -287,7 +287,6 @@ SerialOSCGrid.ledSet(SerialOSCGrid.xSpec.rand, SerialOSCGrid.ySpec.rand, [true, 
 
 SerialOSCGrid.ledLevelSet(SerialOSCGrid.xSpec.rand, SerialOSCGrid.ySpec.rand, SerialOSCGrid.ledLSpec.rand);
 
-// TODO: ledLSpec but level in arg?? either ledLevelSpec or l in arg. generic thing, s or state, etc
 SerialOSCEnc.ringSet(SerialOSCenc.nSpec.rand, SerialOSCEnc.xSpec.rand, SerialOSCEnc.ledLSpec.choose);
 
 (
@@ -303,24 +302,26 @@ fork {
 
 subsection::Device rotation
 
-[TODO]
+Grid rotation may be changed using link::Classes/SerialOSCGrid#-rotation:: (for any grid instance) and link::Classes/SerialOSCGrid#*rotation:: (for default grid).
 
-subsection::Enabling tilt sensors
+subsection::Activating tilt sensors
 
-[TODO]
+Grid tilt sensors may be activated using link::Classes/SerialOSCGrid#*activateTilt:: (for any grid instance) and link::Classes/SerialOSCGrid#-activateTilt:: (for default grid).
 
 section::Creating clients
 
-It's recommended to create instances of SerialOSCClient for single-grid, single-enc or one-grid-and-one-enc use, specify device requirements needed for each instance and rely on SerialOSCClient's built in routing capabilites for mapping devices to a client. The advantages of this is that device ids, ports and prefixes need not be considered when developing an app for a SerialOSC compliant grid, arc or grid-and-arc configuration.
+It's recommended to create instances of SerialOSCClient for single-grid, single-enc or one-grid-and-one-enc use, specify device requirements needed for each instance and rely on SerialOSCClient's built in routing capabilites for mapping devices to a client. This way device ids, ports and prefixes need not be considered when developing an app for a SerialOSC compliant grid, arc or grid-and-arc configuration.
 
 Callback functions are provided for clients to facilitate device refresh when new devices are routed and resource disposal when a client is freed.
 
 code::
+
 ::
 
 Instance methods are used to update led state.
 
 code::
+
 ::
 
 Callback functions are also provided for responding to incoming events.
@@ -391,126 +392,68 @@ y.remove;
 z.remove;
 ::
 
-subsection::Grid MVC
-
-Alternative ways may be used to decouple values with the logic changing the value and the logic displaying the value. An example of this is using the Model-View-Controller design pattern.
-
-By adjusting the toggle value example above slightly this can be achieved. The value is wrapped in a Ref to enable dependancy support for the underlying value (model). The led updaing logic is refactored to a listener of the value.
-
-All three ways of changing the toggle state below - grid key press, code evaluation and in a forked loop - will result in a correctly updated led without the logic for changing value having to know about how the value is displayed.
-
-code::
-~state=Ref(false); // initial toggle state is false
-
-(
-~toggleValue = { |value|
-	~state.value = value;
-	~state.changed;
-};
-)
-::
-
-code::
-(
-b = SerialOSCClient.grid('grid mvc') { |client|
-	var updateLed = { client.ledSet(0, 0, ~state.value) };
-	~state.addDependant = updateLed; // when state is changed led is updated
-	client.gridRefreshedAction = updateLed; // when a new grid is routed to this client led state is refreshed
-	client.gridKeyPressedAction = { |client, x, y|
-		if (x@y == 0@0) { ~toggleValue.value } // value can be changed by grid press
-	};
-	client.onFree = { ~state.removeDependant(updateLed) } // when client is freed the dependancy to state is removed
-}
-)
-::
-
-code::
-~toggleValue.value; // value can be changed by code evaluation
-
-(
-// ... or in a forked loop
-fork {
-	8.do {
-		~toggleValue.value;
-		0.5.wait;
-	}
-};
-)
-
-b.free; // or CmdPeriod to free client
-::
-
 section::Advanced
-
-subsection::Dependancy support
-
-link::Reference/DependancySupport::
 
 subsection::Using multiple devices
 
-If several devices of the same type are to be used responder functions can be configured to filter a predetermined device.
+If several devices of the same type are to be used responder functions can be configured to filter a predetermined device. Examples below assumes two grids having id 'm1234' and 'm5678' are attached and connected to SerialOSCClient.
 
 code::
-a=SerialOSCGrid.lookupById('m01');
-b=SerialOSCGrid.lookupById('m02');
+GridKeydef.press(\grid1Press, { |x, y| "first grid pressed at %x%".format(x, y).postln }, device: id -> 'm1234');
+GridKeydef.press(\grid2Press, { |x, y| "second grid pressed at %x%".format(x, y).postln }, device: id -> 'm5678');
+::
+
+Alternatively, fetch instances from code::SerialOSCClient.all:: and match by instance.
+
+code::
+a=SerialOSCGrid.all[0];
+b=SerialOSCGrid.all[1];
+
 GridKeydef.press(\grid1Press, { |x, y| "first grid pressed at %x%".format(x, y).postln }, device: a);
 GridKeydef.press(\grid2Press, { |x, y| "second grid pressed at %x%".format(x, y).postln }, device: b);
+
+GridKeydef.freeAll; // free responders
 ::
 
-Or...
+With multiple devices led state is typically not sent to a default device but routed to predetermined devices depending on app logic.
 
 code::
-GridKeydef.press(\grid1Press, { |x, y| "first grid pressed at %x%".format(x, y).postln }, device: id -> 'm01');
-GridKeydef.press(\grid2Press, { |x, y| "second grid pressed at %x%".format(x, y).postln }, device: id -> 'm02');
-::
-
-With multiple devices led state is typically not just sent to a default device but routed to predetermined devices depending on app logic.
-
-code::
-a=SerialOSCGrid.lookupById('m01');
-b=SerialOSCGrid.lookupById('m02');
 a.ledSet(0, 0, true);
 b.ledSet(6, 2, true);
 ::
 
-An example of coupled operation
-
-code::
-a=SerialOSCGrid.lookupById('m01');
-b=SerialOSCGrid.lookupById('m02');
-c=false;
-d=false;
-
-GridKeydef.press(\grid1Toggle, { |x, y| c = c.not; a.ledSet(0, 0, c) }, device: a);
-GridKeydef.press(\grid2Toggle, { |x, y| d = d.not; b.ledSet(0, 0, d) }, device: b);
-::
-
 subsection::Disabling device discovery
 
-SerialOSCClient by default discovers attached and detached devices automatically and maintains an up-to-date list of devices in code::SerialOSCClient.devices::. Autodiscovery may be disabled by setting init's autodiscover argument to false. When autodiscovery is disabled SerialOSCClient must be reinitialized in order to refresh the list of devices after device configuration has changed. Even with autodiscovery enabled reinitialization of SerialOSCClient is possible and may be needed if there are hiccups in the communication between the SerialOSC server daemon and SerialOSCClient.
+SerialOSCClient by default automatically discovers attached and detached devices and maintains an up-to-date list of devices in code::SerialOSCClient.devices::. Autodiscovery may be disabled by setting code::*init::'s code::autodiscover:: argument to false. With autodiscovery disabled SerialOSCClient must be reinitialized in order to refresh the list of devices after device configuration has changed. Reinitialization of SerialOSCClient is possible even when autodiscovery is enabled and may be needed if there are hiccups in the communication between the SerialOSC server daemon and SerialOSCClient.
 
 subsection::Manually connecting devices
 
-To be able to respond to incoming events a device not only needs to be discovered but also connected to SuperCollider. Technically, when a device is connected to SerialOSCClient its prefix is set to "/monome" and its destination port is set to the port SCLang is currently listening on (retrieved from code::NetAddr.langPort::, most often 57120).
+In order to respond to incoming events a device not only needs to be discovered but also connected to SuperCollider.
 
-Discovered devices are by default automatically connected. This may raise issues if you have multiple SerialOSC devices attached and only intend to use some of them for SuperCollider and others for other applications. You can tell SerialOSCClient to not automatically connect devices by setting code::SerialOSCClient.init::'s autoconnect argument to false. Devices will then have to be manually connected to SuperCollider using class method code::SerialOSCClient.connect:: or instance method code::SerialOSCDevice.connect::
+SerialOSCClient by default automatically connects discovered devices. This may raise issues if multiple SerialOSC devices are attached and all devices are not inteded for use for SuperCollider. Autoconnection may be disabled by setting code::*init::'s code::autoconnect:: argument to false. When autoconnect is disabled devices will have to be manually connected to SuperCollider using class method code::SerialOSCClient.connect:: or instance method code::SerialOSCDevice.connect::
 
 code::
 
 // example code for manually connecting a device
 SerialOSCClient.init(autoconnect: false);
 
-SerialOSCClient.connect('m0123'); // connect a device by id
+SerialOSCClient.connect('m1234'); // connect a device by id
 
 a=SerialOSCClient.devices.first; // alternatively, lookup a device in the list...
 a.connect; // ... and connect it
 ::
 
+subsection::Grid MVC
+
+Various design patterns may be used to decouple a SerialOSCClient app's state with logic changing the state and logic displaying the state to the user. This often results in more maintainable code. An example of this is the Model-View-Controller pattern. An example of this design pattern applied to SerialOSCClient can be found in the link::Tutorials/GridMVC:: helpfile.
+
 subsection::Dependancy support
 
-It is possible to get notified when devices are discovered, connected and routed using dependancy support.
+It is possible to observe as new SerialOSC devices are attached/detached, connected/disconnected and routed/unrouted to and from clients. See link::Reference/DependancySupport:: helpfile for details.
 
-See link::Classes/SerialOSCClient::, link::Classes/SerialOSCGrid:: and link::Classes/SerialOSCEnc:: example code for details.
+subsection::Legacy support
+
+SerialOSCClient supports the old MonomeSerial protocol if initialized with link::Classes/SerialOSCClient#*legacy40h::, link::Classes/SerialOSCClient#*legacy64::, link::Classes/SerialOSCClient#*legacy128::, link::Classes/SerialOSCClient#*legacy256::.
 
 section::Classes
 
@@ -532,7 +475,7 @@ list::
 
 section::Examples
 
-To try out these examples, make sure the serialosc server is running on your computer and a SerialOSC compatible grid or enc device is attached to your computer.
+To try out these examples, make sure the serialosc server is running on the computer and a SerialOSC compatible grid or enc device is attached to the computer.
 
 subsection::Hello Grid Leds
 

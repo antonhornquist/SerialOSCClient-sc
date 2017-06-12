@@ -1,0 +1,54 @@
+title:: Model-View-Controller pattern for SerialOSCClient
+summary:: Notes on applying the Model-View-Controller pattern when writing SerialOSCClient apps
+categories:: External Control
+related:: Guides/UsingSerialOSCClient
+
+section::Grid MVC
+
+Various design patterns may be used to decouple values with the logic changing the value and the logic displaying the value. An example of this is the Model-View-Controller pattern.
+
+For instance, by mapping a value (the model) in a Ref dependancy support can be utilized and the led update logic may be triggered by observing the value.
+
+All three ways of changing the toggle state below - grid key press, code evaluation and in a forked loop - will result in a correctly updated led without the logic for changing value having to know about how the value is displayed.
+
+code::
+~state=Ref(false); // initial toggle state is false
+
+(
+~toggleValue = { |value|
+	~state.value = value;
+	~state.changed;
+};
+)
+::
+
+code::
+(
+b = SerialOSCClient.grid('Grid MVC Example') { |client|
+	var updateLed = { client.ledSet(0, 0, ~state.value) };
+	~state.addDependant = updateLed; // when state is changed led is updated
+	client.gridRefreshedAction = updateLed; // when a new grid is routed to this client led state is refreshed
+	client.gridKeyPressedAction = { |client, x, y|
+		if (x@y == 0@0) { ~toggleValue.value } // value can be changed by grid press
+	};
+	client.onFree = { ~state.removeDependant(updateLed) } // when client is freed the dependancy to state is removed
+}
+)
+::
+
+code::
+~toggleValue.value; // value can be changed by code evaluation
+
+(
+// ... or in a forked loop
+fork {
+	8.do {
+		~toggleValue.value;
+		0.5.wait;
+	}
+};
+)
+
+b.free; // or CmdPeriod to free client
+::
+
