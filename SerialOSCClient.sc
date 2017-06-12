@@ -24,8 +24,8 @@ SerialOSCClient {
 	var <>willFree;
 	var <>onFree;
 
-	var <>onGridRouted, <>onGridUnrouted, <>gridRefreshAction; // TODO: come up with a better term for "unrouted"
-	var <>onEncRouted, <>onEncUnrouted, <>encRefreshAction; // TODO: come up with a better term for "unrouted"
+	var <>onGridRouted, <>onGridUnrouted, <>gridRefreshAction;
+	var <>onEncRouted, <>onEncUnrouted, <>encRefreshAction;
 	var <>gridKeyAction, <>encDeltaAction, <>encKeyAction, <>tiltAction;
 
 	*initClass {
@@ -68,7 +68,7 @@ SerialOSCClient {
 					this.prUpdateDevicesListAsync {
 						this.prLookupDeviceById(id) !? { |device|
 							this.prSyncAfterDeviceListChanges([device], []);
-							SerialOSCClientNotifier.postDeviceAdded(device);
+							SerialOSCClientNotification.postDeviceAttached(device);
 						};
 						devicesSemaphore.signal;
 					};
@@ -83,7 +83,7 @@ SerialOSCClient {
 				devicesSemaphore.wait;
 				this.prLookupDeviceById(id) !? { |device|
 					this.prSyncAfterDeviceListChanges([], [device]);
-					SerialOSCClientNotifier.postDeviceRemoved(device);
+					SerialOSCClientNotification.postDeviceDetached(device);
 				};
 				devicesSemaphore.signal;
 			};
@@ -163,7 +163,7 @@ SerialOSCClient {
 	*prSyncAfterDeviceListChanges { |devicesAddedToDevicesList, devicesRemovedFromDevicesList|
 		devicesRemovedFromDevicesList do: _.remove;
 		devicesAddedToDevicesList do: { |device|
-			SerialOSCClientNotifier.notifyDeviceAttached(device);
+			SerialOSCClientNotification.deviceAttached(device);
 		};
 		if (autoconnect) { devicesAddedToDevicesList do: _.connect };
 		this.prUpdateDefaultDevices(devicesAddedToDevicesList, devicesRemovedFromDevicesList);
@@ -251,7 +251,7 @@ SerialOSCClient {
 
 			connectedDevices = connectedDevices.add(device);
 
-			SerialOSCClientNotifier.notifyDeviceConnected(device);
+			SerialOSCClientNotification.deviceConnected(device);
 
 			this.prAutorouteDeviceToClients;
 		};
@@ -299,7 +299,7 @@ SerialOSCClient {
 
 			connectedDevices.remove(device);
 
-			SerialOSCClientNotifier.notifyDeviceDisconnected(device);
+			SerialOSCClientNotification.deviceDisconnected(device);
 		};
 	}
 
@@ -513,7 +513,7 @@ SerialOSCClient {
 		tiltResponder.permanent = true;
 		grid.client = this;
 		onGridRouted.value(this);
-		SerialOSCClientNotifier.notifyDeviceRouted(grid, this);
+		SerialOSCClientNotification.deviceRouted(grid, this);
 		this.warnIfGridDoNotMatchSpec;
 		this.refreshGrid;
 	}
@@ -536,7 +536,7 @@ SerialOSCClient {
 		encKeyResponder.permanent = true;
 		enc.client = this;
 		onEncRouted.value(this);
-		SerialOSCClientNotifier.notifyDeviceRouted(enc, this);
+		SerialOSCClientNotification.deviceRouted(enc, this);
 		this.warnIfEncDoNotMatchSpec;
 		this.refreshEnc;
 	}
@@ -665,7 +665,7 @@ SerialOSCClient {
 			gridKeyResponder.free;
 			tiltResponder.free;
 			onGridUnrouted.value(this, gridToUnroute);
-			SerialOSCClientNotifier.notifyDeviceUnrouted(gridToUnroute, this);
+			SerialOSCClientNotification.deviceUnrouted(gridToUnroute, this);
 		};
 	}
 
@@ -679,7 +679,7 @@ SerialOSCClient {
 			encDeltaResponder.free;
 			encKeyResponder.free;
 			onEncUnrouted.value(this, encToUnroute);
-			SerialOSCClientNotifier.notifyDeviceUnrouted(encToUnroute, this);
+			SerialOSCClientNotification.deviceUnrouted(encToUnroute, this);
 		};
 	}
 
@@ -772,74 +772,49 @@ SerialOSCClient {
 	}
 }
 
-// TODO: the name
-SerialOSCClientNotifier {
-	*notifyDeviceAttached { |device|
+SerialOSCClientNotification {
+	*deviceAttached { |device|
 		this.changed(\attached, device);
-		this.postDeviceAttached(device);
+		this.verbosePost("% was attached".format(device));
 	}
 
-	*notifyDeviceDetached { |device|
+	*deviceDetached { |device|
 		this.changed(\detached, device);
-		this.postDeviceDetached(device);
+		this.verbosePost("% was detached".format(device));
 	}
 
-	*notifyDeviceConnected { |device|
+	*deviceConnected { |device|
 		this.changed(\connected, device);
 		device.changed(\connected);
-		this.postDeviceConnected(device);
+		this.verbosePost("% was connected".format(device));
 	}
 
-	*notifyDeviceDisconnected { |device|
+	*deviceDisconnected { |device|
 		this.changed(\disconnected, device);
 		device.changed(\disconnected);
-		this.postDeviceDisconnected(device);
+		this.verbosePost("% was disconnected".format(device));
 	}
 
-	*notifyDeviceRouted { |device, client|
+	*deviceRouted { |device, client|
 		SerialOSCClient.changed(\routed, device, client);
 		device.changed(\routed, client);
-		this.postDeviceRouted(device, client);
+		this.verbosePost("% was routed to client %".format(device, client));
 	}
 
-	*notifyDeviceUnrouted { |device, client|
+	*deviceUnrouted { |device, client|
 		SerialOSCClient.changed(\unrouted, device, client);
 		device.changed(\unrouted, client);
-		this.postDeviceUnrouted(device, client);
+		this.verbosePost("% was unrouted from client %".format(device, client));
 	}
 
-	*postDeviceAdded { |device|
+	*postDeviceAttached { |device|
 		"A SerialOSC Device was attached to the computer:".postln;
 		(Char.tab ++ device).postln;
 	}
 
-	*postDeviceRemoved { |device|
+	*postDeviceDetached { |device|
 		"A SerialOSC Device was detached from the computer:".postln;
 		(Char.tab ++ device).postln;
-	}
-
-	*postDeviceAttached { |device|
-		this.verbosePost("% was attached".format(device));
-	}
-
-	*postDeviceDetached { |device|
-		this.verbosePost("% was detached".format(device));
-	}
-
-	*postDeviceConnected { |device|
-		this.verbosePost("% was connected".format(device));
-	}
-
-	*postDeviceDisconnected { |device|
-		this.verbosePost("% was disconnected".format(device));
-	}
-
-	*postDeviceRouted { |device, client|
-		this.verbosePost("% was routed to client %".format(device, client));
-	}
-
-	*postDeviceUnrouted { |device, client|
-		this.verbosePost("% was unrouted from client %".format(device, client));
 	}
 
 	*verbosePost { |message|
@@ -1259,7 +1234,7 @@ SerialOSCDevice {
 	remove {
 		this.disconnect(this);
 		SerialOSCClient.devices.remove(this);
-		SerialOSCClientNotifier.notifyDeviceDetached(this);
+		SerialOSCClientNotification.deviceDetached(this);
 	}
 
 	connect { SerialOSCClient.connect(this) }

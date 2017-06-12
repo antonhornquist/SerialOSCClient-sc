@@ -42,12 +42,12 @@ When autodiscover is set false a new call to code::init:: is required to refresh
 ARGUMENT:: verbose
 Print extended information to the Post Window. The default is false.
 
-ARGUMENT:: legacy40h
-ARGUMENT:: legacy64
-ARGUMENT:: legacy128
-ARGUMENT:: legacy256
+METHOD:: legacy40h
+METHOD:: legacy64
+METHOD:: legacy128
+METHOD:: legacy256
 
-Initialize SerialOSCClient in legacy mode for a single grid with MonomeSerial.
+Initialize SerialOSCClient in legacy mode for a single grid using the old MonomeSerial protocol. Arguments correspond to the same arguments in code::*init::.
 
 METHOD:: initialized
 Answers whether SerialOSCClient is initialized
@@ -365,7 +365,7 @@ link::Classes/Function:: invoked when enc key state change messages are received
 
 SUBSECTION::Grid tilt activation
 
-Activate / deactivate tilt sensors of grid currently routed client, if any. Refer to link::Classes/SerialOSCGrid:: for details.
+Activate / deactivate tilt sensors of grid currently routed to client, if any. Refer to link::Classes/SerialOSCGrid:: for details.
 
 METHOD:: activateTilt
 METHOD:: deactivateTilt
@@ -374,7 +374,7 @@ METHOD:: tiltSet
 
 SUBSECTION::Grid led state
 
-Update led state of grid currently routed client, if any. Refer to link::Classes/SerialOSCGrid:: for details.
+Update led state of grid currently routed to client, if any. Refer to link::Classes/SerialOSCGrid:: for details.
 
 METHOD:: clearLeds
 METHOD:: ledSet
@@ -392,7 +392,7 @@ METHOD:: ledIntensity
 
 SUBSECTION::Ring led state
 
-Update led state of enc currently routed client, if any. Refer to link::Classes/SerialOSCEnc:: for details.
+Update led state of enc currently routed to client, if any. Refer to link::Classes/SerialOSCEnc:: for details.
 
 METHOD:: clearRings
 METHOD:: ringSet
@@ -403,34 +403,3 @@ METHOD:: ringRange
 
 EXAMPLES::
 
-code::
-// TODO: move to separate Reference/DependancySupport
-
-// Using dependancy support it is possible to get notified when devices are attached/detached, connected/disconnected, routed/unrouted, et cetera.
-
-(
-SerialOSCClient.addDependant { |thechanged, what, device, details|
-	switch ( what )
-	{'attached'} {
-		"% was attached".format(device).postln;
-	}
-	{'detached'} {
-		"% was detached".format(device).postln;
-	}
-	{'connected'} {
-		"% was connected".format(device).postln;
-	}
-	{'disconnected'} {
-		"% was disconnected".format(device).postln;
-	}
-	{'routed'} {
-		"% was routed to %".format(device, details).postln;
-	}
-	{'unrouted'} {
-		"% was unrouted from %".format(device, details).postln;
-	}
-};
-)
-
-SerialOSCClient.releaseAllDependants; // stop listening to grid notifications
-::
