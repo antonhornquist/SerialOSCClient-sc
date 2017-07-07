@@ -447,10 +447,6 @@ a=SerialOSCClient.devices.first; // alternatively, lookup a device in the list..
 a.connect; // ... and connect it
 ::
 
-subsection::Grid MVC
-
-Various design patterns may be used to decouple a SerialOSCClient app's state with logic changing the state and logic displaying the state to the user. This often results in more maintainable code. An example of this is the Model-View-Controller pattern. An example of this design pattern applied to SerialOSCClient can be found in the link::Tutorials/GridMVC:: helpfile.
-
 subsection::Dependancy support
 
 It is possible to observe as new SerialOSC devices are attached/detached, connected/disconnected and routed/unrouted to and from clients. See link::Reference/DependancySupport:: helpfile for details.
