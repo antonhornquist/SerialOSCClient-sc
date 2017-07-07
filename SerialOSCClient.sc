@@ -387,6 +387,8 @@ SerialOSCClient {
 
 		permanent = false;
 
+		// TODO: try to catch error in initialization in order to not mess up SerialOSCClient.all list
+		// for instance, an erroneous gridRefreshAction messes up initialization.
 		doWhenInitialized = {
 			if (argAutoroute) { this.findAndRouteUnusedDevicesToClient(false) };
 		};
@@ -1070,7 +1072,7 @@ SerialOSCGrid : SerialOSCDevice {
 
 	prDeviceNumColsFromType {
 		^switch (type)
-			{ 'monome 64' } { 16 }
+			{ 'monome 64' } { 8 }
 			{ 'monome 40h' } { 8 }
 			{ 'monome 128' } { 16 }
 			{ 'monome 256' } { 16 }

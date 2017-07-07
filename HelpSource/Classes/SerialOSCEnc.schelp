@@ -44,7 +44,7 @@ returns:: A ControlSpec
 
 SUBSECTION::Default enc ring state
 
-These methods are equivalent to instance methods of the same name below except they are invoked for the default enc, if any.
+These methods are equivalent to instance methods of the same name below except they are invoked for the default enc, if any is set.
 
 METHOD:: clearRings
 METHOD:: ringSet
@@ -54,7 +54,7 @@ METHOD:: ringRange
 
 SUBSECTION::Enc properties
 
-These methods are equivalent to instance methods of the same name below except they are invoked for the default enc, if any.
+These methods are equivalent to instance methods of the same name below except they are invoked for the default enc, if any is set.
 
 METHOD:: nSpec
 METHOD:: numEncs

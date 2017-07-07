@@ -267,7 +267,11 @@ s.reboot
 ::
 
 
-subsection::TODO
+section::Implementation Details
+
+subsection::The parts that make up the Clip app
+
+section::TODO
 
 code::
 (

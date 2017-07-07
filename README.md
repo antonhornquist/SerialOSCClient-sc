@@ -8,7 +8,7 @@ SerialOSCClient provides plug'n'play support for [monome](http://monome.org) gri
 
 At its core SerialOSCClient and its related classes are to SerialOSC devices what MIDIClient and its related classes in the SuperCollider standard library are to MIDI devices.
 
-In addition, it's possible to instantiate SerialOSCClient for single-grid, single-enc or one-grid-and-one-enc use cases. SerialOSCClient instances constitute self-contained clients decoupled from the devices controlling it at any given time. SerialOSCClient callback functions and instance methods are provided to update of led state and for responding to incoming events. Built-in routing capabilities map devices to clients.
+In addition, it's possible to instantiate SerialOSCClient for single-grid, single-enc or one-grid-and-one-enc use cases. SerialOSCClient instances constitute self-contained clients decoupled from the devices controlling it at any given time. SerialOSCClient callback functions and instance methods are provided for update of led state and responding to incoming events. Built-in routing capabilities are used to map devices to clients.
 
 ## Examples
 
@@ -20,21 +20,23 @@ Initialize SerialOSCClient.
 SerialOSCClient.init;
 ```
 
-Set led state:
+Set led state of a grid:
 
 ``` supercollider
-SerialOSCGrid.ledSet(0, 0, 1); // set the top-leftmost led of default connected grid (first one connected) to lit
-SerialOSCGrid.ledSet(0, 0, 0); // set the top-leftmost led of default connected grid (first one connected) to unlit
+SerialOSCGrid.ledSet(0, 0, 1); // set the top-leftmost led of default grid (first one attached) to lit
+SerialOSCGrid.ledSet(0, 0, 0); // set the top-leftmost led of default grid (first one attached) to unlit
 ```
 
-Listen to button events:
+Listen to button events from a grid:
 
 ``` supercollider
-GridKeydef(\test, { |x, y, state| (if (state == 1, "key down", "key up") + "at (%,%)".format(x, y)).postln }); // a press or release of any button on any connected grid will post event state information to Post Window
+// a press or release of any button on any attached grid posts event state information to Post Window
+GridKeydef(\test, { |x, y, state| (if (state == 1, "key down", "key up") + "at (%,%)".format(x, y)).postln });
+
 GridKeydef(\test).free; // or CmdPeriod frees responder
 ```
 
-Let a specific button toggle its led:
+Let a specific grid button toggle its led:
 
 ``` supercollider
 (
@@ -46,7 +48,7 @@ GridKeydef.press(\toggle).free; // free responder
 
 ### Client Example
 
-Self-contained clients can be created by instantiating SerialOSCClient. This is recommended for single-grid, single-enc or one-grid-and-one-enc use.
+Self-contained clients are created by instantiating SerialOSCClient. This is recommended for single-grid, single-enc or one-grid-and-one-enc use.
 
 ``` supercollider
 (
