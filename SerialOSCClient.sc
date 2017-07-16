@@ -1252,7 +1252,7 @@ SerialOSCComm {
 	classvar
 		trace=false,
 		deviceListSemaphore,
-		deviceInfoSemaphore,
+		deviceInfoSemaphore, // TODO: shouldn't this be used for requestInformationAboutDevice ?
 		<isTrackingConnectedDevicesChanges=false,
 		serialOSCAddResponseListener,
 		serialOSCRemoveResponseListener,
@@ -1319,7 +1319,7 @@ SerialOSCComm {
 
 			deviceListSemaphore.wait;
 
-			listOfDevices = List.new();
+			listOfDevices = List.new;
 
 			startListeningForSerialoscResponses.(serialOSCNetAddr, listOfDevices);
 
@@ -1339,7 +1339,7 @@ SerialOSCComm {
 
 		ip = NetAddr.localAddr.ip;
 		port = NetAddr.langPort;
-		serialOSCNetAddr.sendMsg("/serialosc/list", ip, port); // request a list of the currently connected devices, sent to host:port of SCLang
+		serialOSCNetAddr.sendMsg("/serialosc/list", ip, port);
 		this.prTraceOutput( "sent: /serialosc/list % % to %".format(ip, port, serialOSCNetAddr) );
 	}
 
@@ -1419,7 +1419,7 @@ SerialOSCComm {
 
 		ip = NetAddr.localAddr.ip;
 		port = NetAddr.langPort;
-		deviceReceiveNetAddr.sendMsg("/sys/info", ip, port); // request a list of the currently connected devices, sent to host:port of SCLang
+		deviceReceiveNetAddr.sendMsg("/sys/info", ip, port);
 		this.prTraceOutput( "sent: /sys/info % % to %".format(ip, port, deviceReceiveNetAddr) );
 	}
 
@@ -1504,7 +1504,7 @@ SerialOSCComm {
 		serialOSCNetAddr=NetAddr(serialOSCHost ? SerialOSCComm.defaultSerialOSCHost, serialOSCPort ? SerialOSCComm.defaultSerialOSCPort);
 		ip = "127.0.0.1";
 		port = NetAddr.langPort;
-		serialOSCNetAddr.sendMsg("/serialosc/notify", ip, port); // request that next device change (connect/disconnect) is sent to host:port
+		serialOSCNetAddr.sendMsg("/serialosc/notify", ip, port);
 		this.prTraceOutput( "sent: /serialosc/notify % % to %".format(ip, port, serialOSCNetAddr) );
 	}
 
