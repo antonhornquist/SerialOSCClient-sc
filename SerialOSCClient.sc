@@ -1,3 +1,4 @@
+// TODO: review SCHelp docs
 SerialOSCClient {
 	classvar prefix='/monome';
 	classvar defaultLegacyModeListenPort=8080;
@@ -47,20 +48,19 @@ SerialOSCClient {
 				};
 			};
 		};
-	
+
 		legacyModeOscRecvFunc = { |msg, time, addr, recvPort|
 			if (addr.ip == "127.0.0.1") {
 				this.prLookupDeviceByPort(addr.port) !? { |device|
 					if (connectedDevices.includes(device)) {
 						if ('/monome/press' == msg[0]) { // note: no pattern matching is performed on OSC address
-							var type = msg[0].asString[7..].asSymbol;
 							recvSerialOSCFunc.value('/grid/key', msg[1..], time, device);
 						};
 					};
 				};
 			};
 		};
-	
+
 		deviceAddedHandler = { |id|
 			fork {
 				devicesSemaphore.wait;
@@ -77,7 +77,7 @@ SerialOSCClient {
 				};
 			};
 		};
-	
+
 		deviceRemovedHandler = { |id|
 			fork {
 				devicesSemaphore.wait;
@@ -88,14 +88,14 @@ SerialOSCClient {
 				devicesSemaphore.signal;
 			};
 		};
-	
+
 	}
 
 	*init { |completionFunc, autoconnect=true, autodiscover=true, verbose=false|
 		this.prInit(autoconnect, verbose);
 
 		if (autodiscover) {
-			SerialOSCComm.startTrackingConnectedDevicesChanges(deviceAddedHandler, deviceRemovedHandler);
+			SerialOSC.startTrackingConnectedDevicesChanges(deviceAddedHandler, deviceRemovedHandler);
 		};
 
 		thisProcess.addOSCRecvFunc(oscRecvFunc);
@@ -103,13 +103,13 @@ SerialOSCClient {
 		initialized = true;
 		runningLegacyMode = false;
 
-		devicesSemaphore.wait;
+		devicesSemaphore.wait; // TODO: below is async, this has no effect?
 		this.prUpdateDevicesListAsync { |devicesAddedToDevicesList, devicesRemovedFromDevicesList|
 			this.postDevices;
 			this.prSyncAfterDeviceListChanges(devicesAddedToDevicesList, devicesRemovedFromDevicesList);
 			completionFunc.value;
 		};
-		devicesSemaphore.signal;
+		devicesSemaphore.signal; // TODO: above is async, this has no effect?
 	}
 
 	*legacy40h { |autoconnect=true, verbose=false|
@@ -132,7 +132,7 @@ SerialOSCClient {
 		var devicesRemovedFromDevicesList;
 
 		this.prInit(autoconnect, verbose);
-	
+
 		thisProcess.addOSCRecvFunc(legacyModeOscRecvFunc);
 
 		initialized = true;
@@ -147,17 +147,15 @@ SerialOSCClient {
 		"SerialOSCClient is running in legacy mode. For an attached grid to work MonomeSerial has to run and be configured with Host Port %, Address Prefix /monome and Listen Port %.".format(NetAddr.langPort, legacyGrid.port).postln;
 	}
 
-	*prInit { |argAutoconnect, argVerbose, initFunc|
+	*prInit { |argAutoconnect, argVerbose|
 		autoconnect = argAutoconnect;
 		verbose = argVerbose;
 
 		this.prRemoveRegisteredOSCRecvFuncsIfAny;
 
-		if (SerialOSCComm.isTrackingConnectedDevicesChanges) {
-			SerialOSCComm.stopTrackingConnectedDevicesChanges
+		if (SerialOSC.isTrackingConnectedDevicesChanges) {
+			SerialOSC.stopTrackingConnectedDevicesChanges
 		};
-
-		initFunc.value;
 	}
 
 	*prSyncAfterDeviceListChanges { |devicesAddedToDevicesList, devicesRemovedFromDevicesList|
@@ -196,36 +194,36 @@ SerialOSCClient {
 	}
 
 	*prUpdateDefaultGrid { |devicesAddedToDevicesList, devicesRemovedFromDevicesList|
-		var addedAndConnectedGrids, connectedGridsNotRoutedToAClient;
+		var addedAndConnected, connectedNotRoutedToAClient;
 
-		addedAndConnectedGrids = devicesAddedToDevicesList.reject(this.prDeviceIsEncByType(_)).select(_.isConnected);
-		connectedGridsNotRoutedToAClient = SerialOSCGrid.connected.reject { |grid| grid.client.notNil };
+		addedAndConnected = devicesAddedToDevicesList.reject(this.prDeviceIsEncByType(_)).select(_.isConnected);
+		connectedNotRoutedToAClient = SerialOSCGrid.connected.reject { |device| device.client.notNil };
 
 		case
-			{ SerialOSCGrid.default.isNil and: addedAndConnectedGrids.notEmpty } {
-				SerialOSCGrid.default = addedAndConnectedGrids.first
+			{ SerialOSCGrid.default.isNil and: addedAndConnected.notEmpty } {
+				SerialOSCGrid.default = addedAndConnected.first
 			}
 			{ devices.includes(SerialOSCGrid.default).not } {
 				SerialOSCGrid.default = case
-					{ addedAndConnectedGrids.notEmpty } { addedAndConnectedGrids.first }
-					{ connectedGridsNotRoutedToAClient.notEmpty } { connectedGridsNotRoutedToAClient.first }
+					{ addedAndConnected.notEmpty } { addedAndConnected.first }
+					{ connectedNotRoutedToAClient.notEmpty } { connectedNotRoutedToAClient.first }
 			}
 	}
 
 	*prUpdateDefaultEnc { |devicesAddedToDevicesList, devicesRemovedFromDevicesList|
-		var addedAndConnectedEncs, connectedEncsNotRoutedToAClient;
+		var addedAndConnected, connectedNotRoutedToAClient;
 
-		addedAndConnectedEncs = devicesAddedToDevicesList.select(this.prDeviceIsEncByType(_)).select(_.isConnected);
-		connectedEncsNotRoutedToAClient = SerialOSCEnc.connected.reject { |enc| enc.client.notNil };
+		addedAndConnected = devicesAddedToDevicesList.select(this.prDeviceIsEncByType(_)).select(_.isConnected);
+		connectedNotRoutedToAClient = SerialOSCEnc.connected.reject { |device| device.client.notNil };
 
 		case
-			{ SerialOSCEnc.default.isNil and: addedAndConnectedEncs.notEmpty } {
-				SerialOSCEnc.default = addedAndConnectedEncs.first
+			{ SerialOSCEnc.default.isNil and: addedAndConnected.notEmpty } {
+				SerialOSCEnc.default = addedAndConnected.first
 			}
 			{ devices.includes(SerialOSCEnc.default).not } {
 				SerialOSCEnc.default = case
-					{ addedAndConnectedEncs.notEmpty } { addedAndConnectedEncs.first }
-					{ connectedEncsNotRoutedToAClient.notEmpty } { connectedEncsNotRoutedToAClient.first }
+					{ addedAndConnected.notEmpty } { addedAndConnected.first }
+					{ connectedNotRoutedToAClient.notEmpty } { connectedNotRoutedToAClient.first }
 			}
 	}
 
@@ -238,12 +236,12 @@ SerialOSCClient {
 
 		if (connectedDevices.includes(device).not) {
 			runningLegacyMode.not.if {
-				SerialOSCComm.changeDeviceMessagePrefix(
+				SerialOSC.changeDeviceMessagePrefix(
 					device.port,
-					prefix
+					prefix // TODO: consider changing to id as Ruby version
 				);
-	
-				SerialOSCComm.changeDeviceDestinationPort(
+
+				SerialOSC.changeDeviceDestinationPort(
 					device.port,
 					NetAddr.langPort
 				);
@@ -325,7 +323,7 @@ SerialOSCClient {
 	}
 
 	*prUpdateDevicesListAsync { |completionFunc|
-		SerialOSCComm.requestListOfDevices { |list|
+		SerialOSC.requestListOfDevices { |list|
 			var currentDevices, foundDevices, devicesToRemove, devicesToAdd;
 
 			currentDevices = devices.as(IdentitySet);
@@ -350,7 +348,7 @@ SerialOSCClient {
 	}
 
 	*prLookupDeviceById { |id|
-		^devices.detect { |device| device.id == id }
+		^devices.detect { |device| device.id == id.asSymbol }
 	}
 
 	*prLookupDeviceByPort { |receivePort|
@@ -365,7 +363,7 @@ SerialOSCClient {
 		^this.new(name, gridSpec, \none, func, autoroute);
 	}
 
-	*enc { |name, func, encSpec, autoroute=true|
+	*enc { |name, func, encSpec=\any, autoroute=true|
 		^this.new(name, \none, encSpec, func, autoroute);
 	}
 
@@ -377,30 +375,27 @@ SerialOSCClient {
 		^super.new.initSerialOSCClient(name, gridSpec, encSpec, func, autoroute)
 	}
 
-	initSerialOSCClient { |argName, argGridSpec, argEncSpec, func, argAutoroute|
-		var doWhenInitialized;
+	// TODO: new
+	*doWhenInitialized { |func|
+		if (initialized, func, {
+			this.init(func);
+		});
+	}
 
+	initSerialOSCClient { |argName, argGridSpec, argEncSpec, func, argAutoroute|
 		name = argName;
 		gridSpec = argGridSpec;
 		encSpec = argEncSpec;
 		autoroute = argAutoroute;
-
 		permanent = false;
-
-		// TODO: try to catch error in initialization in order to not mess up SerialOSCClient.all list
-		// for instance, an erroneous gridRefreshAction messes up initialization.
-		doWhenInitialized = {
-			if (argAutoroute) { this.findAndRouteUnusedDevicesToClient(false) };
-		};
 
 		func.value(this);
 
-		if (SerialOSCClient.initialized, doWhenInitialized, {
-			SerialOSCClient.init(completionFunc: doWhenInitialized);
-		});
+		SerialOSCClient.doWhenInitialized {
+			if (argAutoroute) { this.findAndRouteUnusedDevicesToClient(false) };
+		};
 
 		all = all.add(this);
-
 	}
 
 	printOn { arg stream;
@@ -516,7 +511,7 @@ SerialOSCClient {
 		grid.client = this;
 		onGridRouted.value(this);
 		SerialOSCClientNotification.deviceRouted(grid, this);
-		this.warnIfGridDoNotMatchSpec;
+		this.warnIfGridDoesNotMatchSpec;
 		this.refreshGrid;
 	}
 
@@ -539,7 +534,7 @@ SerialOSCClient {
 		enc.client = this;
 		onEncRouted.value(this);
 		SerialOSCClientNotification.deviceRouted(enc, this);
-		this.warnIfEncDoNotMatchSpec;
+		this.warnIfEncDoesNotMatchSpec;
 		this.refreshEnc;
 	}
 
@@ -552,13 +547,13 @@ SerialOSCClient {
 
 	grabGrid {
 		if (this.usesGrid and: SerialOSCGrid.all.notEmpty) {
-			SerialOSCClient.route(SerialOSCGrid.all.first);
+			SerialOSCClient.route(SerialOSCGrid.all.first, this);
 		};
 	}
 
 	grabEnc {
 		if (this.usesEnc and: SerialOSCEnc.all.notEmpty) {
-			SerialOSCClient.route(SerialOSCEnc.all.first);
+			SerialOSCClient.route(SerialOSCEnc.all.first, this);
 		};
 	}
 
@@ -611,13 +606,13 @@ SerialOSCClient {
 		}
 	}
 
-	warnIfGridDoNotMatchSpec {
+	warnIfGridDoesNotMatchSpec {
 		SerialOSCClient.gridMatchesSpec(grid, gridSpec).not.if {
 			"Note: Grid % does not match client % spec: %".format(grid, this, gridSpec).postln
 		}
 	}
 
-	warnIfEncDoNotMatchSpec {
+	warnIfEncDoesNotMatchSpec {
 		SerialOSCClient.encMatchesSpec(enc, encSpec).not.if {
 			"Note: Enc % does not match client % spec: %".format(enc, this, encSpec).postln
 		}
@@ -858,7 +853,7 @@ LegacySerialOSCGrid : SerialOSCGrid {
 	}
 
 	ledLevelAll { |l|
-		NotYetImplementedError("Method not yet supported in Legacy Mode", thisMethod).throw;
+		this.ledAll(if (l == 15, 1, 0));
 	}
 
 	ledLevelMap { |xOffset, yOffset, levels|
@@ -921,73 +916,214 @@ SerialOSCGrid : SerialOSCDevice {
 		rotation = argRotation;
 	}
 
+	*doWithDefaultWhenInitialized { |func, defaultNotAvailableFunc|
+		var fallback = { ("No default grid available").postln };
+		SerialOSCClient.doWhenInitialized {
+			if (default.notNil) {
+				func.value(default);
+			} {
+				(defaultNotAvailableFunc ? fallback).value;
+			};
+		};
+	}
+
+	*testLeds {
+		this.doWithDefaultWhenInitialized(
+			_.testLeds,
+			{ ("Unable to run test, no default grid available").postln }
+		);
+	}
+
 	*clearLeds {
-		default !? { |grid| grid.clearLeds };
+		this.doWithDefaultWhenInitialized(_.clearLeds);
 	}
 
 	*activateTilt { |n|
-		default !? { |grid| grid.activateTilt(n) };
+		this.doWithDefaultWhenInitialized { |grid| grid.activateTilt(n) };
 	}
 
 	*deactivateTilt { |n|
-		default !? { |grid| grid.deactivateTilt(n) };
+		this.doWithDefaultWhenInitialized { |grid| grid.deactivateTilt(n) };
 	}
 
 	*ledSet { |x, y, state|
-		default !? { |grid| grid.ledSet(x, y, state) };
+		this.doWithDefaultWhenInitialized { |grid| grid.ledSet(x, y, state) };
 	}
 
 	*ledAll { |state|
-		default !? { |grid| grid.ledAll(state) };
+		this.doWithDefaultWhenInitialized { |grid| grid.ledAll(state) };
 	}
 
 	*ledMap { |xOffset, yOffset, bitmasks|
-		default !? { |grid| grid.ledMap(xOffset, yOffset, bitmasks) };
+		this.doWithDefaultWhenInitialized { |grid| grid.ledMap(xOffset, yOffset, bitmasks) };
 	}
 
 	*ledRow { |xOffset, y, bitmasks|
-		default !? { |grid| grid.ledRow(xOffset, y, bitmasks) };
+		this.doWithDefaultWhenInitialized { |grid| grid.ledRow(xOffset, y, bitmasks) };
 	}
 
 	*ledCol { |x, yOffset, bitmasks|
-		default !? { |grid| grid.ledCol(x, yOffset, bitmasks) };
+		this.doWithDefaultWhenInitialized { |grid| grid.ledCol(x, yOffset, bitmasks) };
 	}
 
 	*ledIntensity { |i|
-		default !? { |grid| grid.ledIntensity(i) };
+		this.doWithDefaultWhenInitialized { |grid| grid.ledIntensity(i) };
 	}
 
 	*ledLevelSet { |x, y, l|
-		default !? { |grid| grid.ledLevelSet(x, y, l) };
+		this.doWithDefaultWhenInitialized { |grid| grid.ledLevelSet(x, y, l) };
 	}
 
 	*ledLevelAll { |l|
-		default !? { |grid| grid.ledLevelAll(l) };
+		this.doWithDefaultWhenInitialized { |grid| grid.ledLevelAll(l) };
 	}
 
 	*ledLevelMap { |xOffset, yOffset, levels|
-		default !? { |grid| grid.ledLevelMap(xOffset, yOffset, levels) };
+		this.doWithDefaultWhenInitialized { |grid| grid.ledLevelMap(xOffset, yOffset, levels) };
 	}
 
 	*ledLevelRow { |xOffset, y, levels|
-		default !? { |grid| grid.ledLevelRow(xOffset, y, levels) };
+		this.doWithDefaultWhenInitialized { |grid| grid.ledLevelRow(xOffset, y, levels) };
 	}
 
 	*ledLevelCol { |x, yOffset, levels|
-		default !? { |grid| grid.ledLevelCol(x, yOffset, levels) };
+		this.doWithDefaultWhenInitialized { |grid| grid.ledLevelCol(x, yOffset, levels) };
 	}
 
 	*tiltSet { |n, state|
-		default !? { |grid| grid.tiltSet(n, state) };
+		this.doWithDefaultWhenInitialized { |grid| grid.tiltSet(n, state) };
 	}
 
 	*numButtons { ^default !? _.numButtons }
 	*numCols { ^default !? _.numCols }
 	*numRows { ^default !? _.numRows }
 	*rotation { ^default !? _.rotation }
-	*rotation_ { |degrees| default !? (_.rotation_(degrees)) }
-	*ledXSpec { ^default !? { |grid| grid.ledXSpec } }
-	*ledYSpec { ^default !? { |grid| grid.ledYSpec } }
+	*rotation_ { |degrees| this.doWithDefaultWhenInitialized { |grid| grid.rotation_(degrees) } }
+	*ledXSpec { ^default !? _.ledXSpec }
+	*ledYSpec { ^default !? _.ledYSpec }
+
+	// TODO
+	splashFrom { |origin, size=8, delay=0.1|
+		this.prSplashFrom(origin, size, delay, { |x, y, level| this.ledLevelSet(x, y, level) });
+	}
+
+	splashFromMono { |origin, size=8, delay=0.1|
+		this.prSplashFrom(origin, size, delay, { |x, y, level| this.ledSet(x, y, 1) });
+	}
+
+	prSplashFrom { |origin, size, delay=0.1, setFunc|
+		var numCols = this.numCols, numRows = this.numRows;
+		var prevPoints = Array.new;
+		var leds = Array.fill(numCols * numRows, { |i| Point.new(i mod: numCols, i div: numCols) });
+		var getPointsWithinDistance = { |origin, points, distance|
+			points.select { |point| point.dist(origin).round == distance };
+		};
+
+		this.unroute;
+
+		fork {
+			size.do { |distance|
+				var newPoints = getPointsWithinDistance.value(origin, leds, distance);
+				newPoints.do { |point| setFunc.value(point.x, point.y, 0 max: (15-(distance*2))) };
+				prevPoints = newPoints;
+				delay.wait;
+				prevPoints.do { |point| this.ledSet(point.x, point.y, 0) };
+			};
+		};
+
+		Server.default.serverRunning.if {
+/*
+			{
+				SinOsc.ar(
+					1000+1000.rand,
+					mul: (-20).dbamp
+				) * EnvGen.ar(Env.perc(releaseTime: delay*8), doneAction: 2) ! 2
+			}.play
+			{
+				SinOsc.ar(
+					LinCongC.ar(150, LFNoise2.kr(10, 0.1, 1), LFNoise2.kr(0.1, 0.1, 0.1), LFNoise2.kr(0.1), 0, 100, 600),
+					mul: (-10).dbamp
+				) * EnvGen.ar(Env.perc(releaseTime: delay*8), doneAction: 2) ! 2
+			}.play
+*/
+			{
+				SinOscFB.ar(
+					(62+7+(origin.x.degreeToKey(Scale.major))).midicps,
+					2.0,
+					mul: (-10).dbamp
+				) * EnvGen.ar(Env.perc(releaseTime: delay*8), doneAction: 2) ! 2
+			}.play
+		};
+	}
+
+	prSplashFromOld { |origin, size, delay=0.1, setFunc|
+		var numCols = this.numCols, numRows = this.numRows;
+		var prevPoints = Array.new;
+		var leds = Array.fill(numCols * numRows, { |i| Point.new(i mod: numCols, i div: numCols) });
+		var getPointsWithinDistance = { |origin, points, distance|
+			points.select { |point| point.dist(origin).round == distance };
+		};
+
+		this.unroute;
+
+		fork {
+			size.do { |distance|
+				var newPoints = getPointsWithinDistance.value(origin, leds, distance);
+				newPoints.do { |point| setFunc.value(point.x, point.y, 0 max: (15-(distance*2))) };
+				prevPoints = newPoints;
+				delay.wait;
+				prevPoints.do { |point| this.ledSet(point.x, point.y, 0) };
+			};
+		};
+
+		Server.default.serverRunning.if {
+/*
+			{
+				SinOsc.ar(
+					1000+1000.rand,
+					mul: (-20).dbamp
+				) * EnvGen.ar(Env.perc(releaseTime: delay*8), doneAction: 2) ! 2
+			}.play
+			{
+				SinOsc.ar(
+					LinCongC.ar(150, LFNoise2.kr(10, 0.1, 1), LFNoise2.kr(0.1, 0.1, 0.1), LFNoise2.kr(0.1), 0, 100, 600),
+					mul: (-10).dbamp
+				) * EnvGen.ar(Env.perc(releaseTime: delay*8), doneAction: 2) ! 2
+			}.play
+*/
+			{
+				SinOscFB.ar(
+					(50+(7.rand.degreeToKey(Scale.major))).midicps,
+					2.0.rand,
+					mul: (-10).dbamp
+				) * EnvGen.ar(Env.perc(releaseTime: delay*8), doneAction: 2) ! 2
+			}.play
+		};
+	}
+
+	testLeds { |varibright=true|
+		this.unroute;
+
+		CmdPeriod.doOnce { this.clearLeds }; // TODO
+
+		fork {
+			15.do { |level|
+				this.ledLevelAll(15-level);
+				0.03.wait;
+			};
+			this.clearLeds;
+
+			inf.do {
+				var delay = 0.04;
+				if (varibright) {
+					this.splashFrom(Point.new(this.numCols.rand, this.numRows.rand), 8, delay);
+				} {
+					this.splashFromMono(Point.new(this.numCols.rand, this.numRows.rand), 8, delay);
+				};
+				((delay-0.02.rand)*8).wait;
+			};
+		};
+	}
 
 	clearLeds {
 		this.ledAll(0);
@@ -1064,10 +1200,10 @@ SerialOSCGrid : SerialOSCDevice {
 	}
 
 	rotation_ { |degrees|
-		SerialOSCComm.changeDeviceRotation(port, degrees);
+		SerialOSC.changeDeviceRotation(port, degrees);
 		rotation = degrees;
 		this.changed(\rotation, degrees);
-		client !? _.warnIfGridDoNotMatchSpec
+		client !? _.warnIfGridDoesNotMatchSpec
 	}
 
 	prDeviceNumColsFromType {
@@ -1139,32 +1275,69 @@ SerialOSCEnc : SerialOSCDevice {
 	initSerialOSCEnc {
 	}
 
+	*doWithDefaultWhenInitialized { |func, defaultNotAvailableFunc|
+		var fallback = { ("No default enc available").postln };
+		SerialOSCClient.doWhenInitialized {
+			if (default.notNil) {
+				func.value(default);
+			} {
+				(defaultNotAvailableFunc ? fallback).value;
+			};
+		};
+	}
+
+	*testLeds {
+		this.doWithDefaultWhenInitialized(
+			_.testLeds,
+			{ ("Unable to run test, no default enc available").postln }
+		);
+	}
+
 	*clearRings {
-		default !? { |enc| enc.clearRings };
+		this.doWithDefaultWhenInitialized(_.clearRings);
 	}
 
 	*ringSet { |n, x, level|
-		default !? { |enc| enc.ringSet(n, x, level) };
+		this.doWithDefaultWhenInitialized { |enc| enc.ringSet(n, x, level) };
 	}
 
 	*ringAll { |n, level|
-		default !? { |enc| enc.ringAll(n, level) };
+		this.doWithDefaultWhenInitialized { |enc| enc.ringAll(n, level) };
 	}
 
 	*ringMap { |n, levels|
-		default !? { |enc| enc.ringMap(n, levels) };
+		this.doWithDefaultWhenInitialized { |enc| enc.ringMap(n, levels) };
 	}
 
 	*ringRange { |n, x1, x2, level|
-		default !? { |enc| enc.ringRange(n, x1, x2, level) };
+		this.doWithDefaultWhenInitialized { |enc| enc.ringRange(n, x1, x2, level) };
 	}
 
 	*nSpec {
-		default !? (_.nSpec)
+		^default !? _.nSpec
 	}
 
 	*numEncs {
-		default !? (_.numEncs)
+		^default !? _.numEncs
+	}
+
+	testLeds { // TODO: write cooler test
+		fork {
+			this.clearRings;
+			this.numEncs.do { |n|
+				64.do { |x|
+					this.ringSet(n, x, 15);
+					0.005.wait;
+				};
+			};
+			this.numEncs.do { |n|
+				64.do { |x|
+					this.ringSet(n, x, 0);
+					0.005.wait;
+				};
+			};
+			this.clearRings;
+		};
 	}
 
 	clearRings {
@@ -1201,7 +1374,7 @@ SerialOSCEnc : SerialOSCDevice {
 }
 
 SerialOSCDevice {
-	var <type, <id, <port, <client;
+	var <type, <id, <port, <>client;
 	classvar <ledLSpec;
 
 	*initClass {
@@ -1209,7 +1382,7 @@ SerialOSCDevice {
 	}
 
 	*new { arg type, id, port;
-		^super.newCopyArgs(type, id, port)
+		^super.newCopyArgs(type.asSymbol, id.asSymbol, port.asInteger)
 	}
 
 	*connect {
@@ -1220,21 +1393,17 @@ SerialOSCDevice {
 		this.default !? { |device| device.disconnect };
 	}
 
-	client_ { |argClient|
-		client = argClient;
-	}
-
 	printOn { arg stream;
 		stream << this.class.name << "(" <<<*
 			[type, id, port]  <<")"
 	}
 
 	prSendMsg { |address ...args|
-		NetAddr(SerialOSCComm.defaultSerialOSCHost, port).sendMsg(SerialOSCClient.prGetPrefixedAddress(address), *args);
+		NetAddr(SerialOSC.defaultSerialOSCHost, port).sendMsg(SerialOSCClient.prGetPrefixedAddress(address), *args);
 	}
 
 	remove {
-		this.disconnect(this);
+		this.disconnect;
 		SerialOSCClient.devices.remove(this);
 		SerialOSCClientNotification.deviceDetached(this);
 	}
@@ -1248,11 +1417,12 @@ SerialOSCDevice {
 	}
 }
 
-SerialOSCComm {
+// TODO: consider distinguishing SuperCollider and daemon host and ports using serialoscd when referring to daemon
+SerialOSC {
 	classvar
 		trace=false,
 		deviceListSemaphore,
-		deviceInfoSemaphore, // TODO: shouldn't this be used for requestInformationAboutDevice ?
+		deviceInfoSemaphore, // TODO: shouldn't this be used for requestInformationAboutDevice ? if not, remove
 		<isTrackingConnectedDevicesChanges=false,
 		serialOSCAddResponseListener,
 		serialOSCRemoveResponseListener,
@@ -1267,7 +1437,8 @@ SerialOSCComm {
 		deviceInfoSemaphore = Semaphore.new;
 	}
 
-	*requestListOfDevices { |func, timeout=0.1, serialOSCHost, serialOSCPort|
+	// TODO: compare and align Ruby and SuperCollider versions
+	*requestListOfDevices { |func, timeout=0.5, serialOSCHost, serialOSCPort|
 		var
 			serialOSCNetAddr,
 			startListeningForSerialoscResponses,
@@ -1277,7 +1448,7 @@ SerialOSCComm {
 			serialOSCResponseListener
 		;
 
-		serialOSCNetAddr=NetAddr(serialOSCHost ? SerialOSCComm.defaultSerialOSCHost, serialOSCPort ? SerialOSCComm.defaultSerialOSCPort);
+		serialOSCNetAddr=NetAddr(serialOSCHost ? SerialOSC.defaultSerialOSCHost, serialOSCPort ? SerialOSC.defaultSerialOSCPort);
 
 		startListeningForSerialoscResponses = { |serialOSCNetAddr, listOfDevices|
 			setupListener.(serialOSCNetAddr, listOfDevices);
@@ -1293,8 +1464,8 @@ SerialOSCComm {
 			serialOSCResponseListener=OSCFunc.new(
 				{ |msg, time, addr, recvPort|
 					var id, type, receivePort;
-					id = msg[1];
-					type = msg[2];
+					id = msg[1].asSymbol;
+					type = msg[2].asSymbol;
 					receivePort = msg[3].asInteger;
 					this.prTraceOutput( "received: /serialosc/device % % % from %".format(id, type, receivePort, addr) );
 					listOfDevices.add(
@@ -1323,7 +1494,11 @@ SerialOSCComm {
 
 			startListeningForSerialoscResponses.(serialOSCNetAddr, listOfDevices);
 
-			this.prSendSerialoscListMsg(serialOSCNetAddr);
+			this.prSendMessage(
+				["/serialosc/list", NetAddr.localAddr.ip, NetAddr.langPort],
+				serialOSCPort ? SerialOSC.defaultSerialOSCPort,
+				serialOSCHost
+			);
 			this.prTraceOutput( "waiting % seconds serialosc device list reponses...".format(timeout) );
 			timeout.wait;
 			stopListeningForSerialoscResponses.();
@@ -1334,16 +1509,8 @@ SerialOSCComm {
 		}
 	}
 
-	*prSendSerialoscListMsg { |serialOSCNetAddr|
-		var ip, port;
-
-		ip = NetAddr.localAddr.ip;
-		port = NetAddr.langPort;
-		serialOSCNetAddr.sendMsg("/serialosc/list", ip, port);
-		this.prTraceOutput( "sent: /serialosc/list % % to %".format(ip, port, serialOSCNetAddr) );
-	}
-
-	*requestInformationAboutDevice { |deviceReceivePort, func, timeout=0.1, serialOSCHost|
+	// TODO: compare and align Ruby and SuperCollider versions
+	*requestInformationAboutDevice { |deviceReceivePort, func, timeout=0.5, serialOSCHost|
 		var
 			deviceReceiveNetAddr,
 			startListeningForSerialoscDeviceResponses,
@@ -1399,12 +1566,15 @@ SerialOSCComm {
 
 			deviceListSemaphore.wait;
 
-			deviceReceiveNetAddr=NetAddr(serialOSCHost ? SerialOSCComm.defaultSerialOSCHost, deviceReceivePort);
+			deviceReceiveNetAddr=NetAddr(serialOSCHost ? SerialOSC.defaultSerialOSCHost, deviceReceivePort);
 			deviceInfo = IdentityDictionary.new;
 			startListeningForSerialoscDeviceResponses.(deviceReceiveNetAddr, deviceInfo);
 
-			this.prSendDeviceSysInfoMsg(deviceReceiveNetAddr);
-
+			this.prSendMessage(
+				["/sys/info", NetAddr.localAddr.ip, NetAddr.langPort],
+				deviceReceivePort,
+				serialOSCHost
+			);
 			timeout.wait;
 			stopListeningForSerialoscDeviceResponses.();
 
@@ -1412,48 +1582,6 @@ SerialOSCComm {
 
 			func.(deviceInfo);
 		}
-	}
-
-	*prSendDeviceSysInfoMsg { |deviceReceiveNetAddr|
-		var ip, port;
-
-		ip = NetAddr.localAddr.ip;
-		port = NetAddr.langPort;
-		deviceReceiveNetAddr.sendMsg("/sys/info", ip, port);
-		this.prTraceOutput( "sent: /sys/info % % to %".format(ip, port, deviceReceiveNetAddr) );
-	}
-
-	*changeDeviceDestinationPort { |deviceReceivePort, deviceDestinationPort, serialOSCHost|
-		var deviceReceiveNetAddr;
-		deviceReceiveNetAddr = NetAddr(serialOSCHost ? SerialOSCComm.defaultSerialOSCHost, deviceReceivePort);
-		deviceReceiveNetAddr.sendMsg("/sys/port", deviceDestinationPort.asInteger);
-		this.prTraceOutput( "sent: /sys/port % to %".format(deviceDestinationPort, deviceReceiveNetAddr) );
-	}
-
-	*changeDeviceDestinationHost { |deviceReceivePort, deviceDestinationHost, serialOSCHost|
-		var deviceReceiveNetAddr;
-		deviceReceiveNetAddr = NetAddr(serialOSCHost ? SerialOSCComm.defaultSerialOSCHost, deviceReceivePort);
-		deviceReceiveNetAddr.sendMsg("/sys/host", deviceDestinationHost.asString);
-		this.prTraceOutput( "sent: /sys/host % to %".format(deviceDestinationHost.asString, deviceReceiveNetAddr) );
-	}
-
-	*changeDeviceMessagePrefix { |deviceReceivePort, deviceMessagePrefix, serialOSCHost|
-		var deviceReceiveNetAddr;
-		deviceReceiveNetAddr = NetAddr(serialOSCHost ? SerialOSCComm.defaultSerialOSCHost, deviceReceivePort);
-		deviceReceiveNetAddr.sendMsg("/sys/prefix", deviceMessagePrefix.asString);
-		this.prTraceOutput( "sent: /sys/prefix % to %".format(deviceMessagePrefix.asString, deviceReceiveNetAddr) );
-	}
-
-	*changeDeviceRotation { |deviceReceivePort, deviceRotation, serialOSCHost|
-		var rotation;
-		var deviceReceiveNetAddr;
-
-		deviceReceiveNetAddr = NetAddr(serialOSCHost ? SerialOSCComm.defaultSerialOSCHost, deviceReceivePort);
-
-		rotation = deviceRotation.asInteger;
-		[0, 90, 180, 270].includes(rotation).not.if { Error("Bad rotation: %".format(rotation)).throw };
-		deviceReceiveNetAddr.sendMsg("/sys/rotation", rotation);
-		this.prTraceOutput( "sent: /sys/rotation % to %".format(rotation, deviceReceiveNetAddr) );
 	}
 
 	*startTrackingConnectedDevicesChanges { |addedFunc, removedFunc, serialOSCHost, serialOSCPort|
@@ -1492,20 +1620,11 @@ SerialOSCComm {
 
 		isTrackingConnectedDevicesChanges.if { Error("Already tracking serialosc device changes.").throw };
 
-		serialOSCNetAddr=NetAddr(serialOSCHost ? SerialOSCComm.defaultSerialOSCHost, serialOSCPort ? SerialOSCComm.defaultSerialOSCPort);
+		serialOSCNetAddr=NetAddr(serialOSCHost ? SerialOSC.defaultSerialOSCHost, serialOSCPort ? SerialOSC.defaultSerialOSCPort);
 
 		startListeningForSerialoscResponses.(serialOSCNetAddr, addedFunc, removedFunc);
 
 		this.prSendRequestNextDeviceChangeMsg(serialOSCHost, serialOSCPort);
-	}
-
-	*prSendRequestNextDeviceChangeMsg { |serialOSCHost, serialOSCPort|
-		var serialOSCNetAddr, port, ip;
-		serialOSCNetAddr=NetAddr(serialOSCHost ? SerialOSCComm.defaultSerialOSCHost, serialOSCPort ? SerialOSCComm.defaultSerialOSCPort);
-		ip = "127.0.0.1";
-		port = NetAddr.langPort;
-		serialOSCNetAddr.sendMsg("/serialosc/notify", ip, port);
-		this.prTraceOutput( "sent: /serialosc/notify % % to %".format(ip, port, serialOSCNetAddr) );
 	}
 
 	*stopTrackingConnectedDevicesChanges {
@@ -1528,8 +1647,59 @@ SerialOSCComm {
 		stopListeningForSerialoscResponses.();
 	}
 
+	*prSendRequestNextDeviceChangeMsg { |serialOSCHost, serialOSCPort|
+		this.prSendMessage(
+			["/serialosc/notify", "127.0.0.1", NetAddr.langPort],
+			serialOSCPort ? SerialOSC.defaultSerialOSCPort,
+			serialOSCHost
+		);
+	}
+
+	*changeDeviceDestinationPort { |deviceReceivePort, deviceDestinationPort, serialOSCHost|
+		this.prSendMessage(
+			["/sys/port", deviceDestinationPort.asInteger],
+			deviceReceivePort,
+			serialOSCHost
+		);
+	}
+
+	*changeDeviceDestinationHost { |deviceReceivePort, deviceDestinationHost, serialOSCHost|
+		this.prSendMessage(
+			["/sys/host", deviceDestinationHost.asString],
+			deviceReceivePort,
+			serialOSCHost
+		);
+	}
+
+	*changeDeviceMessagePrefix { |deviceReceivePort, deviceMessagePrefix, serialOSCHost|
+		this.prSendMessage(
+			["/sys/prefix", deviceMessagePrefix.asString],
+			deviceReceivePort,
+			serialOSCHost
+		);
+	}
+
+	*changeDeviceRotation { |deviceReceivePort, deviceRotation, serialOSCHost|
+		var rotation;
+
+		rotation = deviceRotation.asInteger;
+		[0, 90, 180, 270].includes(rotation).not.if { Error("Invalid rotation: %".format(rotation)).throw };
+		this.prSendMessage(
+			["/sys/rotation", rotation],
+			deviceReceivePort,
+			serialOSCHost
+		);
+	}
+
+	*prSendMessage { |message, port, serialOSCHost|
+		var netAddr;
+		netAddr = NetAddr(serialOSCHost ? SerialOSC.defaultSerialOSCHost, port);
+		netAddr.performList(\sendMsg, message);
+		this.prTraceOutput( "sent: % to %".format(message.join(" "), netAddr) );
+	}
+
 	*prTraceOutput { |str|
-		trace.if { ("SerialOSCComm trace:" + str).postln };
+		trace.if { ("SerialOSC trace:" + str).postln };
 	}
 }
 
