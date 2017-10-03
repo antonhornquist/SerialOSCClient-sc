@@ -92,7 +92,7 @@ code::
 			Pbind(*[
 				instrument: synthDefName,
 				bufnum: buffer, // TODO: only play buffer if it has been fully loaded, to remedy "BOOOM" issues
-				note: Pseq(trigs[i], 1)
+				note: Pseq(trigs[i], 1) // TODO: to only play buffer if it has been loaded can probably be remidied by adjusting the trigs[i] array accordingly
 			])
 		};
 
@@ -179,4 +179,3 @@ code::
 section::How it works
 
 subsection::Hello World
-

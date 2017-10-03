@@ -1,12 +1,12 @@
-TITLE:: SerialOSCComm
+TITLE:: SerialOSC
 summary:: Raw communication via SerialOSC protocol
 categories:: External Control
 related:: Classes/SerialOSCClient
 
 DESCRIPTION::
-Class for discovery and connection of serialosc devices, retrieving device information and setting device settings using the SerialOSC protocol described in link::http://monome.org/docs/osc/::.
+Class containing utility methods for discovery of serialosc devices, retrieval of device information and update of device settings using the SerialOSC protocol described in link::http://monome.org/docs/osc/::.
 
-This class is utilized by link::Classes/SerialOSCClient:: but may also be used directly.
+This class is used by link::Classes/SerialOSCClient:: but may also be used directly.
 
 
 CLASSMETHODS::
@@ -45,7 +45,7 @@ Serialosc port. If omitted, defaultSerialOSCPort is used.
 
 METHOD:: isTrackingConnectedDevicesChanges
 
-returns:: Answers whether SerialOSCComm is currently listening to device notifications.
+returns:: Answers whether SerialOSC is currently listening to device notifications.
 
 METHOD:: stopTrackingConnectedDevicesChanges
 Stops tracking "/serialosc/add" and "/serialosc/remove" responses.
@@ -141,14 +141,17 @@ A Boolean indicating whether to trace messages or not.
 EXAMPLES::
 
 code::
-// Mocking a serialosc server
+(
+// Mocking a serialosc server #1
 
 // A bunch of data structures and osc responders can be used to mock a serialoscd server
 
 // ~devices - an Array of information for each mocked device
 // ~addRemoveListeners - an Array of NetAddr corresponding to each client to get notified of next device attached / detached event
 
-(
+~devices = Array.new;
+~addRemoveListeners = Array.new;
+
 ~setupMockSerialOSCServer = { |port|
     OSCdef(
         '/serialosc/list',
@@ -157,7 +160,7 @@ code::
             host = msg[1];
             port = msg[2];
             replyAddr = NetAddr(host.asString, port.asInteger);
-			msg.debug;
+			msg.debug(\received);
 
             ~devices.do { |entry|
                 replyAddr.sendMsg(
@@ -166,6 +169,20 @@ code::
                     entry[\type],
                     entry[\receivePort]
                 );
+				[
+					[
+						\response,
+						"/serialosc/device",
+						entry[\id],
+						entry[\type],
+						entry[\receivePort]
+					],
+					[
+						\upon,
+						'/serialosc/list',
+						replyAddr
+					]
+				].debug(\responded);
             };
         },
         '/serialosc/list',
@@ -178,7 +195,9 @@ code::
             var host, port;
             host = msg[1];
             port = msg[2];
-            ~addRemoveListeners = ~addRemoveListeners.add(NetAddr(host.asString, port.asInteger));
+			if (~addRemoveListeners.any { |listener| (listener.ip == host.asString) and: (listener.port == port.asInteger) }.not) {
+				~addRemoveListeners = ~addRemoveListeners.add(NetAddr(host.asString, port.asInteger));
+			}
         },
         '/serialosc/notify',
         //recvPort: port
@@ -215,6 +234,73 @@ code::
 ~setupMockDeviceOSCFuncs = { |device|
     device[\oscFuncs] do: _.free;
     device[\oscFuncs] = [
+        (
+            responderFunc: { |msg|
+				var host, port, replyAddr;
+				host = msg[1];
+				port = msg[2];
+				replyAddr = NetAddr(host.asString, port.asInteger);
+				msg.debug;
+
+				replyAddr.sendMsg(
+					"/sys/port",
+					device[\destinationPort]
+				);
+
+				/*
+				TODO
+				[
+					[
+						\upon,
+						'/sys/info',
+						replyAddr
+					],
+					[
+						\responseWasSent,
+				*/
+
+				[
+					'/sys/info',
+					replyAddr,
+					"/sys/port",
+					device[\destinationPort]
+				].debug(\response);
+
+				replyAddr.sendMsg(
+					"/sys/host",
+					device[\destinationHost]
+				);
+				[
+					'/sys/info',
+					replyAddr,
+					"/sys/host",
+					device[\destinationHost]
+				].debug(\response);
+
+				replyAddr.sendMsg(
+					"/sys/prefix",
+					device[\prefix]
+				);
+				[
+					'/sys/info',
+					replyAddr,
+					"/sys/prefix",
+					device[\prefix]
+				].debug(\response);
+
+				replyAddr.sendMsg(
+					"/sys/rotation",
+					device[\rotation]
+				);
+				[
+					'/sys/info',
+					replyAddr,
+					"/sys/rotation",
+					device[\rotation]
+				].debug(\response);
+			},
+            pattern: '/sys/info'
+        ),
         (
             responderFunc: { |msg|
                 device[\destinationPort] = msg[1].asInteger;
@@ -316,79 +402,102 @@ code::
     ~devices.do { |device| ~deviceAsString.(device).postln };
     nil;
 };
+~setupMockSerialOSCServer.value(NetAddr.langPort);
 )
 
-
-
-
 (
+// Mocking a serialosc server #2
+
 ~monome64 = (
-	type: 'monome 64',
-	receivePort: 17000,
-	id: 'm0000045',
-	size: 8@8,
-	destinationHost: "localhost",
-	destinationPort: 17001,
-	prefix: '/nubs',
-	rotation: 0,
-	ledState: Array.fill(8) { Array.fill(8) { false } },
-	tiltState: Array.fill(1) { false }
+    type: 'monome 64',
+    receivePort: 17000,
+    id: 'm0000045',
+    size: 8@8,
+    destinationHost: "localhost",
+    destinationPort: 17001,
+    prefix: '/nubs',
+    rotation: 0,
+    ledState: Array.fill(8) { Array.fill(8) { false } },
+    tiltState: Array.fill(1) { false }
 );
 
 ~monome128 = (
-	type: 'monome 128',
-	receivePort: 17050,
-	id: 'm0000046',
-	size: 8@16,
-	destinationHost: "localhost",
-	destinationPort: 17051,
-	prefix: '/nubs',
-	rotation: 0,
-	ledState: Array.fill(8) { Array.fill(16) { false } },
-	tiltState: Array.fill(1) { false }
+    type: 'monome 128',
+    receivePort: 17050,
+    id: 'm0000046',
+    size: 8@16,
+    destinationHost: "localhost",
+    destinationPort: 17051,
+    prefix: '/nubs',
+    rotation: 0,
+    ledState: Array.fill(8) { Array.fill(16) { false } },
+    tiltState: Array.fill(1) { false }
 );
 
 ~arc2 = (
-	type: 'arc 2',
-	receivePort: 18000,
-	id: 'm0000055',
-	destinationHost: "localhost",
-	destinationPort: 18001,
-	prefix: '/nubs',
-	rotation: 0
+    type: 'monome arc 2',
+    receivePort: 18000,
+    id: 'm0000055',
+    destinationHost: "localhost",
+    destinationPort: 18001,
+    prefix: '/nubs',
+    rotation: 0
 );
 
 ~arc4 = (
-	type: 'arc 4',
-	receivePort: 18050,
-	id: 'm0000056',
-	destinationHost: "localhost",
-	destinationPort: 18051,
-	prefix: '/nubs',
-	rotation: 0
+    type: 'monome arc 4',
+    receivePort: 18050,
+    id: 'm0000056',
+    destinationHost: "localhost",
+    destinationPort: 18051,
+    prefix: '/nubs',
+    rotation: 0
 );
 
+~addMockDevice.value(~monome64);
+~addMockDevice.value(~arc2);
 )
 
-~setupMockSerialOSCServer.value(NetAddr.langPort)
+~devices.size
+~devices
+~addRemoveListeners
 
-SerialOSCComm.defaultSerialOSCPort = NetAddr.langPort;
 
-SerialOSCClient.init
+~addMockDevice.value(~monome128);
+~addMockDevice.value(~arc4);
+~removeMockDevice.(0);
 
+
+(
+fork {
+	2 do: { ~removeMockDevice.(0); 0.01.wait }
+}
+)
+
+(
+fork {
+	~addMockDevice.value(~monome128);
+	0.02.wait;
+	~addMockDevice.value(~arc4);
+};
+)
 
 ~addMockDevice.value(~monome64);
-~addMockDevice.value(~monome128);
-~addMockDevice.value(~arc2);
-~addMockDevice.value(~arc4);
 
 ~plotGridLeds.(~ds[0])
 ~plotGridLeds.(~ds[1])
+
+~devices.size
 
 ~removeMockDevice.(0);
 ~addMockDevice.(~ds[0]);
 
 ~postDevicesList.value;
+
+SerialOSCComm.defaultSerialOSCPort = NetAddr.langPort;
+
+SerialOSCClient.init
+
 
 SerialOSCGrid.default
 SerialOSCGrid.ledSet(0, 0, 1);
@@ -405,4 +514,35 @@ SerialOSCClient.postDevices
 
 SerialOSCComm.requestListOfDevices("127.0.0.1", { |...args| args.debug })
 SerialOSCComm.requestInformationAboutDevice("127.0.0.1", 14769, { |...args| args.debug })
+
+
+~addRemoveListeners
+
+
+
+(
+~devices.do { |entry|
+	var replyAddr = NetAddr("127.0.0.1", 8001);
+	replyAddr.sendMsg(
+		"/serialosc/device",
+		entry[\id],
+		entry[\type],
+		entry[\receivePort]
+	);
+	[
+		[
+			\upon,
+			'/serialosc/list',
+			replyAddr
+		],
+		[
+			\respondWith,
+			"/serialosc/device",
+			entry[\id],
+			entry[\type],
+			entry[\receivePort]
+		]
+	].debug(\response);
+};
+)
 ::
