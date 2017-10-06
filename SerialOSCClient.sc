@@ -1,8 +1,7 @@
-// TODO: review SCHelp docs
 SerialOSCClient {
 	classvar prefix='/monome';
 	classvar defaultLegacyModeListenPort=8080;
-	classvar devicesSemaphore; // TODO: verify semaphores are working using long timeout
+	classvar devicesListSemaphore;
 	classvar autoconnect;
 	classvar <>verbose;
 	classvar recvSerialOSCFunc, oscRecvFunc, legacyModeOscRecvFunc;
@@ -33,7 +32,7 @@ SerialOSCClient {
 		all = [];
 		devices = [];
 		connectedDevices = [];
-		devicesSemaphore = Semaphore.new;
+		devicesListSemaphore = Semaphore.new;
 		CmdPeriod.add(this);
 
 		oscRecvFunc = { |msg, time, addr, recvPort|
@@ -63,29 +62,29 @@ SerialOSCClient {
 
 		deviceAddedHandler = { |id|
 			fork {
-				devicesSemaphore.wait;
+				devicesListSemaphore.wait;
 				if (this.prLookupDeviceById(id).isNil) {
 					this.prUpdateDevicesListAsync {
 						this.prLookupDeviceById(id) !? { |device|
 							this.prSyncAfterDeviceListChanges([device], []);
 							SerialOSCClientNotification.postDeviceAttached(device);
 						};
-						devicesSemaphore.signal;
+						devicesListSemaphore.signal;
 					};
 				} {
-					devicesSemaphore.signal;
+					devicesListSemaphore.signal;
 				};
 			};
 		};
 
 		deviceRemovedHandler = { |id|
 			fork {
-				devicesSemaphore.wait;
+				devicesListSemaphore.wait;
 				this.prLookupDeviceById(id) !? { |device|
 					this.prSyncAfterDeviceListChanges([], [device]);
 					SerialOSCClientNotification.postDeviceDetached(device);
 				};
-				devicesSemaphore.signal;
+				devicesListSemaphore.signal;
 			};
 		};
 
@@ -103,13 +102,11 @@ SerialOSCClient {
 		initialized = true;
 		runningLegacyMode = false;
 
-		devicesSemaphore.wait; // TODO: below is async, this has no effect?
 		this.prUpdateDevicesListAsync { |devicesAddedToDevicesList, devicesRemovedFromDevicesList|
 			this.postDevices;
 			this.prSyncAfterDeviceListChanges(devicesAddedToDevicesList, devicesRemovedFromDevicesList);
 			completionFunc.value;
 		};
-		devicesSemaphore.signal; // TODO: above is async, this has no effect?
 	}
 
 	*legacy40h { |autoconnect=true, verbose=false|
@@ -238,7 +235,7 @@ SerialOSCClient {
 			runningLegacyMode.not.if {
 				SerialOSC.changeDeviceMessagePrefix(
 					device.port,
-					prefix // TODO: consider changing to id as Ruby version
+					prefix
 				);
 
 				SerialOSC.changeDeviceDestinationPort(
@@ -375,7 +372,6 @@ SerialOSCClient {
 		^super.new.initSerialOSCClient(name, gridSpec, encSpec, func, autoroute)
 	}
 
-	// TODO: new
 	*doWhenInitialized { |func|
 		if (initialized, func, {
 			this.init(func);
@@ -1002,129 +998,6 @@ SerialOSCGrid : SerialOSCDevice {
 	*ledXSpec { ^default !? _.ledXSpec }
 	*ledYSpec { ^default !? _.ledYSpec }
 
-	// TODO
-	splashFrom { |origin, size=8, delay=0.1|
-		this.prSplashFrom(origin, size, delay, { |x, y, level| this.ledLevelSet(x, y, level) });
-	}
-
-	splashFromMono { |origin, size=8, delay=0.1|
-		this.prSplashFrom(origin, size, delay, { |x, y, level| this.ledSet(x, y, 1) });
-	}
-
-	prSplashFrom { |origin, size, delay=0.1, setFunc|
-		var numCols = this.numCols, numRows = this.numRows;
-		var prevPoints = Array.new;
-		var leds = Array.fill(numCols * numRows, { |i| Point.new(i mod: numCols, i div: numCols) });
-		var getPointsWithinDistance = { |origin, points, distance|
-			points.select { |point| point.dist(origin).round == distance };
-		};
-
-		this.unroute;
-
-		fork {
-			size.do { |distance|
-				var newPoints = getPointsWithinDistance.value(origin, leds, distance);
-				newPoints.do { |point| setFunc.value(point.x, point.y, 0 max: (15-(distance*2))) };
-				prevPoints = newPoints;
-				delay.wait;
-				prevPoints.do { |point| this.ledSet(point.x, point.y, 0) };
-			};
-		};
-
-		Server.default.serverRunning.if {
-/*
-			{
-				SinOsc.ar(
-					1000+1000.rand,
-					mul: (-20).dbamp
-				) * EnvGen.ar(Env.perc(releaseTime: delay*8), doneAction: 2) ! 2
-			}.play
-			{
-				SinOsc.ar(
-					LinCongC.ar(150, LFNoise2.kr(10, 0.1, 1), LFNoise2.kr(0.1, 0.1, 0.1), LFNoise2.kr(0.1), 0, 100, 600),
-					mul: (-10).dbamp
-				) * EnvGen.ar(Env.perc(releaseTime: delay*8), doneAction: 2) ! 2
-			}.play
-*/
-			{
-				SinOscFB.ar(
-					(62+7+(origin.x.degreeToKey(Scale.major))).midicps,
-					2.0,
-					mul: (-10).dbamp
-				) * EnvGen.ar(Env.perc(releaseTime: delay*8), doneAction: 2) ! 2
-			}.play
-		};
-	}
-
-	prSplashFromOld { |origin, size, delay=0.1, setFunc|
-		var numCols = this.numCols, numRows = this.numRows;
-		var prevPoints = Array.new;
-		var leds = Array.fill(numCols * numRows, { |i| Point.new(i mod: numCols, i div: numCols) });
-		var getPointsWithinDistance = { |origin, points, distance|
-			points.select { |point| point.dist(origin).round == distance };
-		};
-
-		this.unroute;
-
-		fork {
-			size.do { |distance|
-				var newPoints = getPointsWithinDistance.value(origin, leds, distance);
-				newPoints.do { |point| setFunc.value(point.x, point.y, 0 max: (15-(distance*2))) };
-				prevPoints = newPoints;
-				delay.wait;
-				prevPoints.do { |point| this.ledSet(point.x, point.y, 0) };
-			};
-		};
-
-		Server.default.serverRunning.if {
-/*
-			{
-				SinOsc.ar(
-					1000+1000.rand,
-					mul: (-20).dbamp
-				) * EnvGen.ar(Env.perc(releaseTime: delay*8), doneAction: 2) ! 2
-			}.play
-			{
-				SinOsc.ar(
-					LinCongC.ar(150, LFNoise2.kr(10, 0.1, 1), LFNoise2.kr(0.1, 0.1, 0.1), LFNoise2.kr(0.1), 0, 100, 600),
-					mul: (-10).dbamp
-				) * EnvGen.ar(Env.perc(releaseTime: delay*8), doneAction: 2) ! 2
-			}.play
-*/
-			{
-				SinOscFB.ar(
-					(50+(7.rand.degreeToKey(Scale.major))).midicps,
-					2.0.rand,
-					mul: (-10).dbamp
-				) * EnvGen.ar(Env.perc(releaseTime: delay*8), doneAction: 2) ! 2
-			}.play
-		};
-	}
-
-	testLeds { |varibright=true|
-		this.unroute;
-
-		CmdPeriod.doOnce { this.clearLeds }; // TODO
-
-		fork {
-			15.do { |level|
-				this.ledLevelAll(15-level);
-				0.03.wait;
-			};
-			this.clearLeds;
-
-			inf.do {
-				var delay = 0.04;
-				if (varibright) {
-					this.splashFrom(Point.new(this.numCols.rand, this.numRows.rand), 8, delay);
-				} {
-					this.splashFromMono(Point.new(this.numCols.rand, this.numRows.rand), 8, delay);
-				};
-				((delay-0.02.rand)*8).wait;
-			};
-		};
-	}
-
 	clearLeds {
 		this.ledAll(0);
 	}
@@ -1223,6 +1096,83 @@ SerialOSCGrid : SerialOSCDevice {
 	}
 
 	unroute { client !? _.unrouteGrid }
+
+	testLeds { |varibright=true|
+		this.unroute;
+
+		CmdPeriod.doOnce { this.clearLeds };
+
+		fork {
+			15.do { |level|
+				this.ledLevelAll(15-level);
+				0.03.wait;
+			};
+			this.clearLeds;
+
+			inf.do {
+				var delay = 0.04;
+				if (varibright) {
+					this.prSplashFromVari(Point.new(this.numCols.rand, this.numRows.rand), 8, delay);
+				} {
+					this.prSplashFromMono(Point.new(this.numCols.rand, this.numRows.rand), 8, delay);
+				};
+				((delay-0.02.rand)*8).wait;
+			};
+		};
+	}
+
+	prSplashFromVari { |origin, size=8, delay=0.1|
+		this.prSplashFrom(origin, size, delay, { |x, y, level| this.ledLevelSet(x, y, level) });
+	}
+
+	prSplashFromMono { |origin, size=8, delay=0.1|
+		this.prSplashFrom(origin, size, delay, { |x, y, level| this.ledSet(x, y, 1) });
+	}
+
+	prSplashFrom { |origin, size, delay=0.1, setFunc|
+		var numCols = this.numCols, numRows = this.numRows;
+		var prevPoints = Array.new;
+		var leds = Array.fill(numCols * numRows, { |i| Point.new(i mod: numCols, i div: numCols) });
+		var getPointsWithinDistance = { |origin, points, distance|
+			points.select { |point| point.dist(origin).round == distance };
+		};
+
+		this.unroute;
+
+		fork {
+			size.do { |distance|
+				var newPoints = getPointsWithinDistance.value(origin, leds, distance);
+				newPoints.do { |point| setFunc.value(point.x, point.y, 0 max: (15-(distance*2))) };
+				prevPoints = newPoints;
+				delay.wait;
+				prevPoints.do { |point| this.ledSet(point.x, point.y, 0) };
+			};
+		};
+
+		Server.default.serverRunning.if {
+/*
+			{
+				SinOsc.ar(
+					1000+1000.rand,
+					mul: (-20).dbamp
+				) * EnvGen.ar(Env.perc(releaseTime: delay*8), doneAction: 2) ! 2
+			}.play
+			{
+				SinOsc.ar(
+					LinCongC.ar(150, LFNoise2.kr(10, 0.1, 1), LFNoise2.kr(0.1, 0.1, 0.1), LFNoise2.kr(0.1), 0, 100, 600),
+					mul: (-10).dbamp
+				) * EnvGen.ar(Env.perc(releaseTime: delay*8), doneAction: 2) ! 2
+			}.play
+*/
+			{
+				SinOscFB.ar(
+					(62+7+(origin.x.degreeToKey(Scale.major))).midicps,
+					2.0,
+					mul: (-10).dbamp
+				) * EnvGen.ar(Env.perc(releaseTime: delay*8), doneAction: 2) ! 2
+			}.play
+		};
+	}
 }
 
 SerialOSCEnc : SerialOSCDevice {
@@ -1321,25 +1271,6 @@ SerialOSCEnc : SerialOSCDevice {
 		^default !? _.numEncs
 	}
 
-	testLeds { // TODO: write cooler test
-		fork {
-			this.clearRings;
-			this.numEncs.do { |n|
-				64.do { |x|
-					this.ringSet(n, x, 15);
-					0.005.wait;
-				};
-			};
-			this.numEncs.do { |n|
-				64.do { |x|
-					this.ringSet(n, x, 0);
-					0.005.wait;
-				};
-			};
-			this.clearRings;
-		};
-	}
-
 	clearRings {
 		4.do { |n| this.ringAll(n, 0) };
 	}
@@ -1399,7 +1330,7 @@ SerialOSCDevice {
 	}
 
 	prSendMsg { |address ...args|
-		NetAddr(SerialOSC.defaultSerialOSCHost, port).sendMsg(SerialOSCClient.prGetPrefixedAddress(address), *args);
+		NetAddr(SerialOSC.defaultSerialoscdHost, port).sendMsg(SerialOSCClient.prGetPrefixedAddress(address), *args);
 	}
 
 	remove {
@@ -1415,29 +1346,44 @@ SerialOSCDevice {
 	isConnected {
 		^SerialOSCClient.connectedDevices.includes(this);
 	}
+
+	testLeds {
+		fork {
+			this.clearRings;
+			this.numEncs.do { |n|
+				64.do { |x|
+					this.ringSet(n, x, 15);
+					0.005.wait;
+				};
+			};
+			this.numEncs.do { |n|
+				64.do { |x|
+					this.ringSet(n, x, 0);
+					0.005.wait;
+				};
+			};
+			this.clearRings;
+		};
+	}
 }
 
-// TODO: consider distinguishing SuperCollider and daemon host and ports using serialoscd when referring to daemon
 SerialOSC {
 	classvar
 		trace=false,
-		deviceListSemaphore,
-		deviceInfoSemaphore, // TODO: shouldn't this be used for requestInformationAboutDevice ? if not, remove
+		asyncSerialoscdResponseSemaphore,
 		<isTrackingConnectedDevicesChanges=false,
 		serialOSCAddResponseListener,
 		serialOSCRemoveResponseListener,
-		<>defaultSerialOSCHost = "127.0.0.1",
-		<>defaultSerialOSCPort = 12002
+		<>defaultSerialoscdHost = "127.0.0.1",
+		<>defaultSerialoscdPort = 12002
 	;
 
 	*trace { |on=true| trace = on }
 
 	*initClass {
-		deviceListSemaphore = Semaphore.new;
-		deviceInfoSemaphore = Semaphore.new;
+		asyncSerialoscdResponseSemaphore = Semaphore.new;
 	}
 
-	// TODO: compare and align Ruby and SuperCollider versions
 	*requestListOfDevices { |func, timeout=0.5, serialOSCHost, serialOSCPort|
 		var
 			serialOSCNetAddr,
@@ -1448,7 +1394,7 @@ SerialOSC {
 			serialOSCResponseListener
 		;
 
-		serialOSCNetAddr=NetAddr(serialOSCHost ? SerialOSC.defaultSerialOSCHost, serialOSCPort ? SerialOSC.defaultSerialOSCPort);
+		serialOSCNetAddr=NetAddr(serialOSCHost ? SerialOSC.defaultSerialoscdHost, serialOSCPort ? SerialOSC.defaultSerialoscdPort);
 
 		startListeningForSerialoscResponses = { |serialOSCNetAddr, listOfDevices|
 			setupListener.(serialOSCNetAddr, listOfDevices);
@@ -1488,7 +1434,7 @@ SerialOSC {
 		fork {
 			var listOfDevices;
 
-			deviceListSemaphore.wait;
+			asyncSerialoscdResponseSemaphore.wait;
 
 			listOfDevices = List.new;
 
@@ -1496,20 +1442,19 @@ SerialOSC {
 
 			this.prSendMessage(
 				["/serialosc/list", NetAddr.localAddr.ip, NetAddr.langPort],
-				serialOSCPort ? SerialOSC.defaultSerialOSCPort,
+				serialOSCPort ? SerialOSC.defaultSerialoscdPort,
 				serialOSCHost
 			);
 			this.prTraceOutput( "waiting % seconds serialosc device list reponses...".format(timeout) );
 			timeout.wait;
 			stopListeningForSerialoscResponses.();
 
-			deviceListSemaphore.signal;
+			asyncSerialoscdResponseSemaphore.signal;
 
 			func.(listOfDevices);
 		}
 	}
 
-	// TODO: compare and align Ruby and SuperCollider versions
 	*requestInformationAboutDevice { |deviceReceivePort, func, timeout=0.5, serialOSCHost|
 		var
 			deviceReceiveNetAddr,
@@ -1564,9 +1509,9 @@ SerialOSC {
 		fork {
 			var deviceInfo;
 
-			deviceListSemaphore.wait;
+			asyncSerialoscdResponseSemaphore.wait;
 
-			deviceReceiveNetAddr=NetAddr(serialOSCHost ? SerialOSC.defaultSerialOSCHost, deviceReceivePort);
+			deviceReceiveNetAddr=NetAddr(serialOSCHost ? SerialOSC.defaultSerialoscdHost, deviceReceivePort);
 			deviceInfo = IdentityDictionary.new;
 			startListeningForSerialoscDeviceResponses.(deviceReceiveNetAddr, deviceInfo);
 
@@ -1578,7 +1523,7 @@ SerialOSC {
 			timeout.wait;
 			stopListeningForSerialoscDeviceResponses.();
 
-			deviceListSemaphore.signal;
+			asyncSerialoscdResponseSemaphore.signal;
 
 			func.(deviceInfo);
 		}
@@ -1620,7 +1565,7 @@ SerialOSC {
 
 		isTrackingConnectedDevicesChanges.if { Error("Already tracking serialosc device changes.").throw };
 
-		serialOSCNetAddr=NetAddr(serialOSCHost ? SerialOSC.defaultSerialOSCHost, serialOSCPort ? SerialOSC.defaultSerialOSCPort);
+		serialOSCNetAddr=NetAddr(serialOSCHost ? SerialOSC.defaultSerialoscdHost, serialOSCPort ? SerialOSC.defaultSerialoscdPort);
 
 		startListeningForSerialoscResponses.(serialOSCNetAddr, addedFunc, removedFunc);
 
@@ -1650,7 +1595,7 @@ SerialOSC {
 	*prSendRequestNextDeviceChangeMsg { |serialOSCHost, serialOSCPort|
 		this.prSendMessage(
 			["/serialosc/notify", "127.0.0.1", NetAddr.langPort],
-			serialOSCPort ? SerialOSC.defaultSerialOSCPort,
+			serialOSCPort ? SerialOSC.defaultSerialoscdPort,
 			serialOSCHost
 		);
 	}
@@ -1693,7 +1638,7 @@ SerialOSC {
 
 	*prSendMessage { |message, port, serialOSCHost|
 		var netAddr;
-		netAddr = NetAddr(serialOSCHost ? SerialOSC.defaultSerialOSCHost, port);
+		netAddr = NetAddr(serialOSCHost ? SerialOSC.defaultSerialoscdHost, port);
 		netAddr.performList(\sendMsg, message);
 		this.prTraceOutput( "sent: % to %".format(message.join(" "), netAddr) );
 	}
