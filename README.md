@@ -12,6 +12,52 @@ In addition, it's possible to instantiate SerialOSCClient for single-grid, singl
 
 ## Examples
 
+### Test monome grid or arc
+
+With a monome grid or arc attached to your computer, evaluate one of the following lines depending on what device you have attached:
+
+``` supercollider
+SerialOSCGrid.testLeds;
+SerialOSCEnc.testLeds;
+```
+
+Watch the SuperCollider Post Window. On evaluation SerialOSCClient will initialize if not already initialized. If initialized, attached devices will be posted to the Post Window.
+
+```
+SerialOSC Devices attached:
+  x y z
+Running test
+```
+
+A led demo should appear for the grid or arc attached. If the default Server is booted audio will be played. The SuperCollider server may be booted after the demo is launched, just evaluate:
+
+``` supercollider
+s.boot;
+```
+
+#### Troubleshooting
+
+If SerialOSCClient initialization cannot detect a suitable devices something like the following may be written to the Post Window:
+
+```
+No SerialOSC Devices are attached
+Unable to run test, no default enc available
+```
+
+If this is the case, make sure the serialoscd server is started and that it correctly detected your device. It's possible to troubleshoot serialosc protocol messages to and from SerialOSCClient-sc and the serialoscd daemon by evaluating:
+
+``` supercollider
+SerialOSC.trace;
+```
+
+After enabling trace, reinitialize SerialOSCClient and pay attention to messages written to the Post Window:
+
+``` supercollider
+SerialOSCClient.init
+```
+
+Try to figure out what's going on by comparing the messages in the Post Window with [the monome serialosc protocol documentation](http://monome.org/docs/osc/). 
+
 ### Basic Examples
 
 Initialize SerialOSCClient.
