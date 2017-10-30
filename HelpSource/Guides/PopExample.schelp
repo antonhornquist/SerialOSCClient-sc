@@ -1,0 +1,29 @@
+title:: SerialOSCClient Pop Example
+summary:: Notes on using the SerialOSCClient Pop Example
+categories:: External Control
+related:: Guides/UsingSerialOSCClient
+
+section::SerialOSCClient Pop Example
+
+Pop is a simple app for exploring and triggering synths in a SynthDescLib using a grid and an arc.
+
+code::
+(
+~pop = SerialOSCClient.grid('pop') { |client|
+	var groups;
+};
+)
+::
+
+section::Using Pop
+
+subsection::How it works
+
+section::Considerations
+
+TODO: refactor to separate schelpfile. Server latency affects response time.
+
+section::Implementation Details
+
+subsection::The parts that make up the Pop app
+::

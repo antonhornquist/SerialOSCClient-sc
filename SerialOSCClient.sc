@@ -23,6 +23,7 @@ SerialOSCClient {
 
 	var <>willFree;
 	var <>onFree;
+	var <active;
 
 	var <>onGridRouted, <>onGridUnrouted, <>gridRefreshAction;
 	var <>onEncRouted, <>onEncUnrouted, <>encRefreshAction;
@@ -387,6 +388,8 @@ SerialOSCClient {
 
 		func.value(this);
 
+		active = true;
+
 		SerialOSCClient.doWhenInitialized {
 			if (argAutoroute) { this.findAndRouteUnusedDevicesToClient(false) };
 		};
@@ -505,10 +508,10 @@ SerialOSCClient {
 		);
 		tiltResponder.permanent = true;
 		grid.client = this;
-		onGridRouted.value(this);
+		onGridRouted.value(this, grid);
 		SerialOSCClientNotification.deviceRouted(grid, this);
 		this.warnIfGridDoesNotMatchSpec;
-		this.refreshGrid;
+		this.clearAndRefreshGrid;
 	}
 
 	prRouteEncToClient { |argEnc|
@@ -528,10 +531,10 @@ SerialOSCClient {
 		);
 		encKeyResponder.permanent = true;
 		enc.client = this;
-		onEncRouted.value(this);
+		onEncRouted.value(this, enc);
 		SerialOSCClientNotification.deviceRouted(enc, this);
 		this.warnIfEncDoesNotMatchSpec;
-		this.refreshEnc;
+		this.clearAndRefreshEnc;
 	}
 
 	asSerialOSCClient { ^this }
@@ -634,16 +637,28 @@ SerialOSCClient {
 		^(encSpec == \any) or: (encSpec == enc.numEncs)
 	}
 
-	refreshGrid {
+	clearAndRefreshGrid {
 		grid !? {
 			this.clearLeds;
+			this.refreshGrid;
+		};
+	}
+
+	refreshGrid {
+		grid !? {
 			gridRefreshAction.value(this);
 		}
 	}
 
-	refreshEnc {
+	clearAndRefreshEnc {
 		enc !? {
 			this.clearRings;
+			this.refreshEnc;
+		};
+	}
+
+	refreshEnc {
+		enc !? {
 			encRefreshAction.value(this);
 		}
 	}
@@ -677,11 +692,14 @@ SerialOSCClient {
 	}
 
 	free {
-		willFree.value(this);
-		if (this.usesGrid) { this.unrouteGrid };
-		if (this.usesEnc) { this.unrouteEnc };
-		onFree.value(this);
-		all.remove(this);
+		if (all.includes(this)) {
+			willFree.value(this);
+			if (this.usesGrid) { this.unrouteGrid };
+			if (this.usesEnc) { this.unrouteEnc };
+			all.remove(this);
+			active = false;
+			onFree.value(this);
+		};
 	}
 
 	clearLeds {
@@ -1076,7 +1094,10 @@ SerialOSCGrid : SerialOSCDevice {
 		SerialOSC.changeDeviceRotation(port, degrees);
 		rotation = degrees;
 		this.changed(\rotation, degrees);
-		client !? _.warnIfGridDoesNotMatchSpec
+		if (client.notNil) {
+			client.warnIfGridDoesNotMatchSpec;
+			client.clearAndRefreshGrid;
+		}
 	}
 
 	prDeviceNumColsFromType {
@@ -1384,7 +1405,7 @@ SerialOSC {
 		asyncSerialoscdResponseSemaphore = Semaphore.new;
 	}
 
-	*requestListOfDevices { |func, timeout=0.5, serialOSCHost, serialOSCPort|
+	*requestListOfDevices { |func, timeout=0.5, serialoscdHost, serialoscdPort|
 		var
 			serialOSCNetAddr,
 			startListeningForSerialoscResponses,
@@ -1394,7 +1415,7 @@ SerialOSC {
 			serialOSCResponseListener
 		;
 
-		serialOSCNetAddr=NetAddr(serialOSCHost ? SerialOSC.defaultSerialoscdHost, serialOSCPort ? SerialOSC.defaultSerialoscdPort);
+		serialOSCNetAddr=NetAddr(serialoscdHost ? SerialOSC.defaultSerialoscdHost, serialoscdPort ? SerialOSC.defaultSerialoscdPort);
 
 		startListeningForSerialoscResponses = { |serialOSCNetAddr, listOfDevices|
 			setupListener.(serialOSCNetAddr, listOfDevices);
@@ -1442,8 +1463,8 @@ SerialOSC {
 
 			this.prSendMessage(
 				["/serialosc/list", NetAddr.localAddr.ip, NetAddr.langPort],
-				serialOSCPort ? SerialOSC.defaultSerialoscdPort,
-				serialOSCHost
+				serialoscdPort ? SerialOSC.defaultSerialoscdPort,
+				serialoscdHost
 			);
 			this.prTraceOutput( "waiting % seconds serialosc device list reponses...".format(timeout) );
 			timeout.wait;
@@ -1455,7 +1476,7 @@ SerialOSC {
 		}
 	}
 
-	*requestInformationAboutDevice { |deviceReceivePort, func, timeout=0.5, serialOSCHost|
+	*requestInformationAboutDevice { |deviceReceivePort, func, timeout=0.5, serialoscdHost|
 		var
 			deviceReceiveNetAddr,
 			startListeningForSerialoscDeviceResponses,
@@ -1511,14 +1532,14 @@ SerialOSC {
 
 			asyncSerialoscdResponseSemaphore.wait;
 
-			deviceReceiveNetAddr=NetAddr(serialOSCHost ? SerialOSC.defaultSerialoscdHost, deviceReceivePort);
+			deviceReceiveNetAddr=NetAddr(serialoscdHost ? SerialOSC.defaultSerialoscdHost, deviceReceivePort);
 			deviceInfo = IdentityDictionary.new;
 			startListeningForSerialoscDeviceResponses.(deviceReceiveNetAddr, deviceInfo);
 
 			this.prSendMessage(
 				["/sys/info", NetAddr.localAddr.ip, NetAddr.langPort],
 				deviceReceivePort,
-				serialOSCHost
+				serialoscdHost
 			);
 			timeout.wait;
 			stopListeningForSerialoscDeviceResponses.();
@@ -1529,7 +1550,7 @@ SerialOSC {
 		}
 	}
 
-	*startTrackingConnectedDevicesChanges { |addedFunc, removedFunc, serialOSCHost, serialOSCPort|
+	*startTrackingConnectedDevicesChanges { |addedFunc, removedFunc, serialoscdHost, serialoscdPort|
 		var
 			serialOSCNetAddr,
 			startListeningForSerialoscResponses,
@@ -1546,7 +1567,7 @@ SerialOSC {
 				{ |msg, time, addr, recvPort|
 					this.prTraceOutput( "received: % from %".format(msg, addr) );
 					addedFunc.(msg[1]);
-					this.prSendRequestNextDeviceChangeMsg(serialOSCHost, serialOSCPort);
+					this.prSendRequestNextDeviceChangeMsg(serialoscdHost, serialoscdPort);
 				},
 				'/serialosc/add',
 				serialOSCNetAddr
@@ -1555,7 +1576,7 @@ SerialOSC {
 				{ |msg, time, addr, recvPort|
 					this.prTraceOutput( "received: % from %".format(msg, addr) );
 					removedFunc.(msg[1]);
-					this.prSendRequestNextDeviceChangeMsg(serialOSCHost, serialOSCPort);
+					this.prSendRequestNextDeviceChangeMsg(serialoscdHost, serialoscdPort);
 				},
 				'/serialosc/remove',
 				serialOSCNetAddr
@@ -1565,11 +1586,11 @@ SerialOSC {
 
 		isTrackingConnectedDevicesChanges.if { Error("Already tracking serialosc device changes.").throw };
 
-		serialOSCNetAddr=NetAddr(serialOSCHost ? SerialOSC.defaultSerialoscdHost, serialOSCPort ? SerialOSC.defaultSerialoscdPort);
+		serialOSCNetAddr=NetAddr(serialoscdHost ? SerialOSC.defaultSerialoscdHost, serialoscdPort ? SerialOSC.defaultSerialoscdPort);
 
 		startListeningForSerialoscResponses.(serialOSCNetAddr, addedFunc, removedFunc);
 
-		this.prSendRequestNextDeviceChangeMsg(serialOSCHost, serialOSCPort);
+		this.prSendRequestNextDeviceChangeMsg(serialoscdHost, serialoscdPort);
 	}
 
 	*stopTrackingConnectedDevicesChanges {
@@ -1592,39 +1613,39 @@ SerialOSC {
 		stopListeningForSerialoscResponses.();
 	}
 
-	*prSendRequestNextDeviceChangeMsg { |serialOSCHost, serialOSCPort|
+	*prSendRequestNextDeviceChangeMsg { |serialoscdHost, serialoscdPort|
 		this.prSendMessage(
 			["/serialosc/notify", "127.0.0.1", NetAddr.langPort],
-			serialOSCPort ? SerialOSC.defaultSerialoscdPort,
-			serialOSCHost
+			serialoscdPort ? SerialOSC.defaultSerialoscdPort,
+			serialoscdHost
 		);
 	}
 
-	*changeDeviceDestinationPort { |deviceReceivePort, deviceDestinationPort, serialOSCHost|
+	*changeDeviceDestinationPort { |deviceReceivePort, deviceDestinationPort, serialoscdHost|
 		this.prSendMessage(
 			["/sys/port", deviceDestinationPort.asInteger],
 			deviceReceivePort,
-			serialOSCHost
+			serialoscdHost
 		);
 	}
 
-	*changeDeviceDestinationHost { |deviceReceivePort, deviceDestinationHost, serialOSCHost|
+	*changeDeviceDestinationHost { |deviceReceivePort, deviceDestinationHost, serialoscdHost|
 		this.prSendMessage(
 			["/sys/host", deviceDestinationHost.asString],
 			deviceReceivePort,
-			serialOSCHost
+			serialoscdHost
 		);
 	}
 
-	*changeDeviceMessagePrefix { |deviceReceivePort, deviceMessagePrefix, serialOSCHost|
+	*changeDeviceMessagePrefix { |deviceReceivePort, deviceMessagePrefix, serialoscdHost|
 		this.prSendMessage(
 			["/sys/prefix", deviceMessagePrefix.asString],
 			deviceReceivePort,
-			serialOSCHost
+			serialoscdHost
 		);
 	}
 
-	*changeDeviceRotation { |deviceReceivePort, deviceRotation, serialOSCHost|
+	*changeDeviceRotation { |deviceReceivePort, deviceRotation, serialoscdHost|
 		var rotation;
 
 		rotation = deviceRotation.asInteger;
@@ -1632,13 +1653,13 @@ SerialOSC {
 		this.prSendMessage(
 			["/sys/rotation", rotation],
 			deviceReceivePort,
-			serialOSCHost
+			serialoscdHost
 		);
 	}
 
-	*prSendMessage { |message, port, serialOSCHost|
+	*prSendMessage { |message, port, serialoscdHost|
 		var netAddr;
-		netAddr = NetAddr(serialOSCHost ? SerialOSC.defaultSerialoscdHost, port);
+		netAddr = NetAddr(serialoscdHost ? SerialOSC.defaultSerialoscdHost, port);
 		netAddr.performList(\sendMsg, message);
 		this.prTraceOutput( "sent: % to %".format(message.join(" "), netAddr) );
 	}
