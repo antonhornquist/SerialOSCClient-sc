@@ -82,7 +82,8 @@ code::
 					playpos = 0;
 					loop {
 						client.refreshGrid;
-						if (playpos < (numPatternSteps-1)) { playpos = playpos + 1; } { nil }.yield;
+                        if (playpos < (numPatternSteps)) { playpos } { nil }.yield;
+						playpos = playpos + 1;
 					}
 				})
 			]);
@@ -161,11 +162,12 @@ code::
 		};
 
 		client.addUniqueMethod(\toggleTrig) { |client, samplenum, path| toggleTrig.value(samplenum, path) };
-		client.addUniqueMethod(\playSequencer) { |client, samplenum, path| play.value };
-		client.addUniqueMethod(\stopSequencer) { |client, samplenum, path| stop.value };
+		client.addUniqueMethod(\playSequencer) { |client| play.value };
+		client.addUniqueMethod(\stopSequencer) { |client| stop.value };
 		client.addUniqueMethod(\swingAmount_) { |client, amount| setSwingAmount.value(amount) };
 		client.addUniqueMethod(\tempo_) { |client, bpm| setTempo.value(bpm) };
 		client.addUniqueMethod(\getPattern) { |client, repeats| spawnPattern.value(repeats, true).deepCopy };
+		client.addUniqueMethod(\clearPattern) { |client| clearPattern.value; };
 
 		setTempo.value(tempoSpec.default);
 		setSwingAmount.value(swingAmountSpec.default);
