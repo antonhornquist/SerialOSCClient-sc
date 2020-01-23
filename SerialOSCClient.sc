@@ -1016,6 +1016,30 @@ SerialOSCGrid : SerialOSCDevice {
 	*ledXSpec { ^default !? _.ledXSpec }
 	*ledYSpec { ^default !? _.ledYSpec }
 
+	testLeds { |varibright=true|
+		this.unroute;
+
+		CmdPeriod.doOnce { this.clearLeds };
+
+		fork {
+			15.do { |level|
+				this.ledLevelAll(15-level);
+				0.03.wait;
+			};
+			this.clearLeds;
+
+			inf.do {
+				var delay = 0.04;
+				if (varibright) {
+					this.prSplashFromVari(Point.new(this.numCols.rand, this.numRows.rand), 8, delay);
+				} {
+					this.prSplashFromMono(Point.new(this.numCols.rand, this.numRows.rand), 8, delay);
+				};
+				((delay-0.02.rand)*8).wait;
+			};
+		};
+	}
+
 	clearLeds {
 		this.ledAll(0);
 	}
@@ -1117,30 +1141,6 @@ SerialOSCGrid : SerialOSCDevice {
 	}
 
 	unroute { client !? _.unrouteGrid }
-
-	testLeds { |varibright=true|
-		this.unroute;
-
-		CmdPeriod.doOnce { this.clearLeds };
-
-		fork {
-			15.do { |level|
-				this.ledLevelAll(15-level);
-				0.03.wait;
-			};
-			this.clearLeds;
-
-			inf.do {
-				var delay = 0.04;
-				if (varibright) {
-					this.prSplashFromVari(Point.new(this.numCols.rand, this.numRows.rand), 8, delay);
-				} {
-					this.prSplashFromMono(Point.new(this.numCols.rand, this.numRows.rand), 8, delay);
-				};
-				((delay-0.02.rand)*8).wait;
-			};
-		};
-	}
 
 	prSplashFromVari { |origin, size=8, delay=0.1|
 		this.prSplashFrom(origin, size, delay, { |x, y, level| this.ledLevelSet(x, y, level) });
@@ -1292,6 +1292,25 @@ SerialOSCEnc : SerialOSCDevice {
 		^default !? _.numEncs
 	}
 
+	testLeds {
+		fork {
+			this.clearRings;
+			this.numEncs.do { |n|
+				64.do { |x|
+					this.ringSet(n, x, 15);
+					0.005.wait;
+				};
+			};
+			this.numEncs.do { |n|
+				64.do { |x|
+					this.ringSet(n, x, 0);
+					0.005.wait;
+				};
+			};
+			this.clearRings;
+		};
+	}
+
 	clearRings {
 		4.do { |n| this.ringAll(n, 0) };
 	}
@@ -1366,25 +1385,6 @@ SerialOSCDevice {
 
 	isConnected {
 		^SerialOSCClient.connectedDevices.includes(this);
-	}
-
-	testLeds {
-		fork {
-			this.clearRings;
-			this.numEncs.do { |n|
-				64.do { |x|
-					this.ringSet(n, x, 15);
-					0.005.wait;
-				};
-			};
-			this.numEncs.do { |n|
-				64.do { |x|
-					this.ringSet(n, x, 0);
-					0.005.wait;
-				};
-			};
-			this.clearRings;
-		};
 	}
 }
 
