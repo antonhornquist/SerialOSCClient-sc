@@ -948,6 +948,13 @@ SerialOSCGrid : SerialOSCDevice {
 		);
 	}
 
+	*ledDemo {
+		this.doWithDefaultWhenInitialized(
+			_.ledDemo,
+			{ ("Unable to run demo, no default grid available").postln }
+		);
+	}
+
 	*clearLeds {
 		this.doWithDefaultWhenInitialized(_.clearLeds);
 	}
@@ -1016,8 +1023,70 @@ SerialOSCGrid : SerialOSCDevice {
 	*ledXSpec { ^default !? _.ledXSpec }
 	*ledYSpec { ^default !? _.ledYSpec }
 
-	testLeds { |varibright=true|
+	testLeds {
 		this.unroute;
+
+		fork {
+			this.clearLeds;
+			this.numRows.do { |y|
+				this.numCols.do { |x|
+					this.ledSet(x, y, 15);
+					0.005.wait;
+				};
+			};
+			this.numRows.do { |y|
+				this.numCols.do { |x|
+					this.ledSet(x, y, 0);
+					0.005.wait;
+				};
+			};
+			this.clearLeds;
+		};
+	}
+
+	ledDemo { |varibright=true|
+		var prSplashFromVari = { |origin, size=8, delay=0.1|
+			prSplashFrom.value(origin, size, delay, { |x, y, level| this.ledLevelSet(x, y, level) });
+		};
+
+		var prSplashFromMono = { |origin, size=8, delay=0.1|
+			prSplashFrom.value(origin, size, delay, { |x, y, level| this.ledSet(x, y, 1) });
+		};
+
+		var prSplashFrom = { |origin, size, delay=0.1, setFunc|
+			var numCols = this.numCols, numRows = this.numRows;
+			var prevPoints = Array.new;
+			var leds = Array.fill(numCols * numRows, { |i| Point.new(i mod: numCols, i div: numCols) });
+			var getPointsWithinDistance = { |origin, points, distance|
+				points.select { |point| point.dist(origin).round == distance };
+			};
+
+			this.unroute;
+
+			fork {
+				size.do { |distance|
+					var newPoints = getPointsWithinDistance.value(origin, leds, distance);
+					newPoints.do { |point| setFunc.value(point.x, point.y, 0 max: (15-(distance*2))) };
+					prevPoints = newPoints;
+					delay.wait;
+					prevPoints.do { |point| this.ledSet(point.x, point.y, 0) };
+				};
+			};
+
+			Server.default.serverRunning.if {
+				{
+					SinOscFB.ar(
+						(62+7+(origin.x.degreeToKey(Scale.major))).midicps,
+						2.0,
+						mul: (-10).dbamp
+					) * EnvGen.ar(Env.perc(releaseTime: delay*8), doneAction: 2) ! 2
+				}.play
+			};
+		};
+
+		this.unroute;
+
+		"Cmd-Period to stop demo. Boot server to hear sound.".postln;
 
 		CmdPeriod.doOnce { this.clearLeds };
 
@@ -1031,9 +1100,9 @@ SerialOSCGrid : SerialOSCDevice {
 			inf.do {
 				var delay = 0.04;
 				if (varibright) {
-					this.prSplashFromVari(Point.new(this.numCols.rand, this.numRows.rand), 8, delay);
+					prSplashFromVari.value(Point.new(this.numCols.rand, this.numRows.rand), 8, delay);
 				} {
-					this.prSplashFromMono(Point.new(this.numCols.rand, this.numRows.rand), 8, delay);
+					prSplashFromMono.value(Point.new(this.numCols.rand, this.numRows.rand), 8, delay);
 				};
 				((delay-0.02.rand)*8).wait;
 			};
@@ -1141,59 +1210,6 @@ SerialOSCGrid : SerialOSCDevice {
 	}
 
 	unroute { client !? _.unrouteGrid }
-
-	prSplashFromVari { |origin, size=8, delay=0.1|
-		this.prSplashFrom(origin, size, delay, { |x, y, level| this.ledLevelSet(x, y, level) });
-	}
-
-	prSplashFromMono { |origin, size=8, delay=0.1|
-		this.prSplashFrom(origin, size, delay, { |x, y, level| this.ledSet(x, y, 1) });
-	}
-
-	prSplashFrom { |origin, size, delay=0.1, setFunc|
-		var numCols = this.numCols, numRows = this.numRows;
-		var prevPoints = Array.new;
-		var leds = Array.fill(numCols * numRows, { |i| Point.new(i mod: numCols, i div: numCols) });
-		var getPointsWithinDistance = { |origin, points, distance|
-			points.select { |point| point.dist(origin).round == distance };
-		};
-
-		this.unroute;
-
-		fork {
-			size.do { |distance|
-				var newPoints = getPointsWithinDistance.value(origin, leds, distance);
-				newPoints.do { |point| setFunc.value(point.x, point.y, 0 max: (15-(distance*2))) };
-				prevPoints = newPoints;
-				delay.wait;
-				prevPoints.do { |point| this.ledSet(point.x, point.y, 0) };
-			};
-		};
-
-		Server.default.serverRunning.if {
-/*
-			{
-				SinOsc.ar(
-					1000+1000.rand,
-					mul: (-20).dbamp
-				) * EnvGen.ar(Env.perc(releaseTime: delay*8), doneAction: 2) ! 2
-			}.play
-			{
-				SinOsc.ar(
-					LinCongC.ar(150, LFNoise2.kr(10, 0.1, 1), LFNoise2.kr(0.1, 0.1, 0.1), LFNoise2.kr(0.1), 0, 100, 600),
-					mul: (-10).dbamp
-				) * EnvGen.ar(Env.perc(releaseTime: delay*8), doneAction: 2) ! 2
-			}.play
-*/
-			{
-				SinOscFB.ar(
-					(62+7+(origin.x.degreeToKey(Scale.major))).midicps,
-					2.0,
-					mul: (-10).dbamp
-				) * EnvGen.ar(Env.perc(releaseTime: delay*8), doneAction: 2) ! 2
-			}.play
-		};
-	}
 }
 
 SerialOSCEnc : SerialOSCDevice {
@@ -1293,6 +1309,8 @@ SerialOSCEnc : SerialOSCDevice {
 	}
 
 	testLeds {
+		this.unroute;
+
 		fork {
 			this.clearRings;
 			this.numEncs.do { |n|
