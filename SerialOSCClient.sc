@@ -4,13 +4,14 @@ SerialOSCClient {
 	classvar devicesListSemaphore;
 	classvar autoconnect;
 	classvar <>verbose;
-	classvar recvSerialOSCFunc, oscRecvFunc, legacyModeOscRecvFunc;
+	classvar recvSerialOSCFunc, oscRecvFunc, legacyModeOscRecvFunc, serialPortDeviceRecvFunc;
 	classvar deviceAddedHandler, deviceRemovedHandler;
 
 	classvar <devices, <connectedDevices;
 	classvar <all;
 	classvar <initialized=false;
 	classvar <runningLegacyMode=false;
+	classvar <runningSerialPortMode=false;
 
 	var gridKeyResponder, tiltResponder;
 	var encDeltaResponder, encKeyResponder;
@@ -61,6 +62,19 @@ SerialOSCClient {
 			};
 		};
 
+		serialPortDeviceRecvFunc = { |port, char, time|
+			var device = connectedDevices.detect { |device|
+				device.port == port
+			};
+			var message;
+			device.addCharFromSerialPort(char);
+
+			message = device.parseSerialPortBufferMessage();
+			if (message.notNil) {
+				recvSerialOSCFunc.value(message[0], message[1..], time, device);
+			};
+		};
+
 		deviceAddedHandler = { |id|
 			fork {
 				devicesListSemaphore.wait;
@@ -101,7 +115,8 @@ SerialOSCClient {
 		thisProcess.addOSCRecvFunc(oscRecvFunc);
 
 		initialized = true;
-		runningLegacyMode = false;
+		runningLegacyMode = false; // TODO: replace these modes with one mode = \serialoscMode, \monomeserialMode, \serialportMode
+		runningSerialPortMode = false;
 
 		this.prUpdateDevicesListAsync { |devicesAddedToDevicesList, devicesRemovedFromDevicesList|
 			this.postDevices;
@@ -135,6 +150,7 @@ SerialOSCClient {
 
 		initialized = true;
 		runningLegacyMode = true;
+		runningSerialPortMode = false;
 
 		devicesRemovedFromDevicesList = devices;
 		devices = [legacyGrid];
@@ -143,6 +159,62 @@ SerialOSCClient {
 		this.prSyncAfterDeviceListChanges(devices, devicesRemovedFromDevicesList);
 
 		"SerialOSCClient is running in legacy mode. For an attached grid to work MonomeSerial has to run and be configured with Host Port %, Address Prefix /monome and Listen Port %.".format(NetAddr.langPort, legacyGrid.port).postln;
+	}
+
+	*serialPortMonome40h { |port, autoconnect=true, verbose=false|
+		this.serialPortMode(autoconnect, verbose, SerialPortGrid('monome 40h', port));
+	}
+
+	*serialPortMonome64 { |port, autoconnect=true, verbose=false|
+		this.serialPortMode(autoconnect, verbose, SerialPortGrid('monome 64', port));
+	}
+
+	*serialPortMonome128 { |port, autoconnect=true, verbose=false|
+		this.serialPortMode(autoconnect, verbose, SerialPortGrid('monome 128', port));
+	}
+
+	*serialPortMonome256 { |port, autoconnect=true, verbose=false|
+		this.serialPortMode(autoconnect, verbose, SerialPortGrid('monome 256', port));
+	}
+
+	*serialPortMonomeArc2 { |port, autoconnect=true, verbose=false|
+		this.serialPortMode(autoconnect, verbose, SerialPortEnc('monome arc 2', port));
+	}
+
+	*serialPortMonomeArc4 { |port, autoconnect=true, verbose=false|
+		this.serialPortMode(autoconnect, verbose, SerialPortEnc('monome arc 4', port));
+	}
+
+	*serialPortMode { |serialPortDevices, autoconnect=true, verbose=false|
+		var devicesRemovedFromDevicesList;
+
+		serialPortDevices = serialPortDevices.asArray;
+
+		this.prInit(autoconnect, verbose);
+
+		serialPortDevices.do { |device|
+			device.startPollingSerialPort { |device, ch|
+				serialPortDeviceRecvFunc.value(device.port, ch, Process.elapsedTime);
+			}
+		};
+
+		initialized = true;
+		runningLegacyMode = false;
+		runningSerialPortMode = true;
+
+		devicesRemovedFromDevicesList = devices;
+		devices = serialPortDevices.asArray;
+
+		this.postDevices;
+		this.prSyncAfterDeviceListChanges(devices, devicesRemovedFromDevicesList);
+
+		"SerialOSCClient is running in serial port mode with % connected at %.".format(
+			if (devices.size == 1, "1 device", devices.size + "devices"),
+			"serial" + if (devices.size == 1, "port", "ports") +
+			devices.collect { |device|
+				device.port.asString
+			}.join(", ")
+		).postln;
 	}
 
 	*prInit { |argAutoconnect, argVerbose|
@@ -233,7 +305,7 @@ SerialOSCClient {
 		this.prEnsureInitialized;
 
 		if (connectedDevices.includes(device).not) {
-			runningLegacyMode.not.if {
+			(runningLegacyMode.not and: runningSerialPortMode.not).if {
 				SerialOSC.changeDeviceMessagePrefix(
 					device.port,
 					prefix
@@ -833,6 +905,168 @@ SerialOSCClientNotification {
 	}
 }
 
+SerialPortEnc : SerialPortDevice {
+	*new { |type, port|
+		^super.new(type, port).initSerialPortEnc;
+	}
+
+	initSerialPortEnc {
+		// TODO
+	}
+
+	ringSet { |n, x, level|
+		this.prSend(Int8Array.with(144, n, x, level));
+	}
+
+	parseSerialPortBufferMessage {
+		^if (serialPortBuffer.size == 3) {
+			var message = case
+			{ serialPortBuffer[0] == 0x50 } {
+				var delta = serialPortBuffer[2];
+				['/enc/delta', serialPortBuffer[1], if (delta > 128, delta-256, delta), 0];
+			};
+			// TODO: parse enc key down events?
+			serialPortBuffer = [];
+			message;
+		}
+	}
+}
+
+SerialPortGrid : SerialPortDevice {
+	*new { |type, port|
+		^super.new(type, port).initSerialPortGrid;
+	}
+
+	initSerialPortGrid {
+		// TODO
+	}
+
+	clearLeds {
+		this.ledAll(0);
+	}
+
+	ledSet { |x, y, state|
+		this.prSend(Int8Array.with(if (state.asBoolean, 0x11, 0x10), x, y));
+	}
+
+	ledAll { |state|
+		this.prSend(Int8Array.with(if (state.asBoolean, 0x13, 0x12)));
+	}
+
+	ledMap { |xOffset, yOffset, bitmasks|
+		NotYetImplementedError("Method not yet supported in Serial Port Mode", thisMethod).throw;
+	}
+
+	ledRow { |xOffset, y, bitmasks|
+		NotYetImplementedError("Method not yet supported in Serial Port Mode", thisMethod).throw;
+	}
+
+	ledCol { |x, yOffset, bitmasks|
+		NotYetImplementedError("Method not yet supported in Serial Port Mode", thisMethod).throw;
+	}
+
+	ledIntensity { |i|
+		NotYetImplementedError("Method not yet supported in Serial Port Mode", thisMethod).throw;
+	}
+
+	ledLevelSet { |x, y, l|
+		this.prSend(Int8Array.with(0x18, x, y, l));
+	}
+
+	ledLevelAll { |l|
+		this.prSend(Int8Array.with(0x19, l));
+	}
+
+	ledLevelMap { |xOffset, yOffset, levels|
+		NotYetImplementedError("Method not yet supported in Serial Port Mode", thisMethod).throw;
+	}
+
+	ledLevelRow { |xOffset, y, levels|
+		NotYetImplementedError("Method not yet supported in Serial Port Mode", thisMethod).throw;
+	}
+
+	ledLevelCol { |x, yOffset, levels|
+		NotYetImplementedError("Method not yet supported in Serial Port Mode", thisMethod).throw;
+	}
+
+	parseSerialPortBufferMessage {
+		^if (serialPortBuffer.size == 3) {
+			var message = case
+			{ serialPortBuffer[0] == 0x20 } { // TODO: legacy devices?
+				['/grid/key', serialPortBuffer[1], serialPortBuffer[2], 0];
+			}
+			{ serialPortBuffer[0] == 0x21 } { // TODO: legacy devices?
+				['/grid/key', serialPortBuffer[1], serialPortBuffer[2], 1];
+			};
+			// TODO: parse other events too?
+			serialPortBuffer = [];
+			message;
+		}
+	}
+}
+
+SerialPortDevice {
+	var <type, <>client;
+	var <port;
+	var serialPort;
+	var serialPortBuffer;
+	var pollRoutine;
+
+	*new { |type, port|
+		^super.new.init(type, port);
+	}
+
+	init { |argType, argPort|
+		type = argType;
+		port = argPort;
+
+		if (SerialPort.devices.any { |port| port == argPort }) {
+			serialPort = SerialPort(argPort, 115200);
+		} {
+			Error("% is not a valid serial port (available serial ports: %)".format(argPort.quote, SerialPort.devices.collect { |serialPort| serialPort.quote }.join(", "))).throw;
+		}
+	}
+
+	printOn { arg stream;
+		stream << this.class.name << "(" <<<*
+			[type, port]  <<")"
+	}
+
+	remove {
+		pollRoutine.stop;
+		this.disconnect;
+		SerialOSCClient.devices.remove(this);
+		SerialOSCClientNotification.deviceDetached(this);
+	}
+
+	connect { SerialOSCClient.connect(this) }
+
+	disconnect { SerialOSCClient.disconnect(this) }
+
+	isConnected {
+		^SerialOSCClient.connectedDevices.includes(this);
+	}
+
+	addCharFromSerialPort { |char|
+		serialPortBuffer = serialPortBuffer.add(char);
+	}
+
+	startPollingSerialPort { |pollFunc|
+		pollRoutine = fork {
+			inf.do {
+				var byte = serialPort.read;
+				pollFunc.value(this, byte);
+			}
+		}
+	}
+
+	prSend { arg data;
+		fork {
+			serialPort.putAll(data);
+		};
+	}
+}
+
 LegacySerialOSCGrid : SerialOSCGrid {
 	ledSet { |x, y, state|
 		this.prSendMsg('/led', x.asInteger, y.asInteger, state.asInteger);
@@ -1023,7 +1257,7 @@ SerialOSCGrid : SerialOSCDevice {
 	*ledXSpec { ^default !? _.ledXSpec }
 	*ledYSpec { ^default !? _.ledYSpec }
 
-	testLeds {
+	testLeds { // TODO: not available for SerialPortDevices
 		this.unroute;
 
 		fork {
@@ -1044,7 +1278,7 @@ SerialOSCGrid : SerialOSCDevice {
 		};
 	}
 
-	ledDemo { |varibright=true|
+	ledDemo { |varibright=true| // TODO: not available for SerialPortDevices
 		var prSplashFromVari = { |origin, size=8, delay=0.1|
 			prSplashFrom.value(origin, size, delay, { |x, y, level| this.ledLevelSet(x, y, level) });
 		};
