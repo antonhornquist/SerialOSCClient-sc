@@ -162,27 +162,27 @@ SerialOSCClient {
 	}
 
 	*serialPortMonome40h { |port, autoconnect=true, verbose=false|
-		this.serialPortMode(autoconnect, verbose, SerialPortGrid('monome 40h', port));
+		this.serialPortMode(SerialPortGrid('monome 40h', port), autoconnect, verbose);
 	}
 
 	*serialPortMonome64 { |port, autoconnect=true, verbose=false|
-		this.serialPortMode(autoconnect, verbose, SerialPortGrid('monome 64', port));
+		this.serialPortMode(SerialPortGrid('monome 64', port), autoconnect, verbose);
 	}
 
 	*serialPortMonome128 { |port, autoconnect=true, verbose=false|
-		this.serialPortMode(autoconnect, verbose, SerialPortGrid('monome 128', port));
+		this.serialPortMode(SerialPortGrid('monome 128', port), autoconnect, verbose);
 	}
 
 	*serialPortMonome256 { |port, autoconnect=true, verbose=false|
-		this.serialPortMode(autoconnect, verbose, SerialPortGrid('monome 256', port));
+		this.serialPortMode(SerialPortGrid('monome 256', port), autoconnect, verbose);
 	}
 
 	*serialPortMonomeArc2 { |port, autoconnect=true, verbose=false|
-		this.serialPortMode(autoconnect, verbose, SerialPortEnc('monome arc 2', port));
+		this.serialPortMode(SerialPortEnc('monome arc 2', port), autoconnect, verbose);
 	}
 
 	*serialPortMonomeArc4 { |port, autoconnect=true, verbose=false|
-		this.serialPortMode(autoconnect, verbose, SerialPortEnc('monome arc 4', port));
+		this.serialPortMode(SerialPortEnc('monome arc 4', port), autoconnect, verbose);
 	}
 
 	*serialPortMode { |serialPortDevices, autoconnect=true, verbose=false|

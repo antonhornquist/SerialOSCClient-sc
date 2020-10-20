@@ -20,6 +20,12 @@ a.putAll(Int8Array.with(0x91, 0, 15))
 Int8Array.with(144, 1, 5, 10)
 Int8Array.with((-128)+144, 1, 5, 10)
 SerialOSCClient.serialportArc2("COM4");
+
+SerialOSCClient.serialPortMonomeArc2("COM4");
+EncDeltadef(\test, { |...args| args.debug })
+
+SerialOSCEnc.ringSet(1, 5, 15)
+
 a=SerialOSCClient.devices.first
 a.ringSet(0, 0, 15)
 a.port.send
